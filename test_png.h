@@ -1,0 +1,160 @@
+#ifndef TEST_PNG_H
+#define TEST_PNG_H
+
+#include <png.h>
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+struct buf_state
+{
+    unsigned char *data;
+    size_t bytes_left;
+};
+
+size_t req = 0;
+
+#if defined(TEST_VPNG_ANALYZE_MALLOC)
+void *malloc_fn(png_structp png_ptr, png_alloc_size_t size)
+{
+    void *mem = malloc(size);
+    printf("alloc: %zu\n", size);
+    return malloc(size);
+}
+
+void free_fn(png_structp png_ptr, png_voidp ptr)
+{
+    printf("dealloc\n");
+    free(ptr);
+}
+#endif
+
+void libpng_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
+{
+    struct buf_state *state = png_get_io_ptr(png_ptr);
+
+#if defined(TEST_VPNG_STREAM_READ_INFO)
+    printf("bytes read: %u\n", length);
+#endif
+
+    if(length > state->bytes_left)
+    {
+        png_error(png_ptr, "read_fn error");
+    }
+
+    memcpy(data, state->data, length);
+    state->bytes_left -= length;
+    state->data += length;
+}
+
+unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size)
+{
+    png_infop info_ptr;
+    png_structp png_ptr;
+    struct buf_state state;
+
+    state.data = buf;
+    state.bytes_left = size;
+
+    unsigned char *image = NULL;
+    png_bytep *row_pointers = NULL;
+
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if(png_ptr == NULL)
+    {
+        printf("libpng init failed\n");
+        return NULL;
+    }
+#if defined(TEST_VPNG_ANALYZE_MALLOC)
+    png_set_mem_fn(png_ptr, NULL, malloc_fn, free_fn);
+#endif
+
+    info_ptr = png_create_info_struct(png_ptr);
+    if(info_ptr == NULL)
+    {
+        printf("png_create_info_struct failed\n");
+        return NULL;
+    }
+
+    if(setjmp(png_jmpbuf(png_ptr)))
+    {
+        printf("libpng error\n");
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+        if(image != NULL) free(image);
+        if(row_pointers !=NULL) free(row_pointers);
+        return NULL;
+    }
+
+    png_set_read_fn(png_ptr, &state, libpng_read_fn);
+
+    if(png_sig_cmp(buf, 0, 8))
+    {
+        printf("libpng: invalid signature\n");
+        return NULL;
+    }
+
+    png_read_info(png_ptr, info_ptr);
+
+    png_uint_32 width, height;
+    int bit_depth, colour_type, interlace_type, compression_type;
+    int filter_method;
+
+    if(!png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth,
+                     &colour_type, &interlace_type, &compression_type, &filter_method))
+    {
+        printf("png_get_IHDR failed\n");
+        return NULL;
+    }
+
+    if(bit_depth == 16) png_set_strip_16(png_ptr);
+
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) png_set_tRNS_to_alpha(png_ptr);
+
+    if(colour_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
+
+    if(colour_type == PNG_COLOR_TYPE_RGB ||
+       colour_type == PNG_COLOR_TYPE_GRAY ||
+       colour_type == PNG_COLOR_TYPE_PALETTE)
+        png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+
+    png_set_expand(png_ptr); /* not sure about this */
+    png_set_packing(png_ptr); /* expand 1, 2, 4 depth images to 8bit */
+
+    if(colour_type == PNG_COLOR_TYPE_GRAY || colour_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png_ptr);
+
+    if(colour_type == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png_ptr);
+
+    png_set_interlace_handling(png_ptr);
+    png_read_update_info(png_ptr, info_ptr);
+
+    size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+
+    /* avoid calling malloc() for each row */
+    size_t image_size = height * rowbytes;
+    memcpy(out_size, &image_size, sizeof(size_t));
+
+    image = malloc(image_size);
+    row_pointers = malloc(height * sizeof(png_bytep));
+
+    int k;
+    for(k=0; k < height; k++)
+    {
+        row_pointers[k] = image + k * rowbytes;
+    }
+
+    png_read_image(png_ptr, row_pointers);
+
+    png_read_end(png_ptr, info_ptr);
+
+    free(row_pointers);
+
+    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+
+    return image;
+}
+
+#endif /* TEST_PNG_H */
