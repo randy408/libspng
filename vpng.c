@@ -798,7 +798,7 @@ int vpng_get_output_image_size(struct vpng_decoder *dec, int fmt, size_t *out)
     return 0;
 }
 
-int vpng_get_image_rgba8(struct vpng_decoder *dec, void *out, size_t out_size)
+int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t out_size)
 {
     if(dec==NULL) return 1;
     if(out==NULL) return 1;

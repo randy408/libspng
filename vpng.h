@@ -240,7 +240,7 @@ extern int vpng_get_output_image_size(struct vpng_decoder *dec, int fmt, size_t 
 /* Decodes a PNG image to an 8-bit per pixel RGBA layout to *out
    minimum out_size is determined with vpng_get_output_image_size()
 */
-extern int vpng_get_image_rgba8(struct vpng_decoder *dec, void *out, size_t out_size);
+extern int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t out_size);
 
 
 #ifdef __cplusplus
