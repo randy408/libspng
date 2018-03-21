@@ -32,6 +32,12 @@ unsigned char *getimage_libvpng(unsigned char *buf, size_t size, size_t *out_siz
 
     r = vpng_get_ihdr(dec, &ihdr);
 
+    if(r)
+    {
+        printf("vpng_get_ihdr() returned %d\n", r);
+        goto err;
+    }
+
     *w = ihdr.width;
     *h = ihdr.height;
 
@@ -40,12 +46,6 @@ unsigned char *getimage_libvpng(unsigned char *buf, size_t size, size_t *out_siz
             ihdr.width, ihdr.height, ihdr.bit_depth, ihdr.colour_type,
             ihdr.interlace_method ? "interlaced" : "non-interlaced");
 #endif
-
-    if(r)
-    {
-        printf("vpng_get_ihdr() returned %d\n", r);
-        goto err;
-    }
 
     r = vpng_get_output_image_size(dec, VPNG_FMT_RGBA8, &siz);
     if(r) goto err;
