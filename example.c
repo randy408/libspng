@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 
     if(r) return 1;
 
-    char *out = malloc(out_size);
+    unsigned char *out = malloc(out_size);
     if(out==NULL) return 1;
 
     r = vpng_get_image_rgba8(dec, out, out_size);
