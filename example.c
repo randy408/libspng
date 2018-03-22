@@ -4,13 +4,19 @@
 
 int main(int argc, char **argv)
 {
-    char *in_name = "a.png";
+    if(argc < 2)
+    {
+        printf("no input file\n");
+        return 1;
+    }
+
     FILE *png;
     char *pngbuf;
-    png = fopen(in_name, "r");
+    png = fopen(argv[1], "r");
+
     if(png==NULL)
     {
-        printf("error opening input file %s\n", in_name);
+        printf("error opening input file %s\n", argv[1]);
         return 1;
     }
 
@@ -53,6 +59,23 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    char *clr_type_str;
+    if(ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE)
+        clr_type_str = "grayscale";
+    else if(ihdr.colour_type == VPNG_COLOUR_TYPE_TRUECOLOR)
+        clr_type_str = "truecolor";
+    else if(ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR)
+        clr_type_str = "indexed colour";
+    else if(ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+        clr_type_str = "grayscale with alpha";
+    else
+        clr_type_str = "truecolor with alpha";
+
+    printf("width: %u\nheight: %u\nbit depth: %u\ncolour type: %u - %s\n",
+            ihdr.width, ihdr.height, ihdr.bit_depth, ihdr.colour_type, clr_type_str);
+    printf("compression method: %u\nfilter method: %u\ninterlace method: %u\n",
+            ihdr.compression_method, ihdr.filter_method, ihdr.interlace_method);
+
     size_t out_size;
 
     r = vpng_get_output_image_size(dec, VPNG_FMT_RGBA8, &out_size);
@@ -72,7 +95,8 @@ int main(int argc, char **argv)
 
     vpng_decoder_free(dec);
 
-    char *out_name = "a.data";
+    /* write raw pixels to file */
+    char *out_name = "image.data";
     FILE *raw = fopen(out_name, "wb");
 
     if(raw==NULL) printf("error opening output file %s\n", out_name);
