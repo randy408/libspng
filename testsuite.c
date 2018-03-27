@@ -1,9 +1,9 @@
-#define TEST_VPNG_IMG_INFO
-#define TEST_VPNG_EXACT_PIXELS
-/*#define TEST_VPNG_STREAM_READ_INFO*/
-/*#define TEST_VPNG_ANALYZE_MALLOC */
+#define TEST_SPNG_IMG_INFO
+#define TEST_SPNG_EXACT_PIXELS
+/*#define TEST_SPNG_STREAM_READ_INFO*/
+/*#define TEST_SPNG_ANALYZE_MALLOC */
 
-#include "test_vpng.h"
+#include "test_spng.h"
 #include "test_png.h"
 
 int main(int argc, char **argv)
@@ -42,16 +42,16 @@ int main(int argc, char **argv)
     }
 
     uint32_t w, h;
-    size_t img_vpng_size;
-    unsigned char *img_vpng =  NULL;
-    img_vpng = getimage_libvpng(pngbuf, siz_pngbuf, &img_vpng_size, &w, &h);
-    if(img_vpng==NULL)
+    size_t img_spng_size;
+    unsigned char *img_spng =  NULL;
+    img_spng = getimage_libspng(pngbuf, siz_pngbuf, &img_spng_size, &w, &h);
+    if(img_spng==NULL)
     {
-        printf("getimage_libvpng() failed\n");
+        printf("getimage_libspng() failed\n");
         return 1;
     }
 
-    /* return 0 for should_fail tests if vpng can't detect an invalid file */
+    /* return 0 for should_fail tests if spng can't detect an invalid file */
     if(should_fail) return 0;
 
     size_t img_png_size;
@@ -63,12 +63,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if(img_png_size != img_vpng_size)
+    if(img_png_size != img_spng_size)
     {
         printf("output image size mismatch\n");
-        printf("vpng: %zu\n png: %zu\n", img_vpng_size, img_png_size);
+        printf("spng: %zu\n png: %zu\n", img_spng_size, img_png_size);
         free(pngbuf);
-        free(img_vpng);
+        free(img_spng);
         free(img_png);
         return 1;
     }
@@ -86,10 +86,10 @@ int main(int argc, char **argv)
 
             size_t px_ofs = (x + (y * w)) * 4;
 
-            memcpy(&v_red, img_vpng + px_ofs, 1);
-            memcpy(&v_green, img_vpng + px_ofs + 1, 1);
-            memcpy(&v_blue, img_vpng + px_ofs + 2, 1);
-            memcpy(&v_alpha, img_vpng + px_ofs + 3, 1);
+            memcpy(&v_red, img_spng + px_ofs, 1);
+            memcpy(&v_green, img_spng + px_ofs + 1, 1);
+            memcpy(&v_blue, img_spng + px_ofs + 2, 1);
+            memcpy(&v_alpha, img_spng + px_ofs + 3, 1);
 
             memcpy(&p_red, img_png + px_ofs, 1);
             memcpy(&p_green, img_png + px_ofs + 1, 1);
@@ -98,14 +98,14 @@ int main(int argc, char **argv)
 
             if(v_alpha != p_alpha)
             {
-                printf("alpha mismatch at x:%u y:%u, vpng: %u png: %u\n", x, y, v_alpha, p_alpha);
+                printf("alpha mismatch at x:%u y:%u, spng: %u png: %u\n", x, y, v_alpha, p_alpha);
                 alpha_mismatch = 1;
             }
 
-#if defined(TEST_VPNG_EXACT_PIXELS)
+#if defined(TEST_SPNG_EXACT_PIXELS)
             if(v_red != p_red || v_green != p_green || v_blue != p_blue)
             {
-                printf("color difference at x: %u y:%u, vpng: %u %u %u png: %u %u %u\n", x, y,
+                printf("color difference at x: %u y:%u, spng: %u %u %u png: %u %u %u\n", x, y,
                        v_red, v_green, v_blue, p_red, p_green, p_blue);
                 color_diff = 1;
             }
@@ -116,13 +116,13 @@ int main(int argc, char **argv)
     int ret = 0;
 
     if(alpha_mismatch) ret = 1;
-#if defined(TEST_VPNG_EXACT_PIXELS)
+#if defined(TEST_SPNG_EXACT_PIXELS)
     if(color_diff) ret = 1;
 #endif
 
     free(pngbuf);
 
-    free(img_vpng);
+    free(img_spng);
     free(img_png);
 
     return ret;

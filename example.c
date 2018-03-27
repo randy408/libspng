@@ -1,4 +1,4 @@
-#include "vpng.h"
+#include "spng.h"
 
 #include <stdio.h>
 
@@ -34,39 +34,39 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    struct vpng_decoder *dec = vpng_decoder_new();
+    struct spng_decoder *dec = spng_decoder_new();
     if(dec==NULL)
     {
-        printf("vpng_decoder_new() failed\n");
+        printf("spng_decoder_new() failed\n");
         return 1;
     }
 
     int r;
-    r = vpng_decoder_set_buffer(dec, pngbuf, siz_pngbuf);
+    r = spng_decoder_set_buffer(dec, pngbuf, siz_pngbuf);
 
     if(r)
     {
-        printf("vpng_decoder_set_buffer() returned %d\n", r);
+        printf("spng_decoder_set_buffer() returned %d\n", r);
         return 1;
     }
 
-    struct vpng_ihdr ihdr;
-    r = vpng_get_ihdr(dec, &ihdr);
+    struct spng_ihdr ihdr;
+    r = spng_get_ihdr(dec, &ihdr);
 
     if(r)
     {
-        printf("vpng_get_ihdr() returned %d\n", r);
+        printf("spng_get_ihdr() returned %d\n", r);
         return 1;
     }
 
     char *clr_type_str;
-    if(ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE)
+    if(ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE)
         clr_type_str = "grayscale";
-    else if(ihdr.colour_type == VPNG_COLOUR_TYPE_TRUECOLOR)
+    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR)
         clr_type_str = "truecolor";
-    else if(ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR)
+    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR)
         clr_type_str = "indexed colour";
-    else if(ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
         clr_type_str = "grayscale with alpha";
     else
         clr_type_str = "truecolor with alpha";
@@ -78,22 +78,22 @@ int main(int argc, char **argv)
 
     size_t out_size;
 
-    r = vpng_get_output_image_size(dec, VPNG_FMT_RGBA8, &out_size);
+    r = spng_get_output_image_size(dec, SPNG_FMT_RGBA8, &out_size);
 
     if(r) return 1;
 
     unsigned char *out = malloc(out_size);
     if(out==NULL) return 1;
 
-    r = vpng_decode_image(dec, VPNG_FMT_RGBA8, out, out_size, 0);
+    r = spng_decode_image(dec, SPNG_FMT_RGBA8, out, out_size, 0);
 
     if(r)
     {
-        printf("vpng_get_image_rgba8() returned %d\n", r);
+        printf("spng_get_image_rgba8() returned %d\n", r);
         return 1;
     }
 
-    vpng_decoder_free(dec);
+    spng_decoder_free(dec);
 
     /* write raw pixels to file */
     char *out_name = "image.data";

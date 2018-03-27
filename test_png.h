@@ -15,7 +15,7 @@ struct buf_state
 
 size_t req = 0;
 
-#if defined(TEST_VPNG_ANALYZE_MALLOC)
+#if defined(TEST_SPNG_ANALYZE_MALLOC)
 void *malloc_fn(png_structp png_ptr, png_alloc_size_t size)
 {
     void *mem = malloc(size);
@@ -34,7 +34,7 @@ void libpng_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
 {
     struct buf_state *state = png_get_io_ptr(png_ptr);
 
-#if defined(TEST_VPNG_STREAM_READ_INFO)
+#if defined(TEST_SPNG_STREAM_READ_INFO)
     printf("bytes read: %u\n", length);
 #endif
 
@@ -66,7 +66,7 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
         printf("libpng init failed\n");
         return NULL;
     }
-#if defined(TEST_VPNG_ANALYZE_MALLOC)
+#if defined(TEST_SPNG_ANALYZE_MALLOC)
     png_set_mem_fn(png_ptr, NULL, malloc_fn, free_fn);
 #endif
 

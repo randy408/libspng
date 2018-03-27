@@ -1,4 +1,4 @@
-#include "test_vpng.h"
+#include "test_spng.h"
 #include <time.h>
 #include <stdio.h>
 
@@ -33,20 +33,20 @@ int main(int argc, char **argv)
     }
 
     uint32_t w, h;
-    size_t img_vpng_size;
-    unsigned char *img_vpng;
+    size_t img_spng_size;
+    unsigned char *img_spng;
 
     struct timespec a, b;
 
     timespec_get(&a, TIME_UTC);
 
-    img_vpng = getimage_libvpng(pngbuf, siz_pngbuf, &img_vpng_size, &w, &h);
+    img_spng = getimage_libspng(pngbuf, siz_pngbuf, &img_spng_size, &w, &h);
 
     timespec_get(&b, TIME_UTC);
 
-    if(img_vpng == NULL)
+    if(img_spng == NULL)
     {
-        printf("getimage_libvpng() failed\n");
+        printf("getimage_libspng() failed\n");
         return 1;
     }
 
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 
     printf("time: %lu microseconds\n", nanoseconds / 1000);
 
-    free(img_vpng);
+    free(img_spng);
 
     return 0;
 }

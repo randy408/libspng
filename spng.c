@@ -1,4 +1,4 @@
-#include "vpng.h"
+#include "spng.h"
 
 #include <arpa/inet.h>
 #include <limits.h>
@@ -6,13 +6,13 @@
 
 #include <zlib.h>
 
-#define VPNG_FILTER_TYPE_NONE 0
-#define VPNG_FILTER_TYPE_SUB 1
-#define VPNG_FILTER_TYPE_UP 2
-#define VPNG_FILTER_TYPE_AVERAGE 3
-#define VPNG_FILTER_TYPE_PAETH 4
+#define SPNG_FILTER_TYPE_NONE 0
+#define SPNG_FILTER_TYPE_SUB 1
+#define SPNG_FILTER_TYPE_UP 2
+#define SPNG_FILTER_TYPE_AVERAGE 3
+#define SPNG_FILTER_TYPE_PAETH 4
 
-struct vpng_subimage
+struct spng_subimage
 {
     uint32_t width;
     uint32_t height;
@@ -45,9 +45,9 @@ static const uint8_t type_time[4] = { 116, 73, 77, 69 };
 static int require_bytes(size_t offset, size_t bytes, size_t data_size)
 {
     size_t required = offset + bytes;
-    if(required < bytes) return VPNG_EOVERFLOW;
+    if(required < bytes) return SPNG_EOVERFLOW;
 
-    if(required > data_size) return VPNG_EOF; /* buffer too small */
+    if(required > data_size) return SPNG_EOF; /* buffer too small */
 
     return 0;
 }
@@ -62,8 +62,8 @@ static int require_bytes(size_t offset, size_t bytes, size_t data_size)
              ECHUNK_SIZE
              ECHUNK_CRC
  */
-static int next_chunk(struct vpng_decoder *dec, const struct vpng_chunk *current,
-                      struct vpng_chunk *next, int header_only)
+static int next_chunk(struct spng_decoder *dec, const struct spng_chunk *current,
+                      struct spng_chunk *next, int header_only)
 {
     if(dec == NULL || current == NULL || next == NULL) return 1;
 /*  Call require_bytes() twice: once with all of current chunk's bytes + next header,
@@ -72,7 +72,7 @@ static int next_chunk(struct vpng_decoder *dec, const struct vpng_chunk *current
 
     bytes_required = current->length;
     bytes_required += 20; /* current header, current crc, next header */
-    if(bytes_required < current->length) return VPNG_EOVERFLOW;
+    if(bytes_required < current->length) return SPNG_EOVERFLOW;
 
     int ret = require_bytes(current->offset, bytes_required, dec->data_size);
     if(ret) return ret;
@@ -86,8 +86,8 @@ static int next_chunk(struct vpng_decoder *dec, const struct vpng_chunk *current
 
     if(next->length > png_u32max)
     {
-        memset(next, 0, sizeof(struct vpng_chunk));
-        return VPNG_ECHUNK_SIZE;
+        memset(next, 0, sizeof(struct spng_chunk));
+        return SPNG_ECHUNK_SIZE;
     }
 
     memcpy(&next->type, dec->data + next->offset + 4, 4);
@@ -95,12 +95,12 @@ static int next_chunk(struct vpng_decoder *dec, const struct vpng_chunk *current
     bytes_required = next->length;
     bytes_required += 12; /* next header, next crc */
 
-    if(bytes_required < next->length) return VPNG_EOVERFLOW;
+    if(bytes_required < next->length) return SPNG_EOVERFLOW;
 
     ret = require_bytes(next->offset, bytes_required, dec->data_size);
     if(ret)
     {
-        memset(next, 0, sizeof(struct vpng_chunk));
+        memset(next, 0, sizeof(struct spng_chunk));
         return ret;
     }
 
@@ -112,81 +112,81 @@ static int next_chunk(struct vpng_decoder *dec, const struct vpng_chunk *current
 
     if(actual_crc != next->crc)
     {
-        memset(next, 0, sizeof(struct vpng_chunk));
-        return VPNG_ECHUNK_CRC;
+        memset(next, 0, sizeof(struct spng_chunk));
+        return SPNG_ECHUNK_CRC;
     }
 
     return 0;
 }
 
-static int check_ihdr(struct vpng_ihdr *ihdr)
+static int check_ihdr(struct spng_ihdr *ihdr)
 {
-    if(ihdr->width > png_u32max) return VPNG_EWIDTH;
-    if(ihdr->height > png_u32max) return VPNG_EHEIGHT;
+    if(ihdr->width > png_u32max) return SPNG_EWIDTH;
+    if(ihdr->height > png_u32max) return SPNG_EHEIGHT;
 
     switch(ihdr->colour_type)
     {
-        case VPNG_COLOUR_TYPE_GRAYSCALE:
+        case SPNG_COLOUR_TYPE_GRAYSCALE:
         {
             if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
                   ihdr->bit_depth == 4 || ihdr->bit_depth == 8 ||
                   ihdr->bit_depth == 16) )
-                  return VPNG_EBIT_DEPTH;
+                  return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case VPNG_COLOUR_TYPE_TRUECOLOR:
+        case SPNG_COLOUR_TYPE_TRUECOLOR:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return VPNG_EBIT_DEPTH;
+                return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case VPNG_COLOUR_TYPE_INDEXED_COLOUR:
+        case SPNG_COLOUR_TYPE_INDEXED_COLOUR:
         {
             if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
                   ihdr->bit_depth == 4 || ihdr->bit_depth == 8) )
-                return VPNG_EBIT_DEPTH;
+                return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA:
+        case SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return VPNG_EBIT_DEPTH;
+                return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case VPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA:
+        case SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return VPNG_EBIT_DEPTH;
+                return SPNG_EBIT_DEPTH;
 
             break;
         }
-    default: return VPNG_ECOLOUR_TYPE;
+    default: return SPNG_ECOLOUR_TYPE;
     }
 
     if(ihdr->compression_method || ihdr->filter_method)
-        return VPNG_ECOMPRESSION_METHOD;
+        return SPNG_ECOMPRESSION_METHOD;
 
     if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
-        return VPNG_EINTERLACE_METHOD;
+        return SPNG_EINTERLACE_METHOD;
 
     return 0;
 }
 
-static int check_sig_get_ihdr(struct vpng_decoder *dec)
+static int check_sig_get_ihdr(struct spng_decoder *dec)
 {
     if(dec==NULL) return 1;
 
     uint8_t signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
-    if(memcmp(dec->data, signature, sizeof(signature))) return VPNG_ESIGNATURE;
+    if(memcmp(dec->data, signature, sizeof(signature))) return SPNG_ESIGNATURE;
 
-    struct vpng_chunk chunk;
+    struct spng_chunk chunk;
 
     size_t sizeof_signature_and_ihdr = 33;
-    if(dec->data_size < sizeof_signature_and_ihdr) return VPNG_EOF;
+    if(dec->data_size < sizeof_signature_and_ihdr) return SPNG_EOF;
 
     memcpy(&chunk.length, dec->data + 8, 4);
     memcpy(&chunk.type, dec->data + 12, 4);
@@ -197,12 +197,12 @@ static int check_sig_get_ihdr(struct vpng_decoder *dec)
 
     uint32_t actual_crc = crc32(0, Z_NULL, 0);
     actual_crc = crc32(actual_crc, dec->data + 12, 17);
-    if(actual_crc != chunk.crc) return VPNG_ECHUNK_CRC;
+    if(actual_crc != chunk.crc) return SPNG_ECHUNK_CRC;
 
-    if(chunk.length != 13) return VPNG_EIHDR_SIZE;
-    if(memcmp(chunk.type, type_ihdr, 4)) return VPNG_ENOIHDR;
+    if(chunk.length != 13) return SPNG_EIHDR_SIZE;
+    if(memcmp(chunk.type, type_ihdr, 4)) return SPNG_ENOIHDR;
 
-    struct vpng_ihdr ihdr;
+    struct spng_ihdr ihdr;
 
     memcpy(&ihdr.width, dec->data + 16, 4);
     memcpy(&ihdr.height, dec->data + 20, 4);
@@ -218,7 +218,7 @@ static int check_sig_get_ihdr(struct vpng_decoder *dec)
     int ret = check_ihdr(&ihdr);
     if(ret) return ret;
 
-    memcpy(&dec->ihdr, &ihdr, sizeof(struct vpng_ihdr));
+    memcpy(&dec->ihdr, &ihdr, sizeof(struct spng_ihdr));
 
     dec->have_ihdr = 1;
 
@@ -246,7 +246,7 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     uint8_t filter = 0;
     memcpy(&filter, scanline, 1);
 
-    if(filter > 4) return VPNG_EFILTER;
+    if(filter > 4) return SPNG_EFILTER;
     if(filter == 0) return 0;
 
     size_t i;
@@ -271,23 +271,23 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 
         switch(filter)
         {
-            case VPNG_FILTER_TYPE_SUB:
+            case SPNG_FILTER_TYPE_SUB:
             {
                 x = x + a;
                 break;
             }
-            case VPNG_FILTER_TYPE_UP:
+            case SPNG_FILTER_TYPE_UP:
             {
                 x = x + b;
                 break;
             }
-            case VPNG_FILTER_TYPE_AVERAGE:
+            case SPNG_FILTER_TYPE_AVERAGE:
             {
                 uint16_t avg = (a + b) / 2;
                 x = x + avg;
                 break;
             }
-            case VPNG_FILTER_TYPE_PAETH:
+            case SPNG_FILTER_TYPE_PAETH:
             {
                 x = x + paeth(a,b,c);
                 break;
@@ -304,12 +304,12 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
     Returns zero and sets dec->first_idat
 */
-static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
+static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 {
     if(dec==NULL) return 1;
-    if(!dec->valid_state) return VPNG_EBADSTATE;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
 
-    struct vpng_chunk chunk, next;
+    struct spng_chunk chunk, next;
     /* use IHDR as current chunk */
     chunk.offset = 8;
     chunk.length = 13;
@@ -318,11 +318,11 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
 
     while(!next_chunk(dec, &chunk, &next, 1)) /* read header */
     {
-        memcpy(&chunk, &next, sizeof(struct vpng_chunk));
+        memcpy(&chunk, &next, sizeof(struct spng_chunk));
 
         if(!memcmp(chunk.type, type_idat, 4))
         {
-            memcpy(&dec->first_idat, &chunk, sizeof(struct vpng_chunk));
+            memcpy(&dec->first_idat, &chunk, sizeof(struct spng_chunk));
             return 0;
         }
 
@@ -332,7 +332,7 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         data = dec->data + chunk.offset + 8;
 
         /* Reserved bit must be zero */
-        if( (chunk.type[2] & (1 << 5)) != 0) return VPNG_ECHUNK_TYPE;
+        if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
         /* Ignore private chunks */
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
@@ -340,9 +340,9 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         {
             if(!memcmp(chunk.type, type_plte, 4))
             {
-                if(chunk.length % 3 !=0) return VPNG_ECHUNK_SIZE;
-                if( (chunk.length / 3) > 256 ) return VPNG_ECHUNK_SIZE;
-                if(dec->n_plte_entries > ( (1 << dec->ihdr.bit_depth) -1 ) ) return VPNG_ECHUNK_SIZE;
+                if(chunk.length % 3 !=0) return SPNG_ECHUNK_SIZE;
+                if( (chunk.length / 3) > 256 ) return SPNG_ECHUNK_SIZE;
+                if(dec->n_plte_entries > ( (1 << dec->ihdr.bit_depth) -1 ) ) return SPNG_ECHUNK_SIZE;
 
                 dec->n_plte_entries = chunk.length / 3;
 
@@ -358,16 +358,16 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
 
                 dec->have_plte = 1;
             }
-            else if(!memcmp(chunk.type, type_iend, 4)) return VPNG_ECHUNK_POS;
-            else if(!memcmp(chunk.type, type_ihdr, 4)) return VPNG_ECHUNK_POS;
-            else return VPNG_ECHUNK_UNKNOWN_CRITICAL;
+            else if(!memcmp(chunk.type, type_iend, 4)) return SPNG_ECHUNK_POS;
+            else if(!memcmp(chunk.type, type_ihdr, 4)) return SPNG_ECHUNK_POS;
+            else return SPNG_ECHUNK_UNKNOWN_CRITICAL;
         }
         else if(!memcmp(chunk.type, type_chrm, 4)) /* Ancillary chunks */
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_chrm) return VPNG_EDUP_CHRM;
+            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_chrm) return SPNG_EDUP_CHRM;
 
-            if(chunk.length != 32) return VPNG_ECHUNK_SIZE;
+            if(chunk.length != 32) return SPNG_ECHUNK_SIZE;
 
             memcpy(&dec->chrm.white_point_x, data, 4);
             memcpy(&dec->chrm.white_point_y, data + 4, 4);
@@ -391,10 +391,10 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_gama, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_gama) return VPNG_EDUP_GAMA;
+            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_gama) return SPNG_EDUP_GAMA;
 
-            if(chunk.length != 4) return VPNG_ECHUNK_SIZE;
+            if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
             memcpy(&dec->gama, data, 4);
 
@@ -404,83 +404,83 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_iccp, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_iccp) return VPNG_EDUP_ICCP;
+            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_iccp) return SPNG_EDUP_ICCP;
             dec->have_iccp = 1;
             /* TODO: read */
         }
         else if(!memcmp(chunk.type, type_sbit, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_sbit) return VPNG_EDUP_SBIT;
+            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_sbit) return SPNG_EDUP_SBIT;
 
             if(dec->ihdr.colour_type == 0)
             {
-                if(chunk.length != 1) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->sbit_type0_greyscale_bits, data, 1);
 
-                if(dec->sbit_type0_greyscale_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type0_greyscale_bits > dec->ihdr.bit_depth) return VPNG_ESBIT;
+                if(dec->sbit_type0_greyscale_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type0_greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
             {
-                if(chunk.length != 3) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 3) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->sbit_type2_3.red_bits, data, 1);
                 memcpy(&dec->sbit_type2_3.green_bits, data + 1 , 1);
                 memcpy(&dec->sbit_type2_3.blue_bits, data + 2, 1);
 
-                if(dec->sbit_type2_3.red_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type2_3.green_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type2_3.blue_bits == 0) return VPNG_ESBIT;
+                if(dec->sbit_type2_3.red_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type2_3.green_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type2_3.blue_bits == 0) return SPNG_ESBIT;
 
                 uint8_t bit_depth;
                 if(dec->ihdr.colour_type == 3) bit_depth = 8;
                 else bit_depth = dec->ihdr.bit_depth;
 
-                if(dec->sbit_type2_3.red_bits > bit_depth) return VPNG_ESBIT;
-                if(dec->sbit_type2_3.green_bits > bit_depth) return VPNG_ESBIT;
-                if(dec->sbit_type2_3.blue_bits > bit_depth) return VPNG_ESBIT;
+                if(dec->sbit_type2_3.red_bits > bit_depth) return SPNG_ESBIT;
+                if(dec->sbit_type2_3.green_bits > bit_depth) return SPNG_ESBIT;
+                if(dec->sbit_type2_3.blue_bits > bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 4)
             {
-                if(chunk.length != 2) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->sbit_type4.greyscale_bits, data, 1);
                 memcpy(&dec->sbit_type4.alpha_bits, data + 1, 1);
 
-                if(dec->sbit_type4.greyscale_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type4.greyscale_bits > dec->ihdr.bit_depth) return VPNG_ESBIT;
+                if(dec->sbit_type4.greyscale_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type4.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 6)
             {
-                if(chunk.length != 4) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->sbit_type6.red_bits, data, 1);
                 memcpy(&dec->sbit_type6.green_bits, data + 1, 1);
                 memcpy(&dec->sbit_type6.blue_bits, data + 2, 1);
                 memcpy(&dec->sbit_type6.alpha_bits, data + 3, 1);
 
-                if(dec->sbit_type6.red_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type6.green_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type6.blue_bits == 0) return VPNG_ESBIT;
-                if(dec->sbit_type6.alpha_bits == 0) return VPNG_ESBIT;
+                if(dec->sbit_type6.red_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type6.green_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type6.blue_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit_type6.alpha_bits == 0) return SPNG_ESBIT;
 
-                if(dec->sbit_type6.red_bits > dec->ihdr.bit_depth) return VPNG_ESBIT;
-                if(dec->sbit_type6.green_bits > dec->ihdr.bit_depth) return VPNG_ESBIT;
-                if(dec->sbit_type6.blue_bits > dec->ihdr.bit_depth) return VPNG_ESBIT;
-                if(dec->sbit_type6.alpha_bits > dec->ihdr.bit_depth) return VPNG_ESBIT;
+                if(dec->sbit_type6.red_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit_type6.green_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit_type6.blue_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit_type6.alpha_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
 
             dec->have_sbit = 1;
         }
         else if(!memcmp(chunk.type, type_srgb, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_srgb) return VPNG_EDUP_SRGB;
+            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_srgb) return SPNG_EDUP_SRGB;
 
-            if(chunk.length != 1) return VPNG_ECHUNK_SIZE;
+            if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
             memcpy(&dec->srgb_rendering_intent, data, 1);
 
@@ -488,15 +488,15 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_bkgd, 4))
         {
-            if(dec->have_plte && chunk.offset < dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_bkgd) return VPNG_EDUP_BKGD;
+            if(dec->have_plte && chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_bkgd) return SPNG_EDUP_BKGD;
 
             uint16_t mask = ~0;
             if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
 
             if(dec->ihdr.colour_type == 0 || dec->ihdr.colour_type == 4)
             {
-                if(chunk.length != 2) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->bkgd_type0_4_greyscale, data, 2);
 
@@ -504,7 +504,7 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             }
             else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 6)
             {
-                if(chunk.length != 6) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->bkgd_type2_6.red, data, 2);
                 memcpy(&dec->bkgd_type2_6.green, data + 2, 2);
@@ -516,27 +516,27 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             }
             else if(dec->ihdr.colour_type == 3)
             {
-                if(chunk.length != 1) return VPNG_ECHUNK_SIZE;
-                if(!dec->have_plte) return VPNG_EBKGD_NO_PLTE;
+                if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
+                if(!dec->have_plte) return SPNG_EBKGD_NO_PLTE;
 
                 memcpy(&dec->bkgd_type3_plte_index, data, 1);
-                if(dec->bkgd_type3_plte_index >= dec->n_plte_entries) return VPNG_EBKGD_PLTE_IDX;
+                if(dec->bkgd_type3_plte_index >= dec->n_plte_entries) return SPNG_EBKGD_PLTE_IDX;
             }
 
             dec->have_bkgd = 1;
         }
         else if(!memcmp(chunk.type, type_trns, 4))
         {
-            if(dec->have_plte && chunk.offset < dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_trns) return VPNG_EDUP_TRNS;
-            if(!chunk.length) return VPNG_ECHUNK_SIZE;
+            if(dec->have_plte && chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_trns) return SPNG_EDUP_TRNS;
+            if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
             uint16_t mask = ~0;
             if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
 
             if(dec->ihdr.colour_type == 0)
             {
-                if(chunk.length != 2) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->trns_type0_grey_sample, data, 2);
 
@@ -544,7 +544,7 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             }
             else if(dec->ihdr.colour_type == 2)
             {
-                if(chunk.length != 6) return VPNG_ECHUNK_SIZE;
+                if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->trns_type2.red, data, 2);
                 memcpy(&dec->trns_type2.green, data + 2, 2);
@@ -556,7 +556,7 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             }
             else if(dec->ihdr.colour_type == 3)
             {
-                if(chunk.length > dec->n_plte_entries) return VPNG_ECHUNK_SIZE;
+                if(chunk.length > dec->n_plte_entries) return SPNG_ECHUNK_SIZE;
 
                 size_t k;
                 for(k=0; k < chunk.length; k++)
@@ -565,17 +565,17 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
                 }
                 dec->n_trns_type3_entries = chunk.length;
             }
-            else return VPNG_ETRNS_COLOUR_TYPE;
+            else return SPNG_ETRNS_COLOUR_TYPE;
 
             dec->have_trns = 1;
         }
         else if(!memcmp(chunk.type, type_hist, 4))
         {
             if(!dec->have_plte) return 1;
-            if(chunk.offset < dec->plte_offset) return VPNG_ECHUNK_POS;
-            if(dec->have_hist) return VPNG_EDUP_HIST;
+            if(chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
+            if(dec->have_hist) return SPNG_EDUP_HIST;
 
-            if( (chunk.length / 2) != (dec->n_plte_entries) ) return VPNG_ECHUNK_SIZE;
+            if( (chunk.length / 2) != (dec->n_plte_entries) ) return SPNG_ECHUNK_SIZE;
 
             size_t k;
             for(k=0; k < (chunk.length / 2); k++)
@@ -589,9 +589,9 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_phys, 4))
         {
-            if(dec->have_phys) return VPNG_EDUP_PHYS;
+            if(dec->have_phys) return SPNG_EDUP_PHYS;
 
-            if(chunk.length != 9) return VPNG_ECHUNK_SIZE;
+            if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
 
             memcpy(&dec->phys_ppu_x, data, 4);
             memcpy(&dec->phys_ppu_y, data + 4, 4);
@@ -608,9 +608,9 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_time, 4))
         {
-            if(dec->have_time) return VPNG_EDUP_TIME;
+            if(dec->have_time) return SPNG_EDUP_TIME;
 
-            if(chunk.length != 7) return VPNG_ECHUNK_SIZE;
+            if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
 
             memcpy(&dec->time.year, data, 2);
             memcpy(&dec->time.month, data + 2, 1);
@@ -644,44 +644,44 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
     return next_chunk(dec, &chunk, &next, 1);
 }
 
-static int validate_past_idat(struct vpng_decoder *dec)
+static int validate_past_idat(struct spng_decoder *dec)
 {
     if(dec == NULL) return 1;
 
-    struct vpng_chunk chunk, next;
+    struct spng_chunk chunk, next;
 
-    memcpy(&chunk, &dec->last_idat, sizeof(struct vpng_chunk));
+    memcpy(&chunk, &dec->last_idat, sizeof(struct spng_chunk));
 
     while(!next_chunk(dec, &chunk, &next, 0))
     {
-        memcpy(&chunk, &next, sizeof(struct vpng_chunk));
+        memcpy(&chunk, &next, sizeof(struct spng_chunk));
 
         /* Reserved bit must be zero */
-        if( (chunk.type[2] & (1 << 5)) != 0) return VPNG_ECHUNK_TYPE;
+        if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
          /* Ignore private chunks */
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
-        if(!memcmp(chunk.type, type_chrm, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_gama, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_iccp, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_sbit, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_srgb, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_bkgd, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_hist, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_trns, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_phys, 4)) return VPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_splt, 4)) return VPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_chrm, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_gama, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_iccp, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_sbit, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_srgb, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_bkgd, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_hist, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_trns, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_phys, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_splt, 4)) return SPNG_ECHUNK_POS;
     }
 
     int ret = next_chunk(dec, &chunk, &next, 0);
 
-    if(ret != VPNG_EOF) return ret;
+    if(ret != SPNG_EOF) return ret;
 
     /* last chunk must be IEND */
-    if(memcmp(chunk.type, type_iend, 4)) return VPNG_ECHUNK_POS;
+    if(memcmp(chunk.type, type_iend, 4)) return SPNG_ECHUNK_POS;
 
     /* IEND chunk must be at the very end */
-    if(chunk.offset != (dec->data_size - 12) ) return VPNG_EDATA_AFTER_IEND;
+    if(chunk.offset != (dec->data_size - 12) ) return SPNG_EDATA_AFTER_IEND;
 
     return 0;
 }
@@ -726,32 +726,32 @@ static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbi
 }
 
 
-struct vpng_decoder * vpng_decoder_new(void)
+struct spng_decoder * spng_decoder_new(void)
 {
-    struct vpng_decoder *dec = malloc(sizeof(struct vpng_decoder));
+    struct spng_decoder *dec = malloc(sizeof(struct spng_decoder));
     if(dec==NULL) return NULL;
 
-    memset(dec, 0, sizeof(struct vpng_decoder));
+    memset(dec, 0, sizeof(struct spng_decoder));
     dec->valid_state = 1;
 
     return dec;
 }
 
-void vpng_decoder_free(struct vpng_decoder *dec)
+void spng_decoder_free(struct spng_decoder *dec)
 {
     if(dec==NULL) return;
 
-    memset(dec, 0, sizeof(struct vpng_decoder));
+    memset(dec, 0, sizeof(struct spng_decoder));
 
     free(dec);
 }
 
-int vpng_decoder_set_buffer(struct vpng_decoder *dec, void *buf, size_t size)
+int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size)
 {
     if(dec==NULL || buf==NULL) return 1;
-    if(!dec->valid_state) return VPNG_EBADSTATE;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
 
-    if(dec->data != NULL) return VPNG_EBUF_SET;
+    if(dec->data != NULL) return SPNG_EBUF_SET;
 
     dec->data = buf;
     dec->data_size = size;
@@ -763,38 +763,38 @@ int vpng_decoder_set_buffer(struct vpng_decoder *dec, void *buf, size_t size)
 }
 
 
-int vpng_get_ihdr(struct vpng_decoder *dec, struct vpng_ihdr *ihdr)
+int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr)
 {
     if(dec==NULL || ihdr==NULL) return 1;
     if(dec->data == NULL) return 1;
-    if(!dec->valid_state) return VPNG_EBADSTATE;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
 
-    memcpy(ihdr, &dec->ihdr, sizeof(struct vpng_ihdr));
+    memcpy(ihdr, &dec->ihdr, sizeof(struct spng_ihdr));
 
     return 0;
 }
 
-int vpng_get_output_image_size(struct vpng_decoder *dec, int fmt, size_t *out)
+int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out)
 {
     if(dec==NULL || out==NULL) return 1;
 
-    if(!dec->valid_state) return VPNG_EBADSTATE;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
 
     size_t res;
-    if(fmt == VPNG_FMT_PNG)
+    if(fmt == SPNG_FMT_PNG)
     {
-        if(dec->ihdr.width > SIZE_MAX / dec->ihdr.height) return VPNG_EOVERFLOW;
+        if(dec->ihdr.width > SIZE_MAX / dec->ihdr.height) return SPNG_EOVERFLOW;
         res = dec->ihdr.width * dec->ihdr.height;
 
         if(dec->ihdr.bit_depth == 16)
         {
-            if(8 > SIZE_MAX / res) return VPNG_EOVERFLOW;
+            if(8 > SIZE_MAX / res) return SPNG_EOVERFLOW;
             res = res * 8;
         }
         else /* <= 8 */
         {
             uint8_t depth = dec->ihdr.bit_depth;
-            if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR) depth = 8;
+            if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR) depth = 8;
 
             uint8_t samples_per_byte = 8 / depth;
 
@@ -803,45 +803,45 @@ int vpng_get_output_image_size(struct vpng_decoder *dec, int fmt, size_t *out)
             if(res % samples_per_byte != 0 || res == 0)
             {
                 res++;
-                if(res < 1) return VPNG_EOVERFLOW;
+                if(res < 1) return SPNG_EOVERFLOW;
             }
         }
     }
-    else if(fmt == VPNG_FMT_RGBA8)
+    else if(fmt == SPNG_FMT_RGBA8)
     {
-        if(4 > SIZE_MAX / dec->ihdr.width) return VPNG_EOVERFLOW;
+        if(4 > SIZE_MAX / dec->ihdr.width) return SPNG_EOVERFLOW;
         res = 4 * dec->ihdr.width;
 
-        if(res > SIZE_MAX / dec->ihdr.height) return VPNG_EOVERFLOW;
+        if(res > SIZE_MAX / dec->ihdr.height) return SPNG_EOVERFLOW;
         res = res * dec->ihdr.height;
     }
-    else if(fmt == VPNG_FMT_RGBA16)
+    else if(fmt == SPNG_FMT_RGBA16)
     {
-        if(8 > SIZE_MAX / dec->ihdr.width) return VPNG_EOVERFLOW;
+        if(8 > SIZE_MAX / dec->ihdr.width) return SPNG_EOVERFLOW;
         res = 8 * dec->ihdr.width;
 
-        if(res > SIZE_MAX / dec->ihdr.height) return VPNG_EOVERFLOW;
+        if(res > SIZE_MAX / dec->ihdr.height) return SPNG_EOVERFLOW;
         res = res * dec->ihdr.height;
     }
-    else return VPNG_EFMT;
+    else return SPNG_EFMT;
 
     *out = res;
 
     return 0;
 }
 
-int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags)
+int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags)
 {
     if(dec==NULL) return 1;
     if(out==NULL) return 1;
-    if(!dec->valid_state) return VPNG_EBADSTATE;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
 
     int ret;
     size_t out_size_required;
 
-    ret = vpng_get_output_image_size(dec, fmt, &out_size_required);
+    ret = spng_get_output_image_size(dec, fmt, &out_size_required);
     if(ret) return ret;
-    if(out_size < out_size_required) return VPNG_EBUFSIZ;
+    if(out_size < out_size_required) return SPNG_EBUFSIZ;
 
     if(!dec->first_idat.offset)
     {
@@ -854,18 +854,18 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
     }
 
     uint8_t depth_target = 8; /* FMT_RGBA8 */
-    if(fmt == VPNG_FMT_PNG)
+    if(fmt == SPNG_FMT_PNG)
     {
-        if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR) depth_target = 8;
+        if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR) depth_target = 8;
         else depth_target = dec->ihdr.bit_depth;
     }
-    else if(fmt == VPNG_FMT_RGBA16) depth_target = 16;
+    else if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
 
     uint8_t channels = 1; /* grayscale or indexed_colour */
 
-    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_TRUECOLOR) channels = 3;
-    else if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA) channels = 2;
-    else if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA) channels = 4;
+    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR) channels = 3;
+    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA) channels = 2;
+    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA) channels = 4;
 
     uint8_t bytes_per_pixel;
 
@@ -875,19 +875,19 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
     /* Calculate scanline width in bits, round up to a multiple of 8, convert to bytes */
     size_t scanline_width = dec->ihdr.width;
 
-    if(scanline_width > SIZE_MAX / channels) return VPNG_EOVERFLOW;
+    if(scanline_width > SIZE_MAX / channels) return SPNG_EOVERFLOW;
     scanline_width = scanline_width * channels;
 
-    if(scanline_width > SIZE_MAX / dec->ihdr.bit_depth) return VPNG_EOVERFLOW;
+    if(scanline_width > SIZE_MAX / dec->ihdr.bit_depth) return SPNG_EOVERFLOW;
     scanline_width = scanline_width * dec->ihdr.bit_depth;
 
     scanline_width = scanline_width + 8; /* filter byte */
-    if(scanline_width < 8) return VPNG_EOVERFLOW;
+    if(scanline_width < 8) return SPNG_EOVERFLOW;
 
     if(scanline_width % 8 != 0) /* round to up multiple of 8 */
     {
         scanline_width = scanline_width + 8;
-        if(scanline_width < 8) return VPNG_EOVERFLOW;
+        if(scanline_width < 8) return SPNG_EOVERFLOW;
         scanline_width = scanline_width - (scanline_width % 8);
     }
 
@@ -899,7 +899,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
     stream.zfree = Z_NULL;
     stream.opaque = Z_NULL;
 
-    if(inflateInit(&stream) != Z_OK) return VPNG_EZLIB;
+    if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
 
     unsigned char *scanline_orig, *scanline, *prev_scanline;
 
@@ -907,7 +907,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
     if(scanline_orig==NULL)
     {
         inflateEnd(&stream);
-        return VPNG_EMEM;
+        return SPNG_EMEM;
     }
 
     /* Some of the error-handling goto's might leave scanline incremented,
@@ -919,11 +919,11 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
     {
         inflateEnd(&stream);
         free(scanline_orig);
-        return VPNG_EMEM;
+        return SPNG_EMEM;
     }
 
-    struct vpng_subimage sub[7];
-    memset(sub, 0, sizeof(struct vpng_subimage) * 7);
+    struct spng_subimage sub[7];
+    memset(sub, 0, sizeof(struct spng_subimage) * 7);
 
     if(dec->ihdr.interlace_method == 1)
     {
@@ -956,7 +956,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
     alpha_sbits = dec->ihdr.bit_depth;
     greyscale_sbits = dec->ihdr.bit_depth;
 
-    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR)
+    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR)
     {
         red_sbits = 8;
         green_sbits = 8;
@@ -992,9 +992,9 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
         }
     }
 
-    struct vpng_chunk chunk, next;
+    struct spng_chunk chunk, next;
 
-    memcpy(&chunk, &dec->first_idat, sizeof(struct vpng_chunk));
+    memcpy(&chunk, &dec->first_idat, sizeof(struct spng_chunk));
 
     stream.avail_in = chunk.length;
     stream.next_in = dec->data + chunk.offset + 8;
@@ -1031,13 +1031,13 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                     {/* we don't have a full scanline or there are more scanlines left */
                         if(stream.avail_out!=0 || scanline_idx != (sub[pass].height - 1))
                         {
-                            ret = VPNG_EIDAT_TOO_SHORT;
+                            ret = SPNG_EIDAT_TOO_SHORT;
                             goto decode_err;
                         }
                     }
                     else if(ret != Z_BUF_ERROR)
                     {
-                        ret = VPNG_EIDAT_STREAM;
+                        ret = SPNG_EIDAT_STREAM;
                         goto decode_err;
                     }
                 }
@@ -1048,11 +1048,11 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                     ret = next_chunk(dec, &chunk, &next, 0);
                     if(ret) goto decode_err;
 
-                    memcpy(&chunk, &next, sizeof(struct vpng_chunk));
+                    memcpy(&chunk, &next, sizeof(struct spng_chunk));
 
                     if(memcmp(chunk.type, type_idat, 4))
                     {
-                        ret = VPNG_EIDAT_TOO_SHORT;
+                        ret = SPNG_EIDAT_TOO_SHORT;
                         goto decode_err;
                     }
 
@@ -1087,7 +1087,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                    r, g, b, a, gray (all 16bits) are used for processing */
                 switch(dec->ihdr.colour_type)
                 {
-                    case VPNG_COLOUR_TYPE_GRAYSCALE:
+                    case SPNG_COLOUR_TYPE_GRAYSCALE:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1117,7 +1117,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case VPNG_COLOUR_TYPE_TRUECOLOR:
+                    case SPNG_COLOUR_TYPE_TRUECOLOR:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1150,7 +1150,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case VPNG_COLOUR_TYPE_INDEXED_COLOUR:
+                    case SPNG_COLOUR_TYPE_INDEXED_COLOUR:
                     {
                         uint8_t entry = 0;
                         memcpy(&entry, scanline + k / (8 / dec->ihdr.bit_depth), 1);
@@ -1172,7 +1172,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                         }
                         else
                         {
-                            ret = VPNG_EPLTE_IDX;
+                            ret = SPNG_EPLTE_IDX;
                             goto decode_err;
                         }
 
@@ -1182,7 +1182,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA:
+                    case SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1200,7 +1200,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case VPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA:
+                    case SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1239,8 +1239,8 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                 }
 
 
-                if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE ||
-                   dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
+                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
                 {
                     gray = sample_to_target(gray, dec->ihdr.bit_depth, greyscale_sbits, depth_target);
                     a = sample_to_target(a, dec->ihdr.bit_depth, alpha_sbits, depth_target);
@@ -1248,7 +1248,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                 else
                 {
                     uint8_t processing_depth = dec->ihdr.bit_depth;
-                    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR) processing_depth = 8;
+                    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR) processing_depth = 8;
 
                     r = sample_to_target(r, processing_depth, red_sbits, depth_target);
                     g = sample_to_target(g, processing_depth, green_sbits, depth_target);
@@ -1258,8 +1258,8 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
 
 
 
-                if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE ||
-                   dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
+                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
                 {
                     r = gray;
                     g = gray;
@@ -1275,7 +1275,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                 gray_8 = gray;
                 gray_16 = gray;
 
-                if(fmt == VPNG_FMT_RGBA8)
+                if(fmt == SPNG_FMT_RGBA8)
                 {
                     pixel_size = 4;
 
@@ -1284,7 +1284,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                     memcpy(pixel + 2, &b_8, 1);
                     memcpy(pixel + 3, &a_8, 1);
                 }
-                else if(fmt == VPNG_FMT_RGBA16)
+                else if(fmt == SPNG_FMT_RGBA16)
                 {
                     pixel_size = 8;
 
@@ -1293,9 +1293,9 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                     memcpy(pixel + 4, &b_8, 2);
                     memcpy(pixel + 6, &a_8, 2);
                 }
-                else /* == VPNG_FMT_PNG */
+                else /* == SPNG_FMT_PNG */
                 {
-                    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE)
+                    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE)
                         {
                             if(dec->ihdr.bit_depth == 16)
                             {
@@ -1326,8 +1326,8 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                                 }
                             }
                         }
-                    else if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_TRUECOLOR ||
-                                                     VPNG_COLOUR_TYPE_INDEXED_COLOUR)
+                    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR ||
+                                                     SPNG_COLOUR_TYPE_INDEXED_COLOUR)
                     {
                         pixel_size = 3;
 
@@ -1335,7 +1335,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                         memcpy(pixel + 1, &g_8, 1);
                         memcpy(pixel + 2, &b_8, 1);
                     }
-                    else if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1352,7 +1352,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(pixel + 1, &a_8, 1);
                         }
                     }
-                    else /* == VPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA */
+                    else /* == SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA */
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1406,7 +1406,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
 
    if(stream.avail_in != 0)
     {
-        ret = VPNG_EIDAT_TOO_LONG;
+        ret = SPNG_EIDAT_TOO_LONG;
         goto decode_err;
     }
 
@@ -1418,7 +1418,7 @@ decode_err:
 
     if(!ret)
     {
-        memcpy(&dec->last_idat, &chunk, sizeof(struct vpng_chunk));
+        memcpy(&dec->last_idat, &chunk, sizeof(struct spng_chunk));
         ret = validate_past_idat(dec);
         if(ret) return ret;
     }

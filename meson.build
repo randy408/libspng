@@ -1,18 +1,18 @@
-project('libvpng', 'c', default_options : ['c_std=c99'])
+project('libspng', 'c', default_options : ['c_std=c99'])
 
 zlibdep = dependency('zlib')
 pngdep = dependency('libpng16')
 
-lib = library('vpng', 'vpng.c', dependencies : zlibdep)
+lib = library('spng', 'spng.c', dependencies : zlibdep)
 
-example = executable('example', 'example.c', 'vpng.c', dependencies : zlibdep)
+example = executable('example', 'example.c', 'spng.c', dependencies : zlibdep)
 
-bench_v = executable('bench_vpng', 'benchmark_vpng.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
+bench_v = executable('bench_spng', 'benchmark_spng.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
 bench_p = executable('bench_png', 'benchmark_png.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
-benchmark('vpng_benchmark', bench_v, args: ['../images/large.png'], )
+benchmark('spng_benchmark', bench_v, args: ['../images/large.png'], )
 benchmark('png_benchmark', bench_p, args: ['../images/large.png'], )
 
-test_exe = executable('testsuite', 'testsuite.c', 'vpng.c', dependencies : [zlibdep, pngdep])
+test_exe = executable('testsuite', 'testsuite.c', 'spng.c', dependencies : [zlibdep, pngdep])
 
 test('basi0g01', test_exe, args: ['../test_images/basi0g01.png'])
 test('basi0g02', test_exe, args: ['../test_images/basi0g02.png'])
