@@ -535,13 +535,16 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             if(!chunk.length) return VPNG_ECHUNK_SIZE;
             /* XXX: spec isn't explicit about forbidding 0 entries */
 
+            uint16_t mask = ~0;
+            if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
+
             if(dec->ihdr.colour_type == 0)
             {
                 if(chunk.length != 2) return VPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->trns_type0_grey_sample, data, 2);
 
-                dec->trns_type0_grey_sample = ntohs(dec->trns_type0_grey_sample);
+                dec->trns_type0_grey_sample = ntohs(dec->trns_type0_grey_sample) & mask;
             }
             else if(dec->ihdr.colour_type == 2)
             {
@@ -551,9 +554,9 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
                 memcpy(&dec->trns_type2.green, data + 2, 2);
                 memcpy(&dec->trns_type2.blue, data + 4, 2);
 
-                dec->trns_type2.red = ntohs(dec->trns_type2.red);
-                dec->trns_type2.green = ntohs(dec->trns_type2.green);
-                dec->trns_type2.blue = ntohs(dec->trns_type2.blue);
+                dec->trns_type2.red = ntohs(dec->trns_type2.red) & mask;
+                dec->trns_type2.green = ntohs(dec->trns_type2.green) & mask;
+                dec->trns_type2.blue = ntohs(dec->trns_type2.blue) & mask;
             }
             else if(dec->ihdr.colour_type == 3)
             {
@@ -1112,7 +1115,7 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                             gray_8 = gray_8 & (mask << shift_amount);
                             gray_8 = gray_8 >> shift_amount;
 
-                            if(dec->have_trns && (dec->trns_type0_grey_sample & 0x00FF) == gray_8) a_8 = 0;
+                            if(dec->have_trns && dec->trns_type0_grey_sample == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1143,9 +1146,9 @@ int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
                             if(dec->have_trns &&
-                              (dec->trns_type2.red & 0x00FF) == r_8 &&
-                              (dec->trns_type2.green & 0x00FF) == g_8 &&
-                              (dec->trns_type2.blue & 0x00FF) == b_8) a_8 = 0;
+                               dec->trns_type2.red == r_8 &&
+                               dec->trns_type2.green == g_8 &&
+                               dec->trns_type2.blue == b_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
