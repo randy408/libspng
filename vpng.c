@@ -491,14 +491,14 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             if(dec->have_plte && chunk.offset < dec->plte_offset) return VPNG_ECHUNK_POS;
             if(dec->have_bkgd) return VPNG_EDUP_BKGD;
 
+            uint16_t mask = ~0;
+            if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
+
             if(dec->ihdr.colour_type == 0 || dec->ihdr.colour_type == 4)
             {
                 if(chunk.length != 2) return VPNG_ECHUNK_SIZE;
 
                 memcpy(&dec->bkgd_type0_4_greyscale, data, 2);
-
-                uint16_t mask = ~0;
-                if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
 
                 dec->bkgd_type0_4_greyscale = ntohs(dec->bkgd_type0_4_greyscale) & mask;
             }
@@ -509,9 +509,6 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
                 memcpy(&dec->bkgd_type2_6.red, data, 2);
                 memcpy(&dec->bkgd_type2_6.green, data + 2, 2);
                 memcpy(&dec->bkgd_type2_6.blue, data + 4, 2);
-
-                uint16_t mask = ~0;
-                if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
 
                 dec->bkgd_type2_6.red = ntohs(dec->bkgd_type2_6.red) & mask;
                 dec->bkgd_type2_6.green = ntohs(dec->bkgd_type2_6.green) & mask;
@@ -533,7 +530,6 @@ static int get_ancillary_data_first_idat(struct vpng_decoder *dec)
             if(dec->have_plte && chunk.offset < dec->plte_offset) return VPNG_ECHUNK_POS;
             if(dec->have_trns) return VPNG_EDUP_TRNS;
             if(!chunk.length) return VPNG_ECHUNK_SIZE;
-            /* XXX: spec isn't explicit about forbidding 0 entries */
 
             uint16_t mask = ~0;
             if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
