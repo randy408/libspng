@@ -781,24 +781,57 @@ int vpng_get_output_image_size(struct vpng_decoder *dec, int fmt, size_t *out)
 
     if(!dec->valid_state) return VPNG_EBADSTATE;
 
-    if(fmt == VPNG_FMT_RGBA8)
+    size_t res;
+    if(fmt == VPNG_FMT_PNG)
     {
-        size_t res;
+        if(dec->ihdr.width > SIZE_MAX / dec->ihdr.height) return VPNG_EOVERFLOW;
+        res = dec->ihdr.width * dec->ihdr.height;
 
+        if(dec->ihdr.bit_depth == 16)
+        {
+            if(8 > SIZE_MAX / res) return VPNG_EOVERFLOW;
+            res = res * 8;
+        }
+        else /* <= 8 */
+        {
+            uint8_t depth = dec->ihdr.bit_depth;
+            if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR) depth = 8;
+
+            uint8_t samples_per_byte = 8 / depth;
+
+            res = res / samples_per_byte;
+
+            if(res % samples_per_byte != 0 || res == 0)
+            {
+                res++;
+                if(res < 1) return VPNG_EOVERFLOW;
+            }
+        }
+    }
+    else if(fmt == VPNG_FMT_RGBA8)
+    {
         if(4 > SIZE_MAX / dec->ihdr.width) return VPNG_EOVERFLOW;
         res = 4 * dec->ihdr.width;
 
         if(res > SIZE_MAX / dec->ihdr.height) return VPNG_EOVERFLOW;
         res = res * dec->ihdr.height;
-
-        *out = res;
     }
-    else return 1;
+    else if(fmt == VPNG_FMT_RGBA16)
+    {
+        if(8 > SIZE_MAX / dec->ihdr.width) return VPNG_EOVERFLOW;
+        res = 8 * dec->ihdr.width;
+
+        if(res > SIZE_MAX / dec->ihdr.height) return VPNG_EOVERFLOW;
+        res = res * dec->ihdr.height;
+    }
+    else return VPNG_EFMT;
+
+    *out = res;
 
     return 0;
 }
 
-int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t out_size)
+int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags)
 {
     if(dec==NULL) return 1;
     if(out==NULL) return 1;
@@ -807,7 +840,7 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
     int ret;
     size_t out_size_required;
 
-    ret = vpng_get_output_image_size(dec, VPNG_FMT_RGBA8, &out_size_required);
+    ret = vpng_get_output_image_size(dec, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return VPNG_EBUFSIZ;
 
@@ -820,6 +853,14 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
             return ret;
         }
     }
+
+    uint8_t depth_target = 8; /* FMT_RGBA8 */
+    if(fmt == VPNG_FMT_PNG)
+    {
+        if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR) depth_target = 8;
+        else depth_target = dec->ihdr.bit_depth;
+    }
+    else if(fmt == VPNG_FMT_RGBA16) depth_target = 16;
 
     uint8_t channels = 1; /* grayscale or indexed_colour */
 
@@ -908,21 +949,48 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
         sub[0].height = dec->ihdr.height;
     }
 
-    if(!dec->have_sbit)
+    uint8_t red_sbits, green_sbits, blue_sbits, alpha_sbits, greyscale_sbits;
+
+    red_sbits = dec->ihdr.bit_depth;
+    green_sbits = dec->ihdr.bit_depth;
+    blue_sbits = dec->ihdr.bit_depth;
+    alpha_sbits = dec->ihdr.bit_depth;
+    greyscale_sbits = dec->ihdr.bit_depth;
+
+    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR)
     {
-        dec->sbit_type0_greyscale_bits = dec->ihdr.bit_depth;
+        red_sbits = 8;
+        green_sbits = 8;
+        blue_sbits = 8;
+        alpha_sbits = 8;
+    }
 
-        dec->sbit_type2_3.red_bits = dec->ihdr.bit_depth;
-        dec->sbit_type2_3.green_bits = dec->ihdr.bit_depth;
-        dec->sbit_type2_3.blue_bits = dec->ihdr.bit_depth;
-
-        dec->sbit_type4.greyscale_bits = dec->ihdr.bit_depth;
-        dec->sbit_type4.alpha_bits = dec->ihdr.bit_depth;
-
-        dec->sbit_type6.red_bits = dec->ihdr.bit_depth;
-        dec->sbit_type6.green_bits = dec->ihdr.bit_depth;
-        dec->sbit_type6.blue_bits = dec->ihdr.bit_depth;
-        dec->sbit_type6.alpha_bits = dec->ihdr.bit_depth;
+    if(dec->have_sbit)
+    {
+        if(dec->ihdr.colour_type == 0)
+        {
+            greyscale_sbits = dec->sbit_type0_greyscale_bits;
+            alpha_sbits = dec->ihdr.bit_depth;
+        }
+        if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
+        {
+            red_sbits = dec->sbit_type2_3.red_bits;
+            green_sbits = dec->sbit_type2_3.red_bits;
+            blue_sbits = dec->sbit_type2_3.red_bits;
+            alpha_sbits = dec->ihdr.bit_depth;
+        }
+        else if(dec->ihdr.colour_type == 4)
+        {
+            greyscale_sbits = dec->sbit_type4.greyscale_bits;
+            alpha_sbits = dec->sbit_type4.alpha_bits;
+        }
+        else /* == 6 */
+        {
+            red_sbits = dec->sbit_type6.red_bits;
+            green_sbits = dec->sbit_type6.green_bits;
+            blue_sbits = dec->sbit_type6.blue_bits;
+            alpha_sbits = dec->sbit_type6.alpha_bits;
+        }
     }
 
     struct vpng_chunk chunk, next;
@@ -999,42 +1067,41 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
             if(ret) goto decode_err;
 
             uint32_t k;
-            uint8_t r, g, b, a, gray;
-            uint16_t r16, g16, b16, a16, gray16;
-            unsigned char pixel[4] = {0};
-            uint8_t depth_target = 8;
+            uint8_t r_8, g_8, b_8, a_8, gray_8;
+            uint16_t r_16, g_16, b_16, a_16, gray_16;
+            uint16_t r, g, b, a, gray;
+            unsigned char pixel[8] = {0};
+            uint8_t sub8_pixels = 0;
+            uint8_t sub8_pixels_free_bits = 8;
 
             r=0; g=0; b=0; a=0; gray=0;
-            r16=0; g16=0; b16=0; a16=0; gray16=0;
+            r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
+            r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
 
             scanline++; /* increment past filter byte, keep indexing 0-based */
 
             /* Process a scanline per-pixel and write to *out */
             for(k=0; k < sub[pass].width; k++)
             {
-                /* Extract a pixel from the scanline, if bit_depth is 16
-                   gray16, a16, r16, g16, b16 is set, otherwise gray, a, r, g, b
-                   is set depending on colour type.
-                */
+                /* Extract a pixel from the scanline,
+                   *_16/8 variables are used for memcpy'ing depending on bit_depth,
+                   r, g, b, a, gray (all 16bits) are used for processing */
                 switch(dec->ihdr.colour_type)
                 {
                     case VPNG_COLOUR_TYPE_GRAYSCALE:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            memcpy(&gray16, scanline + (k * 2), 2);
+                            memcpy(&gray_16, scanline + (k * 2), 2);
 
-                            gray16 = ntohs(gray16);
+                            gray_16 = ntohs(gray_16);
 
-                            if(dec->have_trns && dec->trns_type0_grey_sample == gray16) a16 = 0;
-                            else a16 = 65535;
-
-                            gray16 = sample_to_target(gray16, 16, dec->sbit_type0_greyscale_bits, depth_target);
-                            a16 = sample_to_target(a16, 16, 16, depth_target);
+                            if(dec->have_trns && dec->trns_type0_grey_sample == gray_16) a_16 = 0;
+                            else a_16 = 65535;
                         }
                         else /* <= 8 */
                         {
-                            memcpy(&gray, scanline + k / (8 / dec->ihdr.bit_depth), 1);
+                            memcpy(&gray_8, scanline + k / (8 / dec->ihdr.bit_depth), 1);
 
                             uint16_t mask16 = (1 << dec->ihdr.bit_depth) - 1;
                             uint8_t mask = mask16; /* avoid shift by width */
@@ -1042,14 +1109,11 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
                             uint8_t max_shift_amount = 8 - dec->ihdr.bit_depth;
                             uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * dec->ihdr.bit_depth);
 
-                            gray = gray & (mask << shift_amount);
-                            gray = gray >> shift_amount;
+                            gray_8 = gray_8 & (mask << shift_amount);
+                            gray_8 = gray_8 >> shift_amount;
 
-                            if(dec->have_trns && (dec->trns_type0_grey_sample & 0x00FF) == gray) a = 0;
-                            else a = 255;
-
-                            gray = sample_to_target(gray, dec->ihdr.bit_depth, dec->sbit_type0_greyscale_bits, depth_target);
-                            a = sample_to_target(a, 8, 8, depth_target);
+                            if(dec->have_trns && (dec->trns_type0_grey_sample & 0x00FF) == gray_8) a_8 = 0;
+                            else a_8 = 255;
                         }
 
                         break;
@@ -1058,41 +1122,31 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            memcpy(&r16, scanline + (k * 6), 2);
-                            memcpy(&g16, scanline + (k * 6) + 2, 2);
-                            memcpy(&b16, scanline + (k * 6) + 4, 2);
+                            memcpy(&r_16, scanline + (k * 6), 2);
+                            memcpy(&g_16, scanline + (k * 6) + 2, 2);
+                            memcpy(&b_16, scanline + (k * 6) + 4, 2);
 
-                            r16 = ntohs(r16);
-                            g16 = ntohs(g16);
-                            b16 = ntohs(b16);
+                            r_16 = ntohs(r_16);
+                            g_16 = ntohs(g_16);
+                            b_16 = ntohs(b_16);
 
                             if(dec->have_trns &&
-                               dec->trns_type2.red == r16 &&
-                               dec->trns_type2.green == g16 &&
-                               dec->trns_type2.blue == b16) a16 = 0;
-                            else a16 = 65535;
-
-                            r16 = sample_to_target(r16, 16, dec->sbit_type2_3.red_bits, depth_target);
-                            g16 = sample_to_target(g16, 16, dec->sbit_type2_3.green_bits, depth_target);
-                            b16 = sample_to_target(b16, 16, dec->sbit_type2_3.blue_bits, depth_target);
-                            a16 = sample_to_target(a16, 16, 16, depth_target);
+                               dec->trns_type2.red == r_16 &&
+                               dec->trns_type2.green == g_16 &&
+                               dec->trns_type2.blue == b_16) a_16 = 0;
+                            else a_16 = 65535;
                         }
                         else /* == 8 */
                         {
-                            memcpy(&r, scanline + (k * 3), 1);
-                            memcpy(&g, scanline + (k * 3) + 1, 1);
-                            memcpy(&b, scanline + (k * 3) + 2, 1);
+                            memcpy(&r_8, scanline + (k * 3), 1);
+                            memcpy(&g_8, scanline + (k * 3) + 1, 1);
+                            memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
                             if(dec->have_trns &&
-                              (dec->trns_type2.red & 0x00FF) == r &&
-                              (dec->trns_type2.green & 0x00FF) == g &&
-                              (dec->trns_type2.blue & 0x00FF) == b) a = 0;
-                            else a = 255;
-
-                            r = sample_to_target(r, 8, dec->sbit_type2_3.red_bits, depth_target);
-                            g = sample_to_target(g, 8, dec->sbit_type2_3.green_bits, depth_target);
-                            b = sample_to_target(b, 8, dec->sbit_type2_3.blue_bits, depth_target);
-                            a = sample_to_target(a, 8, 8, depth_target);
+                              (dec->trns_type2.red & 0x00FF) == r_8 &&
+                              (dec->trns_type2.green & 0x00FF) == g_8 &&
+                              (dec->trns_type2.blue & 0x00FF) == b_8) a_8 = 0;
+                            else a_8 = 255;
                         }
 
                         break;
@@ -1113,9 +1167,9 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
 
                         if(entry < dec->n_plte_entries)
                         {
-                            r = dec->plte_entries[entry].red;
-                            g = dec->plte_entries[entry].green;
-                            b = dec->plte_entries[entry].blue;
+                            r_8 = dec->plte_entries[entry].red;
+                            g_8 = dec->plte_entries[entry].green;
+                            b_8 = dec->plte_entries[entry].blue;
                         }
                         else
                         {
@@ -1124,13 +1178,8 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
                         }
 
                         if(dec->have_trns &&
-                           (entry < dec->n_trns_type3_entries)) a = dec->trns_type3_alpha[entry];
-                        else a = 255;
-
-                        r = sample_to_target(r, 8, 8, depth_target);
-                        g = sample_to_target(g, 8, 8, depth_target);
-                        b = sample_to_target(b, 8, 8, depth_target);
-                        a = sample_to_target(a, 8, 8, depth_target);
+                           (entry < dec->n_trns_type3_entries)) a_8 = dec->trns_type3_alpha[entry];
+                        else a_8 = 255;
 
                         break;
                     }
@@ -1138,22 +1187,16 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            memcpy(&gray16, scanline + (k * 4), 2);
-                            memcpy(&a16, scanline + (k * 4) + 2, 2);
+                            memcpy(&gray_16, scanline + (k * 4), 2);
+                            memcpy(&a_16, scanline + (k * 4) + 2, 2);
 
-                            gray16 = ntohs(gray16);
-                            a16 = ntohs(a16);
-
-                            gray16 = sample_to_target(gray16, 16, dec->sbit_type4.greyscale_bits, depth_target);
-                            a16 = sample_to_target(a16, 16, dec->sbit_type4.alpha_bits, depth_target);
+                            gray_16 = ntohs(gray_16);
+                            a_16 = ntohs(a_16);
                         }
                         else /* == 8 */
                         {
-                            memcpy(&gray, scanline + (k * 2), 1);
-                            memcpy(&a, scanline + (k * 2) + 1, 1);
-
-                            gray = sample_to_target(gray, 8, dec->sbit_type4.greyscale_bits, depth_target);
-                            a = sample_to_target(a, 8, dec->sbit_type4.alpha_bits, depth_target);
+                            memcpy(&gray_8, scanline + (k * 2), 1);
+                            memcpy(&a_8, scanline + (k * 2) + 1, 1);
                         }
 
                         break;
@@ -1162,46 +1205,59 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            memcpy(&r16, scanline + (k * 8), 2);
-                            memcpy(&g16, scanline + (k * 8) + 2, 2);
-                            memcpy(&b16, scanline + (k * 8) + 4, 2);
-                            memcpy(&a16, scanline + (k * 8) + 6, 2);
+                            memcpy(&r_16, scanline + (k * 8), 2);
+                            memcpy(&g_16, scanline + (k * 8) + 2, 2);
+                            memcpy(&b_16, scanline + (k * 8) + 4, 2);
+                            memcpy(&a_16, scanline + (k * 8) + 6, 2);
 
-                            r16 = ntohs(r16);
-                            g16 = ntohs(g16);
-                            b16 = ntohs(b16);
-                            a16 = ntohs(a16);
-
-                            r16 = sample_to_target(r16, 16, dec->sbit_type6.red_bits, depth_target);
-                            g16 = sample_to_target(g16, 16, dec->sbit_type6.green_bits, depth_target);
-                            b16 = sample_to_target(b16, 16, dec->sbit_type6.blue_bits, depth_target);
-                            a16 = sample_to_target(a16, 16, dec->sbit_type6.alpha_bits, depth_target);
+                            r_16 = ntohs(r_16);
+                            g_16 = ntohs(g_16);
+                            b_16 = ntohs(b_16);
+                            a_16 = ntohs(a_16);
                         }
                         else /* == 8 */
                         {
-                            memcpy(&r, scanline + (k * 4), 1);
-                            memcpy(&g, scanline + (k * 4) + 1, 1);
-                            memcpy(&b, scanline + (k * 4) + 2, 1);
-                            memcpy(&a, scanline + (k * 4) + 3, 1);
-
-                            r = sample_to_target(r, 8, dec->sbit_type6.red_bits, depth_target);
-                            g = sample_to_target(g, 8, dec->sbit_type6.green_bits, depth_target);
-                            b = sample_to_target(b, 8, dec->sbit_type6.blue_bits, depth_target);
-                            a = sample_to_target(a, 8, dec->sbit_type6.alpha_bits, depth_target);
+                            memcpy(&r_8, scanline + (k * 4), 1);
+                            memcpy(&g_8, scanline + (k * 4) + 1, 1);
+                            memcpy(&b_8, scanline + (k * 4) + 2, 1);
+                            memcpy(&a_8, scanline + (k * 4) + 3, 1);
                         }
 
                         break;
                     }
                 }/* switch(dec->ihdr.colour_type) */
 
+
                 if(dec->ihdr.bit_depth == 16)
                 {
-                    r = r16;
-                    g = g16;
-                    b = b16;
-                    a = a16;
-                    gray = gray16;
+                    r = r_16; g = g_16; b = b_16; a = a_16;
+                    gray = gray_16;
                 }
+                else
+                {
+                    r = r_8; g = g_8; b = b_8; a = a_8;
+                    gray = gray_8;
+                }
+
+
+                if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE ||
+                   dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                {
+                    gray = sample_to_target(gray, dec->ihdr.bit_depth, greyscale_sbits, depth_target);
+                    a = sample_to_target(a, dec->ihdr.bit_depth, alpha_sbits, depth_target);
+                }
+                else
+                {
+                    uint8_t processing_depth = dec->ihdr.bit_depth;
+                    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_INDEXED_COLOUR) processing_depth = 8;
+
+                    r = sample_to_target(r, processing_depth, red_sbits, depth_target);
+                    g = sample_to_target(g, processing_depth, green_sbits, depth_target);
+                    b = sample_to_target(b, processing_depth, blue_sbits, depth_target);
+                    a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
+                }
+
+
 
                 if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE ||
                    dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
@@ -1211,13 +1267,115 @@ int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t ou
                     b = gray;
                 }
 
-                memcpy(pixel, &r, 1);
-                memcpy(pixel + 1, &g, 1);
-                memcpy(pixel + 2, &b, 1);
-                memcpy(pixel + 3, &a, 1);
-
+                size_t pixel_size;
                 size_t pixel_offset;
-                size_t pixel_size = 4;
+
+                /* only use *_8/16 for memcpy */
+                r_8 = r; g_8 = g; b_8 = b; a_8 = a;
+                r_16 = r; g_16 = g; b_16 = b; a_16 = a;
+                gray_8 = gray;
+                gray_16 = gray;
+
+                if(fmt == VPNG_FMT_RGBA8)
+                {
+                    pixel_size = 4;
+
+                    memcpy(pixel, &r_8, 1);
+                    memcpy(pixel + 1, &g_8, 1);
+                    memcpy(pixel + 2, &b_8, 1);
+                    memcpy(pixel + 3, &a_8, 1);
+                }
+                else if(fmt == VPNG_FMT_RGBA16)
+                {
+                    pixel_size = 8;
+
+                    memcpy(pixel, &r_8, 2);
+                    memcpy(pixel + 2, &g_8, 2);
+                    memcpy(pixel + 4, &b_8, 2);
+                    memcpy(pixel + 6, &a_8, 2);
+                }
+                else /* == VPNG_FMT_PNG */
+                {
+                    if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE)
+                        {
+                            if(dec->ihdr.bit_depth == 16)
+                            {
+                                pixel_size = 2;
+                                memcpy(pixel, &gray_16, 2);
+                            }
+                            else if(dec->ihdr.bit_depth == 8)
+                            {
+                                pixel_size = 1;
+                                memcpy(pixel, &gray_8, 1);
+                            }
+                            else /* < 8 */
+                            {/* Store sub-byte pixels till we have a full byte
+                                before writing to output */
+                                pixel_size = 1;
+                                /* sub8_pixels is full or last pixel */
+                                if(sub8_pixels_free_bits == 0  || k == (sub[pass].width - 1))
+                                {
+                                    gray = sub8_pixels;
+                                    sub8_pixels_free_bits = 8 - dec->ihdr.bit_depth;
+                                    sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
+                                }
+                                else /* store in sub8 and skip writing to output */
+                                {
+                                    sub8_pixels_free_bits -= dec->ihdr.bit_depth;
+                                    sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
+                                    continue;
+                                }
+                            }
+                        }
+                    else if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_TRUECOLOR ||
+                                                     VPNG_COLOUR_TYPE_INDEXED_COLOUR)
+                    {
+                        pixel_size = 3;
+
+                        memcpy(pixel, &r_8, 1);
+                        memcpy(pixel + 1, &g_8, 1);
+                        memcpy(pixel + 2, &b_8, 1);
+                    }
+                    else if(dec->ihdr.colour_type == VPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                    {
+                        if(dec->ihdr.bit_depth == 16)
+                        {
+                            pixel_size = 4;
+
+                            memcpy(pixel, &gray_16, 2);
+                            memcpy(pixel + 2, &a_16, 2);
+                        }
+                        else
+                        {
+                            pixel_size = 2;
+
+                            memcpy(pixel, &gray_8, 1);
+                            memcpy(pixel + 1, &a_8, 1);
+                        }
+                    }
+                    else /* == VPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA */
+                    {
+                        if(dec->ihdr.bit_depth == 16)
+                        {
+                            pixel_size = 8;
+
+                            memcpy(pixel, &r_16 , 2);
+                            memcpy(pixel + 2, &g_16, 2);
+                            memcpy(pixel + 4, &b_16, 2);
+                            memcpy(pixel + 6, &a_16, 2);
+                        }
+                        else
+                        {
+                            pixel_size = 4;
+
+                            memcpy(pixel, &r_8, 1);
+                            memcpy(pixel + 1, &g_8, 1);
+                            memcpy(pixel + 2, &b_8, 1);
+                            memcpy(pixel + 3, &a_8, 1);
+                        }
+                    }
+                }
+
 
                 if(!dec->ihdr.interlace_method)
                 {

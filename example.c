@@ -85,7 +85,7 @@ int main(int argc, char **argv)
     unsigned char *out = malloc(out_size);
     if(out==NULL) return 1;
 
-    r = vpng_get_image_rgba8(dec, out, out_size);
+    r = vpng_decode_image(dec, VPNG_FMT_RGBA8, out, out_size, 0);
 
     if(r)
     {

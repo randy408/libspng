@@ -56,6 +56,7 @@ extern "C" {
 #define VPNG_EOF 131
 #define VPNG_EBUF_SET 140
 #define VPNG_EBADSTATE 141
+#define VPNG_EFMT 142
 
 #define VPNG_COLOUR_TYPE_GRAYSCALE 0
 #define VPNG_COLOUR_TYPE_TRUECOLOR 2
@@ -66,7 +67,10 @@ extern "C" {
 #define VPNG_IO_EOF -1
 #define VPNG_IO_ERROR -2
 
-#define VPNG_FMT_RGBA8 1
+#define VPNG_FMT_PNG 1
+#define VPNG_FMT_RGBA8 2
+#define VPNG_FMT_RGBA16 3
+
 
 struct vpng_ihdr
 {
@@ -237,11 +241,7 @@ extern int vpng_get_ihdr(struct vpng_decoder *dec, struct vpng_ihdr *ihdr);
 */
 extern int vpng_get_output_image_size(struct vpng_decoder *dec, int fmt, size_t *out);
 
-/* Decodes a PNG image to an 8-bit per pixel RGBA layout to *out
-   minimum out_size is determined with vpng_get_output_image_size()
-*/
-extern int vpng_get_image_rgba8(struct vpng_decoder *dec, unsigned char *out, size_t out_size);
-
+extern int vpng_decode_image(struct vpng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags);
 
 #ifdef __cplusplus
 }

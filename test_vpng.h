@@ -55,7 +55,7 @@ unsigned char *getimage_libvpng(unsigned char *buf, size_t size, size_t *out_siz
     out = malloc(siz);
     if(out==NULL) goto err;
 
-    r = vpng_get_image_rgba8(dec, out, siz);
+    r = vpng_decode_image(dec, VPNG_FMT_RGBA8, out, siz, 0);
 
     if(r)
     {
