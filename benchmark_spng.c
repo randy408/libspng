@@ -20,19 +20,23 @@ int main(int argc, char **argv)
     }
 
     fseek(png, 0, SEEK_END);
-    long siz_pngbuf = ftell(png);
+    size_t siz_pngbuf = ftell(png);
     rewind(png);
 
     pngbuf = malloc(siz_pngbuf);
-    fread(pngbuf, siz_pngbuf, 1, png);
-
     if(pngbuf==NULL)
     {
         printf("malloc() failed\n");
         return 1;
     }
 
-    uint32_t w, h;
+    if(fread(pngbuf, siz_pngbuf, 1, png) != 1)
+    {
+        printf("fread() failed\n");
+        return 1;
+    }
+
+    struct spng_ihdr ihdr;
     size_t img_spng_size;
     unsigned char *img_spng;
 
@@ -40,7 +44,7 @@ int main(int argc, char **argv)
 
     timespec_get(&a, TIME_UTC);
 
-    img_spng = getimage_libspng(pngbuf, siz_pngbuf, &img_spng_size, &w, &h);
+    img_spng = getimage_libspng(pngbuf, siz_pngbuf, &img_spng_size, SPNG_FMT_RGBA8, 0, &ihdr);
 
     timespec_get(&b, TIME_UTC);
 

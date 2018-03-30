@@ -1296,38 +1296,38 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 else /* == SPNG_FMT_PNG */
                 {
                     if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE)
+                    {
+                        if(dec->ihdr.bit_depth == 16)
                         {
-                            if(dec->ihdr.bit_depth == 16)
+                            pixel_size = 2;
+                            memcpy(pixel, &gray_16, 2);
+                        }
+                        else if(dec->ihdr.bit_depth == 8)
+                        {
+                            pixel_size = 1;
+                            memcpy(pixel, &gray_8, 1);
+                        }
+                        else /* < 8 */
+                        {/* Store sub-byte pixels till we have a full byte
+                            before writing to output */
+                            pixel_size = 1;
+                            /* sub8_pixels is full or last pixel */
+                            if(sub8_pixels_free_bits == 0  || k == (sub[pass].width - 1))
                             {
-                                pixel_size = 2;
-                                memcpy(pixel, &gray_16, 2);
+                                gray = sub8_pixels;
+                                sub8_pixels_free_bits = 8 - dec->ihdr.bit_depth;
+                                sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
                             }
-                            else if(dec->ihdr.bit_depth == 8)
+                            else /* store in sub8 and skip writing to output */
                             {
-                                pixel_size = 1;
-                                memcpy(pixel, &gray_8, 1);
-                            }
-                            else /* < 8 */
-                            {/* Store sub-byte pixels till we have a full byte
-                                before writing to output */
-                                pixel_size = 1;
-                                /* sub8_pixels is full or last pixel */
-                                if(sub8_pixels_free_bits == 0  || k == (sub[pass].width - 1))
-                                {
-                                    gray = sub8_pixels;
-                                    sub8_pixels_free_bits = 8 - dec->ihdr.bit_depth;
-                                    sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
-                                }
-                                else /* store in sub8 and skip writing to output */
-                                {
-                                    sub8_pixels_free_bits -= dec->ihdr.bit_depth;
-                                    sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
-                                    continue;
-                                }
+                                sub8_pixels_free_bits -= dec->ihdr.bit_depth;
+                                sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
+                                continue;
                             }
                         }
+                    }
                     else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR ||
-                                                     SPNG_COLOUR_TYPE_INDEXED_COLOUR)
+                            dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR)
                     {
                         pixel_size = 3;
 

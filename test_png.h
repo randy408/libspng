@@ -2,6 +2,7 @@
 #define TEST_PNG_H
 
 #include <png.h>
+#include "spng.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,7 +49,7 @@ void libpng_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
     state->data += length;
 }
 
-unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size)
+unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size, int fmt, int flags)
 {
     png_infop info_ptr;
     png_structp png_ptr;

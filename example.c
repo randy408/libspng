@@ -22,15 +22,19 @@ int main(int argc, char **argv)
 
     fseek(png, 0, SEEK_END);
 
-    long siz_pngbuf = ftell(png);
+    size_t siz_pngbuf = ftell(png);
     rewind(png);
 
     pngbuf = malloc(siz_pngbuf);
-    fread(pngbuf, siz_pngbuf, 1, png);
-
     if(pngbuf==NULL)
     {
         printf("malloc() failed\n");
+        return 1;
+    }
+
+    if(fread(pngbuf, siz_pngbuf, 1, png) != 1)
+    {
+        printf("fread() failed\n");
         return 1;
     }
 

@@ -6,8 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-
-unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_size, uint32_t *w, uint32_t *h)
+unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_size, int fmt, int flags, struct spng_ihdr *info)
 {
     int r;
     size_t siz;
@@ -38,8 +37,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
         goto err;
     }
 
-    *w = ihdr.width;
-    *h = ihdr.height;
+    memcpy(info, &ihdr, sizeof(struct spng_ihdr));
 
 #if defined(TEST_SPNG_IMG_INFO)
     printf("image info: %ux%u %u bpp, type %u, %s\n",
@@ -47,7 +45,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
             ihdr.interlace_method ? "interlaced" : "non-interlaced");
 #endif
 
-    r = spng_get_output_image_size(dec, SPNG_FMT_RGBA8, &siz);
+    r = spng_get_output_image_size(dec, fmt, &siz);
     if(r) goto err;
 
     *out_size = siz;
@@ -55,7 +53,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     out = malloc(siz);
     if(out==NULL) goto err;
 
-    r = spng_decode_image(dec, SPNG_FMT_RGBA8, out, siz, 0);
+    r = spng_decode_image(dec, fmt, out, siz, 0);
 
     if(r)
     {
