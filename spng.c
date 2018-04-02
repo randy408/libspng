@@ -974,8 +974,8 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
         if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
         {
             red_sbits = dec->sbit_type2_3.red_bits;
-            green_sbits = dec->sbit_type2_3.red_bits;
-            blue_sbits = dec->sbit_type2_3.red_bits;
+            green_sbits = dec->sbit_type2_3.green_bits;
+            blue_sbits = dec->sbit_type2_3.blue_bits;
             alpha_sbits = dec->ihdr.bit_depth;
         }
         else if(dec->ihdr.colour_type == 4)
@@ -1093,7 +1093,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         {
                             memcpy(&gray_16, scanline + (k * 2), 2);
 
+#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
                             gray_16 = ntohs(gray_16);
+#endif
 
                             if(dec->have_trns && dec->trns_type0_grey_sample == gray_16) a_16 = 0;
                             else a_16 = 65535;
@@ -1124,11 +1126,11 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&r_16, scanline + (k * 6), 2);
                             memcpy(&g_16, scanline + (k * 6) + 2, 2);
                             memcpy(&b_16, scanline + (k * 6) + 4, 2);
-
+#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
                             r_16 = ntohs(r_16);
                             g_16 = ntohs(g_16);
                             b_16 = ntohs(b_16);
-
+#endif
                             if(dec->have_trns &&
                                dec->trns_type2.red == r_16 &&
                                dec->trns_type2.green == g_16 &&
@@ -1189,8 +1191,10 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&gray_16, scanline + (k * 4), 2);
                             memcpy(&a_16, scanline + (k * 4) + 2, 2);
 
+#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
                             gray_16 = ntohs(gray_16);
                             a_16 = ntohs(a_16);
+#endif
                         }
                         else /* == 8 */
                         {
@@ -1208,11 +1212,12 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&g_16, scanline + (k * 8) + 2, 2);
                             memcpy(&b_16, scanline + (k * 8) + 4, 2);
                             memcpy(&a_16, scanline + (k * 8) + 6, 2);
-
+#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
                             r_16 = ntohs(r_16);
                             g_16 = ntohs(g_16);
                             b_16 = ntohs(b_16);
                             a_16 = ntohs(a_16);
+#endif
                         }
                         else /* == 8 */
                         {
@@ -1288,10 +1293,10 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 {
                     pixel_size = 8;
 
-                    memcpy(pixel, &r_8, 2);
-                    memcpy(pixel + 2, &g_8, 2);
-                    memcpy(pixel + 4, &b_8, 2);
-                    memcpy(pixel + 6, &a_8, 2);
+                    memcpy(pixel, &r_16, 2);
+                    memcpy(pixel + 2, &g_16, 2);
+                    memcpy(pixel + 4, &b_16, 2);
+                    memcpy(pixel + 6, &a_16, 2);
                 }
                 else /* == SPNG_FMT_PNG */
                 {

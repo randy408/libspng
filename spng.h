@@ -8,6 +8,8 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 
+#define SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16 1
+
 #define SPNG_OK 0
 #define SPNG_EINVAL 1
 #define SPNG_EMEM 2

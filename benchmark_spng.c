@@ -20,8 +20,10 @@ int main(int argc, char **argv)
     }
 
     fseek(png, 0, SEEK_END);
-    size_t siz_pngbuf = ftell(png);
+    long siz_pngbuf = ftell(png);
     rewind(png);
+
+    if(siz_pngbuf < 1) return 1;
 
     pngbuf = malloc(siz_pngbuf);
     if(pngbuf==NULL)
