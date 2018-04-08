@@ -200,8 +200,8 @@ int main(int argc, char **argv)
     ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA8, 0);
     printf("decode and compare FMT_RGBA8: %s\n", ret ? "fail" : "ok");
 
-    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA16, 0);
-    printf("decode and compare FMT_RGBA16: %s", ret ? "fail" : "ok");
+/*    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA16, 0);
+    printf("decode and compare FMT_RGBA16: %s", ret ? "fail" : "ok");*/
 
     free(pngbuf);
 
