@@ -39,12 +39,6 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
 
     memcpy(info, &ihdr, sizeof(struct spng_ihdr));
 
-#if defined(TEST_SPNG_IMG_INFO)
-    printf("image info: %ux%u %u bits per sample, type %u, %s\n",
-            ihdr.width, ihdr.height, ihdr.bit_depth, ihdr.colour_type,
-            ihdr.interlace_method ? "interlaced" : "non-interlaced");
-#endif
-
     r = spng_get_output_image_size(dec, fmt, &siz);
     if(r) goto err;
 
@@ -53,7 +47,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     out = malloc(siz);
     if(out==NULL) goto err;
 
-    r = spng_decode_image(dec, fmt, out, siz, 0);
+    r = spng_decode_image(dec, fmt, out, siz, flags);
 
     if(r)
     {

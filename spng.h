@@ -8,8 +8,6 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 
-/*#define SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16 1*/
-
 #define SPNG_OK 0
 #define SPNG_EINVAL 1
 #define SPNG_EMEM 2
@@ -59,6 +57,7 @@ extern "C" {
 #define SPNG_EBUF_SET 140
 #define SPNG_EBADSTATE 141
 #define SPNG_EFMT 142
+#define SPNG_EFLAGS 143
 
 #define SPNG_COLOUR_TYPE_GRAYSCALE 0
 #define SPNG_COLOUR_TYPE_TRUECOLOR 2
@@ -69,10 +68,10 @@ extern "C" {
 #define SPNG_IO_EOF -1
 #define SPNG_IO_ERROR -2
 
-#define SPNG_FMT_PNG 1
-#define SPNG_FMT_RGBA8 2
-#define SPNG_FMT_RGBA16 3
+#define SPNG_FMT_RGBA8 1
+#define SPNG_FMT_RGBA16 2
 
+#define SPNG_DECODE_USE_SBIT 64 /* Rescale samples using sBIT values */
 
 struct spng_ihdr
 {

@@ -694,7 +694,7 @@ static int validate_past_idat(struct spng_decoder *dec)
    "target" must be between 1 and 16
 */
 static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbits, uint8_t target)
-{/* XXX: libpng returns the sample unchanged when sbit is lower than target, instead of rightshifting+upsampling */
+{
     uint16_t sample_bits;
     int8_t shift_amount;
 
@@ -781,33 +781,7 @@ int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out)
     if(!dec->valid_state) return SPNG_EBADSTATE;
 
     size_t res;
-    if(fmt == SPNG_FMT_PNG)
-    {
-        if(dec->ihdr.width > SIZE_MAX / dec->ihdr.height) return SPNG_EOVERFLOW;
-        res = dec->ihdr.width * dec->ihdr.height;
-
-        if(dec->ihdr.bit_depth == 16)
-        {
-            if(8 > SIZE_MAX / res) return SPNG_EOVERFLOW;
-            res = res * 8;
-        }
-        else /* <= 8 */
-        {
-            uint8_t depth = dec->ihdr.bit_depth;
-            if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR) depth = 8;
-
-            uint8_t samples_per_byte = 8 / depth;
-
-            res = res / samples_per_byte;
-
-            if(res % samples_per_byte != 0 || res == 0)
-            {
-                res++;
-                if(res < 1) return SPNG_EOVERFLOW;
-            }
-        }
-    }
-    else if(fmt == SPNG_FMT_RGBA8)
+    if(fmt == SPNG_FMT_RGBA8)
     {
         if(4 > SIZE_MAX / dec->ihdr.width) return SPNG_EOVERFLOW;
         res = 4 * dec->ihdr.width;
@@ -852,14 +826,6 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
             return ret;
         }
     }
-
-    uint8_t depth_target = 8; /* FMT_RGBA8 */
-    if(fmt == SPNG_FMT_PNG)
-    {
-        if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR) depth_target = 8;
-        else depth_target = dec->ihdr.bit_depth;
-    }
-    else if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
 
     uint8_t channels = 1; /* grayscale or indexed_colour */
 
@@ -966,31 +932,37 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
     if(dec->have_sbit)
     {
-        if(dec->ihdr.colour_type == 0)
+        if(flags & SPNG_DECODE_USE_SBIT)
         {
-            greyscale_sbits = dec->sbit_type0_greyscale_bits;
-            alpha_sbits = dec->ihdr.bit_depth;
-        }
-        if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
-        {
-            red_sbits = dec->sbit_type2_3.red_bits;
-            green_sbits = dec->sbit_type2_3.green_bits;
-            blue_sbits = dec->sbit_type2_3.blue_bits;
-            alpha_sbits = dec->ihdr.bit_depth;
-        }
-        else if(dec->ihdr.colour_type == 4)
-        {
-            greyscale_sbits = dec->sbit_type4.greyscale_bits;
-            alpha_sbits = dec->sbit_type4.alpha_bits;
-        }
-        else /* == 6 */
-        {
-            red_sbits = dec->sbit_type6.red_bits;
-            green_sbits = dec->sbit_type6.green_bits;
-            blue_sbits = dec->sbit_type6.blue_bits;
-            alpha_sbits = dec->sbit_type6.alpha_bits;
+            if(dec->ihdr.colour_type == 0)
+            {
+                greyscale_sbits = dec->sbit_type0_greyscale_bits;
+                alpha_sbits = dec->ihdr.bit_depth;
+            }
+            if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
+            {
+                red_sbits = dec->sbit_type2_3.red_bits;
+                green_sbits = dec->sbit_type2_3.green_bits;
+                blue_sbits = dec->sbit_type2_3.blue_bits;
+                alpha_sbits = dec->ihdr.bit_depth;
+            }
+            else if(dec->ihdr.colour_type == 4)
+            {
+                greyscale_sbits = dec->sbit_type4.greyscale_bits;
+                alpha_sbits = dec->sbit_type4.alpha_bits;
+            }
+            else /* == 6 */
+            {
+                red_sbits = dec->sbit_type6.red_bits;
+                green_sbits = dec->sbit_type6.green_bits;
+                blue_sbits = dec->sbit_type6.blue_bits;
+                alpha_sbits = dec->sbit_type6.alpha_bits;
+            }
         }
     }
+
+    uint8_t depth_target = 8; /* FMT_RGBA8 */
+    if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
 
     struct spng_chunk chunk, next;
 
@@ -1070,8 +1042,6 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
             uint16_t r_16, g_16, b_16, a_16, gray_16;
             uint16_t r, g, b, a, gray;
             unsigned char pixel[8] = {0};
-            uint8_t sub8_pixels = 0;
-            uint8_t sub8_pixels_free_bits = 8;
 
             r=0; g=0; b=0; a=0; gray=0;
             r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
@@ -1093,9 +1063,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         {
                             memcpy(&gray_16, scanline + (k * 2), 2);
 
-#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
                             gray_16 = ntohs(gray_16);
-#endif
 
                             if(dec->have_trns && dec->trns_type0_grey_sample == gray_16) a_16 = 0;
                             else a_16 = 65535;
@@ -1126,11 +1094,11 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&r_16, scanline + (k * 6), 2);
                             memcpy(&g_16, scanline + (k * 6) + 2, 2);
                             memcpy(&b_16, scanline + (k * 6) + 4, 2);
-#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
+
                             r_16 = ntohs(r_16);
                             g_16 = ntohs(g_16);
                             b_16 = ntohs(b_16);
-#endif
+
                             if(dec->have_trns &&
                                dec->trns_type2.red == r_16 &&
                                dec->trns_type2.green == g_16 &&
@@ -1191,10 +1159,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&gray_16, scanline + (k * 4), 2);
                             memcpy(&a_16, scanline + (k * 4) + 2, 2);
 
-#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
                             gray_16 = ntohs(gray_16);
                             a_16 = ntohs(a_16);
-#endif
+
                         }
                         else /* == 8 */
                         {
@@ -1212,12 +1179,11 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&g_16, scanline + (k * 8) + 2, 2);
                             memcpy(&b_16, scanline + (k * 8) + 4, 2);
                             memcpy(&a_16, scanline + (k * 8) + 6, 2);
-#if !defined(SPNG_ALPHA_NO_ENDIANNES_CONVERSION_DEPTH16)
+
                             r_16 = ntohs(r_16);
                             g_16 = ntohs(g_16);
                             b_16 = ntohs(b_16);
                             a_16 = ntohs(a_16);
-#endif
                         }
                         else /* == 8 */
                         {
@@ -1297,87 +1263,6 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     memcpy(pixel + 2, &g_16, 2);
                     memcpy(pixel + 4, &b_16, 2);
                     memcpy(pixel + 6, &a_16, 2);
-                }
-                else /* == SPNG_FMT_PNG */
-                {
-                    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE)
-                    {
-                        if(dec->ihdr.bit_depth == 16)
-                        {
-                            pixel_size = 2;
-                            memcpy(pixel, &gray_16, 2);
-                        }
-                        else if(dec->ihdr.bit_depth == 8)
-                        {
-                            pixel_size = 1;
-                            memcpy(pixel, &gray_8, 1);
-                        }
-                        else /* < 8 */
-                        {/* Store sub-byte pixels till we have a full byte
-                            before writing to output */
-                            pixel_size = 1;
-                            /* sub8_pixels is full or last pixel */
-                            if(sub8_pixels_free_bits == 0  || k == (sub[pass].width - 1))
-                            {
-                                gray = sub8_pixels;
-                                sub8_pixels_free_bits = 8 - dec->ihdr.bit_depth;
-                                sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
-                            }
-                            else /* store in sub8 and skip writing to output */
-                            {
-                                sub8_pixels_free_bits -= dec->ihdr.bit_depth;
-                                sub8_pixels |= ( (uint8_t)gray << (8 - sub8_pixels_free_bits));
-                                continue;
-                            }
-                        }
-                    }
-                    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR ||
-                            dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR)
-                    {
-                        pixel_size = 3;
-
-                        memcpy(pixel, &r_8, 1);
-                        memcpy(pixel + 1, &g_8, 1);
-                        memcpy(pixel + 2, &b_8, 1);
-                    }
-                    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
-                    {
-                        if(dec->ihdr.bit_depth == 16)
-                        {
-                            pixel_size = 4;
-
-                            memcpy(pixel, &gray_16, 2);
-                            memcpy(pixel + 2, &a_16, 2);
-                        }
-                        else
-                        {
-                            pixel_size = 2;
-
-                            memcpy(pixel, &gray_8, 1);
-                            memcpy(pixel + 1, &a_8, 1);
-                        }
-                    }
-                    else /* == SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA */
-                    {
-                        if(dec->ihdr.bit_depth == 16)
-                        {
-                            pixel_size = 8;
-
-                            memcpy(pixel, &r_16 , 2);
-                            memcpy(pixel + 2, &g_16, 2);
-                            memcpy(pixel + 4, &b_16, 2);
-                            memcpy(pixel + 6, &a_16, 2);
-                        }
-                        else
-                        {
-                            pixel_size = 4;
-
-                            memcpy(pixel, &r_8, 1);
-                            memcpy(pixel + 1, &g_8, 1);
-                            memcpy(pixel + 2, &b_8, 1);
-                            memcpy(pixel + 3, &a_8, 1);
-                        }
-                    }
                 }
 
 

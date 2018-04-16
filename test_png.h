@@ -116,6 +116,8 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
 
         /* png_set_palette_to_rgb() + png_set_tRNS_to_alpha() */
         png_set_expand_16(png_ptr);
+
+        png_set_swap(png_ptr);
     }
     else if(fmt == SPNG_FMT_RGBA8)
     {
