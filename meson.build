@@ -7,10 +7,10 @@ lib = library('spng', 'spng.c', dependencies : zlibdep)
 
 example = executable('example', 'example.c', 'spng.c', dependencies : zlibdep)
 
-bench_v = executable('bench_spng', 'benchmark_spng.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
-bench_p = executable('bench_png', 'benchmark_png.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
-benchmark('spng_benchmark', bench_v, args: ['../images/large.png'], )
-benchmark('png_benchmark', bench_p, args: ['../images/large.png'], )
+bench_spng = executable('bench_spng', 'benchmark_spng.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
+bench_png = executable('bench_png', 'benchmark_png.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
+benchmark('spng_benchmark', bench_spng, args: ['../benchmark_images/large_mona_lisa.png'])
+benchmark('png_benchmark', bench_png, args: ['../benchmark_images/large_mona_lisa.png'])
 
 test_exe = executable('testsuite', 'testsuite.c', 'spng.c', dependencies : [zlibdep, pngdep])
 
