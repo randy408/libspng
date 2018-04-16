@@ -5,9 +5,8 @@ format files with a focus on security and ease of use.
 
 # Status
 
-Decoding to 8/16-bit RGBA or PNG (no conversion) is supported from any PNG file 
-without gamma-, color correction or suggested palette handling, background color 
-(bKGD) is not supported yet.
+Decoding to 8/16-bit RGBA is supported from any PNG file without gamma-, color 
+correction or suggested palette handling, background color (bKGD) is not supported yet.
 
 # Compatibility
 
@@ -37,6 +36,11 @@ ninja
 ninja test
 ```
 
+## Benchmark
 
-
-# 
+```
+git clone --depth=1 https://gitlab.com/randy408/spng_images.git benchmark_images
+cd build
+meson configure -Dbuildtype=release
+ninja benchmark
+```
