@@ -452,6 +452,9 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
                 if(dec->sbit.greyscale_bits == 0) return SPNG_ESBIT;
                 if(dec->sbit.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+
+                if(dec->sbit.alpha_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.alpha_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 6)
             {
