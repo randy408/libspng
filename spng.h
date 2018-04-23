@@ -91,6 +91,12 @@ struct spng_plte_entry
     uint8_t blue;
 };
 
+struct spng_plte
+{
+    uint32_t n_entries;
+    struct spng_plte_entry entries[256];
+};
+
 struct spng_trns_type2
 {
     uint16_t red;
@@ -98,21 +104,32 @@ struct spng_trns_type2
     uint16_t blue;
 };
 
-struct spng_sbit_type2_3
+struct spng_trns
 {
-    uint8_t red_bits;
-    uint8_t green_bits;
-    uint8_t blue_bits;
+    uint32_t n_type3_entries;
+    union
+    {
+        uint16_t type0_grey_sample;
+        struct spng_trns_type2 type2;
+        uint8_t type3_alpha[256];
+    };
 };
 
-struct spng_sbit_type4
+struct spng_chrm
+{
+    uint32_t white_point_x;
+    uint32_t white_point_y;
+    uint32_t red_x;
+    uint32_t red_y;
+    uint32_t green_x;
+    uint32_t green_y;
+    uint32_t blue_x;
+    uint32_t blue_y;
+};
+
+struct spng_sbit
 {
     uint8_t greyscale_bits;
-    uint8_t alpha_bits;
-};
-
-struct spng_sbit_type6
-{
     uint8_t red_bits;
     uint8_t green_bits;
     uint8_t blue_bits;
@@ -126,16 +143,25 @@ struct spng_bkgd_type2_6
     uint16_t blue;
 };
 
-struct spng_chrm
+struct spng_bkgd
 {
-    uint32_t white_point_x;
-    uint32_t white_point_y;
-    uint32_t red_x;
-    uint32_t red_y;
-    uint32_t green_x;
-    uint32_t green_y;
-    uint32_t blue_x;
-    uint32_t blue_y;
+    union
+    {
+        uint16_t type0_4_greyscale;
+        struct spng_bkgd_type2_6 type2_6;
+        uint8_t type3_plte_index;
+    };
+};
+
+struct spng_hist
+{
+    uint16_t frequency[256];
+};
+
+struct spng_phys
+{
+    uint32_t ppu_x, ppu_y;
+    uint8_t unit_specifier;
 };
 
 struct spng_time
@@ -177,8 +203,7 @@ struct spng_decoder
 
     int8_t have_plte;
     size_t plte_offset;
-    uint32_t n_plte_entries;
-    struct spng_plte_entry plte_entries[256];
+    struct spng_plte plte;
 
     uint8_t have_chrm;
     struct spng_chrm chrm;
@@ -189,40 +214,22 @@ struct spng_decoder
     uint8_t have_iccp;
 
     uint8_t have_sbit;
-    union
-    {
-        uint8_t sbit_type0_greyscale_bits;
-        struct spng_sbit_type2_3 sbit_type2_3;
-        struct spng_sbit_type4 sbit_type4;
-        struct spng_sbit_type6 sbit_type6;
-    };
+    struct spng_sbit sbit;
 
     uint8_t have_srgb;
     uint8_t srgb_rendering_intent;
 
     uint8_t have_bkgd;
-    union
-    {
-        uint16_t bkgd_type0_4_greyscale;
-        struct spng_bkgd_type2_6 bkgd_type2_6;
-        uint8_t bkgd_type3_plte_index;
-    };
+    struct spng_bkgd bkgd;
 
     uint8_t have_hist;
-    uint16_t hist_frequency[256];
+    struct spng_hist hist;
 
     uint8_t have_trns;
-    uint32_t n_trns_type3_entries;
-    union
-    {
-        uint16_t trns_type0_grey_sample;
-        struct spng_trns_type2 trns_type2;
-        uint8_t trns_type3_alpha[256];
-    };
+    struct spng_trns trns;
 
     uint8_t have_phys;
-    uint32_t phys_ppu_x, phys_ppu_y;
-    uint32_t phys_unit_specifier;
+    struct spng_phys phys;
 
     uint8_t have_time;
     struct spng_time time;
@@ -232,14 +239,10 @@ struct spng_decoder
 extern struct spng_decoder *spng_decoder_new(void);
 extern void spng_decoder_free(struct spng_decoder *dec);
 
-/* Sets a full input buffer for decoding. */
 extern int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size);
 
-/* Copies image information to *ihdr, requires an input buffer to be set. */
 extern int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
 
-/* Sets the value of *out to the required size, fmt must be one of SPNG_FMT_*
-*/
 extern int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out);
 
 extern int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags);

@@ -342,16 +342,16 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 if(chunk.length % 3 !=0) return SPNG_ECHUNK_SIZE;
                 if( (chunk.length / 3) > 256 ) return SPNG_ECHUNK_SIZE;
-                if(dec->n_plte_entries > ( (1 << dec->ihdr.bit_depth) -1 ) ) return SPNG_ECHUNK_SIZE;
+                if(dec->plte.n_entries > ( (1 << dec->ihdr.bit_depth) -1 ) ) return SPNG_ECHUNK_SIZE;
 
-                dec->n_plte_entries = chunk.length / 3;
+                dec->plte.n_entries = chunk.length / 3;
 
                 size_t i;
-                for(i=0; i < dec->n_plte_entries; i++)
+                for(i=0; i < dec->plte.n_entries; i++)
                 {
-                    memcpy(&dec->plte_entries[i].red,   data + i * 3, 1);
-                    memcpy(&dec->plte_entries[i].green, data + i * 3 + 1, 1);
-                    memcpy(&dec->plte_entries[i].blue,  data + i * 3 + 2, 1);
+                    memcpy(&dec->plte.entries[i].red,   data + i * 3, 1);
+                    memcpy(&dec->plte.entries[i].green, data + i * 3 + 1, 1);
+                    memcpy(&dec->plte.entries[i].blue,  data + i * 3 + 2, 1);
                 }
 
                 dec->plte_offset = chunk.offset;
@@ -418,59 +418,59 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit_type0_greyscale_bits, data, 1);
+                memcpy(&dec->sbit.greyscale_bits, data, 1);
 
-                if(dec->sbit_type0_greyscale_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type0_greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.greyscale_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
             {
                 if(chunk.length != 3) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit_type2_3.red_bits, data, 1);
-                memcpy(&dec->sbit_type2_3.green_bits, data + 1 , 1);
-                memcpy(&dec->sbit_type2_3.blue_bits, data + 2, 1);
+                memcpy(&dec->sbit.red_bits, data, 1);
+                memcpy(&dec->sbit.green_bits, data + 1 , 1);
+                memcpy(&dec->sbit.blue_bits, data + 2, 1);
 
-                if(dec->sbit_type2_3.red_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type2_3.green_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type2_3.blue_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.red_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.green_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.blue_bits == 0) return SPNG_ESBIT;
 
                 uint8_t bit_depth;
                 if(dec->ihdr.colour_type == 3) bit_depth = 8;
                 else bit_depth = dec->ihdr.bit_depth;
 
-                if(dec->sbit_type2_3.red_bits > bit_depth) return SPNG_ESBIT;
-                if(dec->sbit_type2_3.green_bits > bit_depth) return SPNG_ESBIT;
-                if(dec->sbit_type2_3.blue_bits > bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.red_bits > bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.green_bits > bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.blue_bits > bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 4)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit_type4.greyscale_bits, data, 1);
-                memcpy(&dec->sbit_type4.alpha_bits, data + 1, 1);
+                memcpy(&dec->sbit.greyscale_bits, data, 1);
+                memcpy(&dec->sbit.alpha_bits, data + 1, 1);
 
-                if(dec->sbit_type4.greyscale_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type4.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.greyscale_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(dec->ihdr.colour_type == 6)
             {
                 if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit_type6.red_bits, data, 1);
-                memcpy(&dec->sbit_type6.green_bits, data + 1, 1);
-                memcpy(&dec->sbit_type6.blue_bits, data + 2, 1);
-                memcpy(&dec->sbit_type6.alpha_bits, data + 3, 1);
+                memcpy(&dec->sbit.red_bits, data, 1);
+                memcpy(&dec->sbit.green_bits, data + 1, 1);
+                memcpy(&dec->sbit.blue_bits, data + 2, 1);
+                memcpy(&dec->sbit.alpha_bits, data + 3, 1);
 
-                if(dec->sbit_type6.red_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type6.green_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type6.blue_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit_type6.alpha_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.red_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.green_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.blue_bits == 0) return SPNG_ESBIT;
+                if(dec->sbit.alpha_bits == 0) return SPNG_ESBIT;
 
-                if(dec->sbit_type6.red_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
-                if(dec->sbit_type6.green_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
-                if(dec->sbit_type6.blue_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
-                if(dec->sbit_type6.alpha_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.red_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.green_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.blue_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(dec->sbit.alpha_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
             }
 
             dec->have_sbit = 1;
@@ -498,29 +498,29 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->bkgd_type0_4_greyscale, data, 2);
+                memcpy(&dec->bkgd.type0_4_greyscale, data, 2);
 
-                dec->bkgd_type0_4_greyscale = ntohs(dec->bkgd_type0_4_greyscale) & mask;
+                dec->bkgd.type0_4_greyscale = ntohs(dec->bkgd.type0_4_greyscale) & mask;
             }
             else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 6)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->bkgd_type2_6.red, data, 2);
-                memcpy(&dec->bkgd_type2_6.green, data + 2, 2);
-                memcpy(&dec->bkgd_type2_6.blue, data + 4, 2);
+                memcpy(&dec->bkgd.type2_6.red, data, 2);
+                memcpy(&dec->bkgd.type2_6.green, data + 2, 2);
+                memcpy(&dec->bkgd.type2_6.blue, data + 4, 2);
 
-                dec->bkgd_type2_6.red = ntohs(dec->bkgd_type2_6.red) & mask;
-                dec->bkgd_type2_6.green = ntohs(dec->bkgd_type2_6.green) & mask;
-                dec->bkgd_type2_6.blue = ntohs(dec->bkgd_type2_6.blue) & mask;
+                dec->bkgd.type2_6.red = ntohs(dec->bkgd.type2_6.red) & mask;
+                dec->bkgd.type2_6.green = ntohs(dec->bkgd.type2_6.green) & mask;
+                dec->bkgd.type2_6.blue = ntohs(dec->bkgd.type2_6.blue) & mask;
             }
             else if(dec->ihdr.colour_type == 3)
             {
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
                 if(!dec->have_plte) return SPNG_EBKGD_NO_PLTE;
 
-                memcpy(&dec->bkgd_type3_plte_index, data, 1);
-                if(dec->bkgd_type3_plte_index >= dec->n_plte_entries) return SPNG_EBKGD_PLTE_IDX;
+                memcpy(&dec->bkgd.type3_plte_index, data, 1);
+                if(dec->bkgd.type3_plte_index >= dec->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
             }
 
             dec->have_bkgd = 1;
@@ -538,32 +538,32 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->trns_type0_grey_sample, data, 2);
+                memcpy(&dec->trns.type0_grey_sample, data, 2);
 
-                dec->trns_type0_grey_sample = ntohs(dec->trns_type0_grey_sample) & mask;
+                dec->trns.type0_grey_sample = ntohs(dec->trns.type0_grey_sample) & mask;
             }
             else if(dec->ihdr.colour_type == 2)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->trns_type2.red, data, 2);
-                memcpy(&dec->trns_type2.green, data + 2, 2);
-                memcpy(&dec->trns_type2.blue, data + 4, 2);
+                memcpy(&dec->trns.type2.red, data, 2);
+                memcpy(&dec->trns.type2.green, data + 2, 2);
+                memcpy(&dec->trns.type2.blue, data + 4, 2);
 
-                dec->trns_type2.red = ntohs(dec->trns_type2.red) & mask;
-                dec->trns_type2.green = ntohs(dec->trns_type2.green) & mask;
-                dec->trns_type2.blue = ntohs(dec->trns_type2.blue) & mask;
+                dec->trns.type2.red = ntohs(dec->trns.type2.red) & mask;
+                dec->trns.type2.green = ntohs(dec->trns.type2.green) & mask;
+                dec->trns.type2.blue = ntohs(dec->trns.type2.blue) & mask;
             }
             else if(dec->ihdr.colour_type == 3)
             {
-                if(chunk.length > dec->n_plte_entries) return SPNG_ECHUNK_SIZE;
+                if(chunk.length > dec->plte.n_entries) return SPNG_ECHUNK_SIZE;
 
                 size_t k;
                 for(k=0; k < chunk.length; k++)
                 {
-                    memcpy(&dec->trns_type3_alpha[k], data + k, 1);
+                    memcpy(&dec->trns.type3_alpha[k], data + k, 1);
                 }
-                dec->n_trns_type3_entries = chunk.length;
+                dec->trns.n_type3_entries = chunk.length;
             }
             else return SPNG_ETRNS_COLOUR_TYPE;
 
@@ -575,14 +575,14 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             if(chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
             if(dec->have_hist) return SPNG_EDUP_HIST;
 
-            if( (chunk.length / 2) != (dec->n_plte_entries) ) return SPNG_ECHUNK_SIZE;
+            if( (chunk.length / 2) != (dec->plte.n_entries) ) return SPNG_ECHUNK_SIZE;
 
             size_t k;
             for(k=0; k < (chunk.length / 2); k++)
             {
-                memcpy(&dec->hist_frequency[k], data + k*2, 2);
+                memcpy(&dec->hist.frequency[k], data + k*2, 2);
 
-                dec->hist_frequency[k] = ntohs(dec->hist_frequency[k]);
+                dec->hist.frequency[k] = ntohs(dec->hist.frequency[k]);
             }
 
             dec->have_hist = 1;
@@ -593,13 +593,14 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
             if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
 
-            memcpy(&dec->phys_ppu_x, data, 4);
-            memcpy(&dec->phys_ppu_y, data + 4, 4);
-            memcpy(&dec->phys_unit_specifier, data + 8, 4);
+            memcpy(&dec->phys.ppu_x, data, 4);
+            memcpy(&dec->phys.ppu_y, data + 4, 4);
+            memcpy(&dec->phys.unit_specifier, data + 8, 1);
 
-            dec->phys_ppu_x = ntohl(dec->phys_ppu_x);
-            dec->phys_ppu_y = ntohl(dec->phys_ppu_y);
-            dec->phys_unit_specifier = ntohl(dec->phys_unit_specifier);
+            dec->phys.ppu_x = ntohl(dec->phys.ppu_x);
+            dec->phys.ppu_y = ntohl(dec->phys.ppu_y);
+
+            if(dec->phys.unit_specifier > 1) return 1;
 
             dec->have_phys = 1;
         }
@@ -761,7 +762,6 @@ int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size)
 
     return ret;
 }
-
 
 int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr)
 {
@@ -936,27 +936,27 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
         {
             if(dec->ihdr.colour_type == 0)
             {
-                greyscale_sbits = dec->sbit_type0_greyscale_bits;
+                greyscale_sbits = dec->sbit.greyscale_bits;
                 alpha_sbits = dec->ihdr.bit_depth;
             }
             if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
             {
-                red_sbits = dec->sbit_type2_3.red_bits;
-                green_sbits = dec->sbit_type2_3.green_bits;
-                blue_sbits = dec->sbit_type2_3.blue_bits;
+                red_sbits = dec->sbit.red_bits;
+                green_sbits = dec->sbit.green_bits;
+                blue_sbits = dec->sbit.blue_bits;
                 alpha_sbits = dec->ihdr.bit_depth;
             }
             else if(dec->ihdr.colour_type == 4)
             {
-                greyscale_sbits = dec->sbit_type4.greyscale_bits;
-                alpha_sbits = dec->sbit_type4.alpha_bits;
+                greyscale_sbits = dec->sbit.greyscale_bits;
+                alpha_sbits = dec->sbit.alpha_bits;
             }
             else /* == 6 */
             {
-                red_sbits = dec->sbit_type6.red_bits;
-                green_sbits = dec->sbit_type6.green_bits;
-                blue_sbits = dec->sbit_type6.blue_bits;
-                alpha_sbits = dec->sbit_type6.alpha_bits;
+                red_sbits = dec->sbit.red_bits;
+                green_sbits = dec->sbit.green_bits;
+                blue_sbits = dec->sbit.blue_bits;
+                alpha_sbits = dec->sbit.alpha_bits;
             }
         }
     }
@@ -1065,7 +1065,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
                             gray_16 = ntohs(gray_16);
 
-                            if(dec->have_trns && dec->trns_type0_grey_sample == gray_16) a_16 = 0;
+                            if(dec->have_trns && dec->trns.type0_grey_sample == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* <= 8 */
@@ -1081,7 +1081,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             gray_8 = gray_8 & (mask << shift_amount);
                             gray_8 = gray_8 >> shift_amount;
 
-                            if(dec->have_trns && dec->trns_type0_grey_sample == gray_8) a_8 = 0;
+                            if(dec->have_trns && dec->trns.type0_grey_sample == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1100,9 +1100,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             b_16 = ntohs(b_16);
 
                             if(dec->have_trns &&
-                               dec->trns_type2.red == r_16 &&
-                               dec->trns_type2.green == g_16 &&
-                               dec->trns_type2.blue == b_16) a_16 = 0;
+                               dec->trns.type2.red == r_16 &&
+                               dec->trns.type2.green == g_16 &&
+                               dec->trns.type2.blue == b_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* == 8 */
@@ -1112,9 +1112,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
                             if(dec->have_trns &&
-                               dec->trns_type2.red == r_8 &&
-                               dec->trns_type2.green == g_8 &&
-                               dec->trns_type2.blue == b_8) a_8 = 0;
+                               dec->trns.type2.red == r_8 &&
+                               dec->trns.type2.green == g_8 &&
+                               dec->trns.type2.blue == b_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1134,11 +1134,11 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         entry = entry & (mask << shift_amount);
                         entry = entry >> shift_amount;
 
-                        if(entry < dec->n_plte_entries)
+                        if(entry < dec->plte.n_entries)
                         {
-                            r_8 = dec->plte_entries[entry].red;
-                            g_8 = dec->plte_entries[entry].green;
-                            b_8 = dec->plte_entries[entry].blue;
+                            r_8 = dec->plte.entries[entry].red;
+                            g_8 = dec->plte.entries[entry].green;
+                            b_8 = dec->plte.entries[entry].blue;
                         }
                         else
                         {
@@ -1147,7 +1147,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         }
 
                         if(dec->have_trns &&
-                           (entry < dec->n_trns_type3_entries)) a_8 = dec->trns_type3_alpha[entry];
+                           (entry < dec->trns.n_type3_entries)) a_8 = dec->trns.type3_alpha[entry];
                         else a_8 = 255;
 
                         break;
