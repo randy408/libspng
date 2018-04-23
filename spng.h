@@ -71,6 +71,7 @@ extern "C" {
 #define SPNG_FMT_RGBA8 1
 #define SPNG_FMT_RGBA16 2
 
+#define SPNG_DECODE_USE_TRNS 32
 #define SPNG_DECODE_USE_SBIT 64 /* Rescale samples using sBIT values */
 
 struct spng_ihdr

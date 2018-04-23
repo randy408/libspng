@@ -1068,7 +1068,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
                             gray_16 = ntohs(gray_16);
 
-                            if(dec->have_trns && dec->trns.type0_grey_sample == gray_16) a_16 = 0;
+                            if(dec->have_trns &&
+                               flags & SPNG_DECODE_USE_TRNS &&
+                               dec->trns.type0_grey_sample == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* <= 8 */
@@ -1084,7 +1086,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             gray_8 = gray_8 & (mask << shift_amount);
                             gray_8 = gray_8 >> shift_amount;
 
-                            if(dec->have_trns && dec->trns.type0_grey_sample == gray_8) a_8 = 0;
+                            if(dec->have_trns &&
+                               flags & SPNG_DECODE_USE_TRNS &&
+                               dec->trns.type0_grey_sample == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1103,6 +1107,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             b_16 = ntohs(b_16);
 
                             if(dec->have_trns &&
+                               flags & SPNG_DECODE_USE_TRNS &&
                                dec->trns.type2.red == r_16 &&
                                dec->trns.type2.green == g_16 &&
                                dec->trns.type2.blue == b_16) a_16 = 0;
@@ -1115,6 +1120,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
                             if(dec->have_trns &&
+                               flags & SPNG_DECODE_USE_TRNS &&
                                dec->trns.type2.red == r_8 &&
                                dec->trns.type2.green == g_8 &&
                                dec->trns.type2.blue == b_8) a_8 = 0;
@@ -1150,6 +1156,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         }
 
                         if(dec->have_trns &&
+                           flags & SPNG_DECODE_USE_TRNS &&
                            (entry < dec->trns.n_type3_entries)) a_8 = dec->trns.type3_alpha[entry];
                         else a_8 = 255;
 

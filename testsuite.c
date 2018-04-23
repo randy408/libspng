@@ -227,15 +227,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    int flags = SPNG_DECODE_USE_TRNS;
+
     int ret=0;
     int e = 0;
 
-    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA8, 0);
+    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA8, flags);
     printf("decode and compare FMT_RGBA8: %s\n", ret ? "fail" : "ok");
 
     if(ret) e = ret;
 
-    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA16, 0);
+    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA16, flags);
     printf("decode and compare FMT_RGBA16: %s\n", ret ? "fail" : "ok");
 
     if(!e && ret) e = ret;
