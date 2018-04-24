@@ -41,6 +41,8 @@ extern "C" {
 #define SPNG_EDUP_PHYS 64
 #define SPNG_EDUP_TIME 65
 #define SPNG_ESBIT 66
+#define SPNG_EPHYS 67
+#define SPNG_ETIME 68
 #define SPNG_EPLTE_IDX 67
 #define SPNG_ETRNS_COLOUR_TYPE 68
 #define SPNG_EIDAT_TOO_SHORT 80
@@ -51,6 +53,7 @@ extern "C" {
 #define SPNG_EFILTER 85
 #define SPNG_EBKGD_NO_PLTE 100
 #define SPNG_EBKGD_PLTE_IDX 101
+#define SPNG_EHIST_NO_PLTE 102
 #define SPNG_EBUFSIZ 120
 #define SPNG_EIO 130
 #define SPNG_EOF 131

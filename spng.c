@@ -574,7 +574,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_hist, 4))
         {
-            if(!dec->have_plte) return 1;
+            if(!dec->have_plte) return SPNG_EHIST_NO_PLTE;
             if(chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
             if(dec->have_hist) return SPNG_EDUP_HIST;
 
@@ -603,7 +603,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             dec->phys.ppu_x = ntohl(dec->phys.ppu_x);
             dec->phys.ppu_y = ntohl(dec->phys.ppu_y);
 
-            if(dec->phys.unit_specifier > 1) return 1;
+            if(dec->phys.unit_specifier > 1) return SPNG_EPHYS;
 
             dec->have_phys = 1;
         }
@@ -625,11 +625,11 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
             dec->time.year = ntohs(dec->time.year);
 
-            if(dec->time.month == 0 || dec->time.month > 12) return 1;
-            if(dec->time.day == 0 || dec->time.day > 31) return 1;
-            if(dec->time.hour > 23) return 1;
-            if(dec->time.minute > 59) return 1;
-            if(dec->time.second > 60) return 1;
+            if(dec->time.month == 0 || dec->time.month > 12) return SPNG_ETIME;
+            if(dec->time.day == 0 || dec->time.day > 31) return SPNG_ETIME;
+            if(dec->time.hour > 23) return SPNG_ETIME;
+            if(dec->time.minute > 59) return SPNG_ETIME;
+            if(dec->time.second > 60) return SPNG_ETIME;
 
             dec->have_time = 1;
         }
