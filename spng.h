@@ -46,8 +46,6 @@ extern "C" {
 #define SPNG_EPLTE_IDX 67
 #define SPNG_ETRNS_COLOUR_TYPE 68
 #define SPNG_EIDAT_TOO_SHORT 80
-#define SPNG_EIDAT_TOO_LONG 81
-#define SPNG_EDATA_AFTER_IEND 82
 #define SPNG_EIDAT_STREAM 83
 #define SPNG_EZLIB 84
 #define SPNG_EFILTER 85
@@ -200,6 +198,12 @@ struct spng_decoder
 
     int valid_state;
 
+    uint8_t streaming;
+    spng_read_fn read_fn;
+    void *read_user_ptr;
+
+    uint8_t have_first_idat;
+    uint8_t have_last_idat;
     struct spng_chunk first_idat, last_idat;
 
     int8_t have_ihdr;
@@ -244,6 +248,7 @@ extern struct spng_decoder *spng_decoder_new(void);
 extern void spng_decoder_free(struct spng_decoder *dec);
 
 extern int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size);
+extern int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn read_fn, void *user);
 
 extern int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
 

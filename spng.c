@@ -52,35 +52,37 @@ static int require_bytes(size_t offset, size_t bytes, size_t data_size)
     return 0;
 }
 
-/* Gets and validates the next chunk's offset, length, type and crc.
-   On success the next chunk's data is safe to read from dec->data,
-   if header_only is non-zero then only the next chunk's header is checked and
-   chunk data should not be accessed.
-   On error: EINVAL
-             EOVERFLOW
-             EOF
-             ECHUNK_SIZE
-             ECHUNK_CRC
- */
-static int next_chunk(struct spng_decoder *dec, const struct spng_chunk *current,
-                      struct spng_chunk *next, int header_only)
+/* Read and validate the next chunk header */
+static int next_header(struct spng_decoder *dec, const struct spng_chunk *current,
+                       struct spng_chunk *next)
 {
     if(dec == NULL || current == NULL || next == NULL) return 1;
-/*  Call require_bytes() twice: once with all of current chunk's bytes + next header,
-    then all of next chunk's bytes if the header is valid and header_only is 0 */
+
+    int ret;
     size_t bytes_required;
 
-    bytes_required = current->length;
-    bytes_required += 20; /* current header, current crc, next header */
+    bytes_required = current->length + 20; /* current header, current crc, next header */
     if(bytes_required < current->length) return SPNG_EOVERFLOW;
 
-    int ret = require_bytes(current->offset, bytes_required, dec->data_size);
+    if(dec->streaming) ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, 8);
+    else ret = require_bytes(current->offset, bytes_required, dec->data_size);
+
     if(ret) return ret;
 
-    /* require_bytes() already did an overflow check */
-    next->offset = current->offset + bytes_required - 8;
+    bytes_required -= 8;
+    next->offset = current->offset + bytes_required;
+    if(next->offset < current->offset) return SPNG_EOVERFLOW;
 
-    memcpy(&next->length, dec->data + next->offset, 4);
+    if(dec->streaming)
+    {
+        memcpy(&next->length, dec->data, 4);
+        memcpy(&next->type, dec->data + 4, 4);
+    }
+    else
+    {
+        memcpy(&next->length, dec->data + next->offset, 4);
+        memcpy(&next->type, dec->data + next->offset + 4, 4);
+    }
 
     next->length = ntohl(next->length);
 
@@ -90,31 +92,59 @@ static int next_chunk(struct spng_decoder *dec, const struct spng_chunk *current
         return SPNG_ECHUNK_SIZE;
     }
 
-    memcpy(&next->type, dec->data + next->offset + 4, 4);
+    return 0;
+}
 
-    bytes_required = next->length;
-    bytes_required += 12; /* next header, next crc */
+/* Read chunk data when streaming and check crc */
+static int get_chunk_data(struct spng_decoder *dec, struct spng_chunk *chunk)
+{
+    if(dec == NULL || chunk == NULL) return 1;
 
-    if(bytes_required < next->length) return SPNG_EOVERFLOW;
+    int ret;
+    size_t bytes_required;
 
-    ret = require_bytes(next->offset, bytes_required, dec->data_size);
-    if(ret)
+    if(dec->streaming)
     {
-        memset(next, 0, sizeof(struct spng_chunk));
-        return ret;
+        bytes_required = chunk->length + 4;
+        if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
+
+        if(bytes_required > dec->data_size)
+        {
+            void *buf = realloc(dec->data, bytes_required);
+            if(buf == NULL) return SPNG_EMEM;
+
+            dec->data = buf;
+            dec->data_size = bytes_required;
+        }
+
+        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, bytes_required);
+    }
+    else
+    {
+        bytes_required = chunk->length + 12; /* header, crc */
+        if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
+
+        ret = require_bytes(chunk->offset, bytes_required, dec->data_size);
     }
 
-    memcpy(&next->crc, dec->data + next->offset + 8 + next->length, 4);
-    next->crc = ntohl(next->crc);
+    if(ret) return ret;
 
     uint32_t actual_crc = crc32(0, Z_NULL, 0);
-    actual_crc = crc32(actual_crc, dec->data + next->offset + 4, next->length + 4);
+    actual_crc = crc32(actual_crc, chunk->type, 4);
 
-    if(actual_crc != next->crc)
+    if(dec->streaming)
     {
-        memset(next, 0, sizeof(struct spng_chunk));
-        return SPNG_ECHUNK_CRC;
+        actual_crc = crc32(actual_crc, dec->data, chunk->length);
+        memcpy(&chunk->crc, dec->data + chunk->length, 4);
     }
+    else
+    {
+        actual_crc = crc32(actual_crc, dec->data + chunk->offset + 8, chunk->length);
+        memcpy(&chunk->crc, dec->data + chunk->offset + 8 + chunk->length, 4);
+    }
+
+    chunk->crc = ntohl(chunk->crc);
+    if(actual_crc != chunk->crc) return SPNG_ECHUNK_CRC;
 
     return 0;
 }
@@ -172,55 +202,6 @@ static int check_ihdr(struct spng_ihdr *ihdr)
 
     if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
         return SPNG_EINTERLACE_METHOD;
-
-    return 0;
-}
-
-static int check_sig_get_ihdr(struct spng_decoder *dec)
-{
-    if(dec==NULL) return 1;
-
-    uint8_t signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
-    if(memcmp(dec->data, signature, sizeof(signature))) return SPNG_ESIGNATURE;
-
-    struct spng_chunk chunk;
-
-    size_t sizeof_signature_and_ihdr = 33;
-    if(dec->data_size < sizeof_signature_and_ihdr) return SPNG_EOF;
-
-    memcpy(&chunk.length, dec->data + 8, 4);
-    memcpy(&chunk.type, dec->data + 12, 4);
-    memcpy(&chunk.crc, dec->data + 29, 4);
-
-    chunk.length = ntohl(chunk.length);
-    chunk.crc = ntohl(chunk.crc);
-
-    uint32_t actual_crc = crc32(0, Z_NULL, 0);
-    actual_crc = crc32(actual_crc, dec->data + 12, 17);
-    if(actual_crc != chunk.crc) return SPNG_ECHUNK_CRC;
-
-    if(chunk.length != 13) return SPNG_EIHDR_SIZE;
-    if(memcmp(chunk.type, type_ihdr, 4)) return SPNG_ENOIHDR;
-
-    struct spng_ihdr ihdr;
-
-    memcpy(&ihdr.width, dec->data + 16, 4);
-    memcpy(&ihdr.height, dec->data + 20, 4);
-    memcpy(&ihdr.bit_depth, dec->data + 24, 1);
-    memcpy(&ihdr.colour_type, dec->data + 25, 1);
-    memcpy(&ihdr.compression_method, dec->data + 26, 1);
-    memcpy(&ihdr.filter_method, dec->data + 27, 1);
-    memcpy(&ihdr.interlace_method, dec->data + 28, 1);
-
-    ihdr.width = ntohl(ihdr.width);
-    ihdr.height = ntohl(ihdr.height);
-
-    int ret = check_ihdr(&ihdr);
-    if(ret) return ret;
-
-    memcpy(&dec->ihdr, &ihdr, sizeof(struct spng_ihdr));
-
-    dec->have_ihdr = 1;
 
     return 0;
 }
@@ -302,21 +283,64 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 
 /*
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
-    Returns zero and sets dec->first_idat
+    Returns zero and sets dec->first_idat on success
 */
 static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 {
     if(dec==NULL) return 1;
+    if(dec->data == NULL) return 1;
     if(!dec->valid_state) return SPNG_EBADSTATE;
 
+    int ret;
+    unsigned char *data;
     struct spng_chunk chunk, next;
-    /* use IHDR as current chunk */
+
     chunk.offset = 8;
     chunk.length = 13;
+    size_t sizeof_sig_ihdr = 33;
 
-    unsigned char *data;
+    if(dec->streaming)
+    {
+        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, sizeof_sig_ihdr);
+        if(ret) return ret;
+    }
 
-    while(!next_chunk(dec, &chunk, &next, 1)) /* read header */
+    data = dec->data;
+
+    uint8_t signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+    if(memcmp(data, signature, sizeof(signature))) return SPNG_ESIGNATURE;
+
+    memcpy(&chunk.length, data + 8, 4);
+    memcpy(&chunk.type, data + 12, 4);
+    memcpy(&chunk.crc, data + 29, 4);
+
+    chunk.length = ntohl(chunk.length);
+    chunk.crc = ntohl(chunk.crc);
+
+    uint32_t actual_crc = crc32(0, Z_NULL, 0);
+    actual_crc = crc32(actual_crc, dec->data + 12, 17);
+    if(actual_crc != chunk.crc) return SPNG_ECHUNK_CRC;
+
+    if(chunk.length != 13) return SPNG_EIHDR_SIZE;
+    if(memcmp(chunk.type, type_ihdr, 4)) return SPNG_ENOIHDR;
+
+    memcpy(&dec->ihdr.width, data + 16, 4);
+    memcpy(&dec->ihdr.height, data + 20, 4);
+    memcpy(&dec->ihdr.bit_depth, data + 24, 1);
+    memcpy(&dec->ihdr.colour_type, data + 25, 1);
+    memcpy(&dec->ihdr.compression_method, data + 26, 1);
+    memcpy(&dec->ihdr.filter_method, data + 27, 1);
+    memcpy(&dec->ihdr.interlace_method, data + 28, 1);
+
+    dec->ihdr.width = ntohl(dec->ihdr.width);
+    dec->ihdr.height = ntohl(dec->ihdr.height);
+
+    ret = check_ihdr(&dec->ihdr);
+    if(ret) return ret;
+
+    dec->have_ihdr = 1;
+
+    while( !(ret = next_header(dec, &chunk, &next)))
     {
         memcpy(&chunk, &next, sizeof(struct spng_chunk));
 
@@ -326,10 +350,11 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             return 0;
         }
 
-        int ret = next_chunk(dec, &chunk, &next, 0); /* read data, check crc */
+        ret = get_chunk_data(dec, &chunk);
         if(ret) return ret;
 
-        data = dec->data + chunk.offset + 8;
+        if(dec->streaming) data = dec->data;
+        else data = dec->data + chunk.offset + 8;
 
         /* Reserved bit must be zero */
         if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
@@ -644,26 +669,40 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
         }
     }
 
-    /* didn't reach an IDAT chunk */
-    return next_chunk(dec, &chunk, &next, 1);
+    return ret;
 }
 
 static int validate_past_idat(struct spng_decoder *dec)
 {
     if(dec == NULL) return 1;
 
+    int ret;
+    int prev_was_idat = 1;
     struct spng_chunk chunk, next;
 
     memcpy(&chunk, &dec->last_idat, sizeof(struct spng_chunk));
 
-    while(!next_chunk(dec, &chunk, &next, 0))
+    while( !(ret = next_header(dec, &chunk, &next)))
     {
         memcpy(&chunk, &next, sizeof(struct spng_chunk));
+
+        ret = get_chunk_data(dec, &chunk);
+        if(ret) return ret;
 
         /* Reserved bit must be zero */
         if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
          /* Ignore private chunks */
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
+
+        /* Critical chunk */
+        if( (chunk.type[0] & (1 << 5)) == 0)
+        {
+            if(!memcmp(chunk.type, type_iend, 4)) return 0;
+            else if(!memcmp(chunk.type, type_idat, 4) && prev_was_idat) continue; /* ignore extra IDATs */
+            else return SPNG_ECHUNK_POS; /* critical chunk after last IDAT that isn't IEND */
+        }
+
+        prev_was_idat = 0;
 
         if(!memcmp(chunk.type, type_chrm, 4)) return SPNG_ECHUNK_POS;
         if(!memcmp(chunk.type, type_gama, 4)) return SPNG_ECHUNK_POS;
@@ -677,17 +716,7 @@ static int validate_past_idat(struct spng_decoder *dec)
         if(!memcmp(chunk.type, type_splt, 4)) return SPNG_ECHUNK_POS;
     }
 
-    int ret = next_chunk(dec, &chunk, &next, 0);
-
-    if(ret != SPNG_EOF) return ret;
-
-    /* last chunk must be IEND */
-    if(memcmp(chunk.type, type_iend, 4)) return SPNG_ECHUNK_POS;
-
-    /* IEND chunk must be at the very end */
-    if(chunk.offset != (dec->data_size - 12) ) return SPNG_EDATA_AFTER_IEND;
-
-    return 0;
+    return ret;
 }
 
 
@@ -760,17 +789,54 @@ int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size)
     dec->data = buf;
     dec->data_size = size;
 
-    int ret = check_sig_get_ihdr(dec);
-    if(ret) dec->valid_state = 0;
+    return 0;
+}
 
-    return ret;
+int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn read_func, void *user)
+{
+    if(dec == NULL || read_func == NULL) return 1;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
+
+    if(dec->data != NULL) return SPNG_EBUF_SET;
+
+    dec->data = malloc(8192);
+    if(dec->data == NULL) return SPNG_EMEM;
+    dec->data_size = 8192;
+
+    dec->read_fn = read_func;
+    dec->read_user_ptr = user;
+
+    dec->streaming = 1;
+
+    return 0;
+}
+
+static int get_ancillary(struct spng_decoder *dec)
+{
+    if(dec == NULL) return 1;
+    if(dec->data == NULL) return 1;
+    if(!dec->valid_state) return SPNG_EBADSTATE;
+
+    int ret;
+    if(!dec->first_idat.offset)
+    {
+        ret = get_ancillary_data_first_idat(dec);
+        if(ret)
+        {
+            dec->valid_state = 0;
+            return ret;
+        }
+    }
+
+    return 0;
 }
 
 int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr)
 {
-    if(dec==NULL || ihdr==NULL) return 1;
-    if(dec->data == NULL) return 1;
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(ihdr==NULL) return 1;
+
+    int ret = get_ancillary(dec);
+    if(ret) return ret;
 
     memcpy(ihdr, &dec->ihdr, sizeof(struct spng_ihdr));
 
@@ -820,15 +886,8 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
 
-    if(!dec->first_idat.offset)
-    {
-        ret = get_ancillary_data_first_idat(dec);
-        if(ret)
-        {
-            dec->valid_state = 0;
-            return ret;
-        }
-    }
+    ret = get_ancillary(dec);
+    if(ret) return ret;
 
     uint8_t channels = 1; /* grayscale or indexed_colour */
 
@@ -971,8 +1030,50 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
     memcpy(&chunk, &dec->first_idat, sizeof(struct spng_chunk));
 
-    stream.avail_in = chunk.length;
-    stream.next_in = dec->data + chunk.offset + 8;
+    uint32_t actual_crc;
+
+    /* chunk data left for current IDAT, only used when streaming */
+    uint32_t bytes_left = 0;
+
+    if(dec->streaming)
+    {
+        bytes_left = chunk.length;
+        uint32_t len = 8192;
+        if(bytes_left < len) len = bytes_left;
+
+        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, len);
+        if(ret) goto decode_err;
+
+        bytes_left -= len;
+        actual_crc = crc32(0, NULL, 0);
+        actual_crc = crc32(actual_crc, chunk.type, 4);
+        actual_crc = crc32(actual_crc, dec->data, len);
+
+        if(!bytes_left)
+        {
+            ret = dec->read_fn(dec, dec->read_user_ptr, &chunk.crc, 4);
+            if(ret) goto decode_err;
+
+            chunk.crc = ntohl(chunk.crc);
+
+            if(actual_crc != chunk.crc)
+            {
+                ret = SPNG_ECHUNK_CRC;
+                goto decode_err;
+            }
+        }
+
+        stream.avail_in = len;
+        stream.next_in = dec->data;
+    }
+    else
+    {
+        ret = get_chunk_data(dec, &chunk);
+        if(ret) goto decode_err;
+
+        stream.avail_in = chunk.length;
+        stream.next_in = dec->data + chunk.offset + 8;
+    }
 
     int pass;
     uint32_t scanline_idx;
@@ -1020,7 +1121,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 /* We don't have scanline_width of data and we ran out of data for this chunk */
                 if(stream.avail_out !=0 && stream.avail_in == 0)
                 {
-                    ret = next_chunk(dec, &chunk, &next, 0);
+                    ret = next_header(dec, &chunk, &next);
                     if(ret) goto decode_err;
 
                     memcpy(&chunk, &next, sizeof(struct spng_chunk));
@@ -1031,8 +1132,46 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         goto decode_err;
                     }
 
-                    stream.avail_in = chunk.length;
-                    stream.next_in = dec->data + chunk.offset + 8;
+                    if(dec->streaming)
+                    {
+                        bytes_left = chunk.length;
+                        uint32_t len = 8192;
+                        if(bytes_left < len) len = bytes_left;
+
+                        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, len);
+                        if(ret) goto decode_err;
+
+                        bytes_left -= len;
+
+                        actual_crc = crc32(0, NULL, 0);
+                        actual_crc = crc32(actual_crc, chunk.type, 4);
+                        actual_crc = crc32(actual_crc, dec->data, len);
+
+                        if(!bytes_left)
+                        {
+                            ret = dec->read_fn(dec, dec->read_user_ptr, &chunk.crc, 4);
+                            if(ret) goto decode_err;
+
+                            chunk.crc = ntohl(chunk.crc);
+
+                            if(actual_crc != chunk.crc)
+                            {
+                                ret = SPNG_ECHUNK_CRC;
+                                goto decode_err;
+                            }
+                        }
+
+                        stream.avail_in = len;
+                        stream.next_in = dec->data;
+                    }
+                    else
+                    {
+                        ret = get_chunk_data(dec, &chunk);
+                        if(ret) goto decode_err;
+
+                        stream.avail_in = chunk.length;
+                        stream.next_in = dec->data + chunk.offset + 8;
+                    }
                 }
 
             }while(stream.avail_out != 0);
@@ -1303,11 +1442,30 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
     }/* for(pass=0; pass < 7; pass++) */
 
+    /* zlib stream ended before an IDAT chunk boundary */
+    if(dec->streaming && bytes_left)
+    {/* read the rest of the chunk and check crc */
+        while(bytes_left)
+        {
+            uint32_t len = 8192;
+            if(bytes_left < len) len = bytes_left;
 
-   if(stream.avail_in != 0)
-    {
-        ret = SPNG_EIDAT_TOO_LONG;
-        goto decode_err;
+            ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, len);
+            if(ret) goto decode_err;
+
+            bytes_left -= len;
+        }
+
+        ret = dec->read_fn(dec, dec->read_user_ptr, &chunk.crc, 4);
+        if(ret) goto decode_err;
+
+        chunk.crc = ntohl(chunk.crc);
+
+        if(actual_crc != chunk.crc)
+        {
+            ret = SPNG_ECHUNK_CRC;
+            goto decode_err;
+        }
     }
 
 decode_err:
@@ -1316,12 +1474,17 @@ decode_err:
     free(scanline_orig);
     free(prev_scanline);
 
-    if(!ret)
+    if(ret)
     {
-        memcpy(&dec->last_idat, &chunk, sizeof(struct spng_chunk));
-        ret = validate_past_idat(dec);
-        if(ret) return ret;
+        dec->valid_state = 0;
+        return ret;
     }
+
+    memcpy(&dec->last_idat, &chunk, sizeof(struct spng_chunk));
+
+    ret = validate_past_idat(dec);
+
+    if(ret) dec->valid_state = 0;
 
     return ret;
 }
