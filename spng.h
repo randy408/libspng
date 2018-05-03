@@ -43,6 +43,8 @@ extern "C" {
 #define SPNG_ESBIT 66
 #define SPNG_EPHYS 67
 #define SPNG_ETIME 68
+#define SPNG_ECHRM 300
+#define SPNG_EGAMA 301
 #define SPNG_EPLTE_IDX 67
 #define SPNG_ETRNS_COLOUR_TYPE 68
 #define SPNG_EIDAT_TOO_SHORT 80

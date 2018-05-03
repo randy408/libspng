@@ -412,6 +412,15 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             dec->chrm.blue_x = ntohl(dec->chrm.blue_x);
             dec->chrm.blue_y = ntohl(dec->chrm.blue_y);
 
+            if(dec->chrm.white_point_x > png_u32max ||
+               dec->chrm.white_point_y > png_u32max ||
+               dec->chrm.red_x > png_u32max ||
+               dec->chrm.red_y > png_u32max ||
+               dec->chrm.green_x  > png_u32max ||
+               dec->chrm.green_y  > png_u32max ||
+               dec->chrm.blue_x > png_u32max ||
+               dec->chrm.blue_y > png_u32max) return SPNG_ECHRM;
+
             dec->have_chrm = 1;
         }
         else if(!memcmp(chunk.type, type_gama, 4))
@@ -424,6 +433,8 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             memcpy(&dec->gama, data, 4);
 
             dec->gama = ntohl(dec->gama);
+
+            if(dec->gama > png_u32max) return SPNG_EGAMA;
 
             dec->have_gama = 1;
         }
@@ -629,6 +640,9 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             dec->phys.ppu_y = ntohl(dec->phys.ppu_y);
 
             if(dec->phys.unit_specifier > 1) return SPNG_EPHYS;
+
+            if(dec->phys.ppu_x > png_u32max) return SPNG_EPHYS;
+            if(dec->phys.ppu_y > png_u32max) return SPNG_EPHYS;
 
             dec->have_phys = 1;
         }
