@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 
     if(r)
     {
-        printf("spng_get_image_rgba8() returned %d\n", r);
+        printf("spng_decode_image() returned %d\n", r);
         return 1;
     }
 

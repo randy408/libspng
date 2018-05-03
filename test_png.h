@@ -21,7 +21,7 @@ void *malloc_fn(png_structp png_ptr, png_alloc_size_t size)
 {
     void *mem = malloc(size);
     printf("alloc: %zu\n", size);
-    return malloc(size);
+    return mem;
 }
 
 void free_fn(png_structp png_ptr, png_voidp ptr)
@@ -36,7 +36,7 @@ void libpng_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
     struct buf_state *state = png_get_io_ptr(png_ptr);
 
 #if defined(TEST_SPNG_STREAM_READ_INFO)
-    printf("bytes read: %u\n", length);
+    printf("libpng bytes read: %lu\n", length);
 #endif
 
     if(length > state->bytes_left)
