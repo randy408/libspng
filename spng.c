@@ -18,6 +18,18 @@ struct spng_subimage
     uint32_t height;
 };
 
+struct spng_decomp
+{
+    unsigned char *buf; /* input buffer */
+    size_t size; /* input buffer size */
+
+    char *out; /* output buffer */
+    size_t decomp_size; /* decompressed data size */
+    size_t decomp_alloc_size; /* actual buffer size */
+
+    size_t initial_size; /* initial value for decomp_size */
+};
+
 static const uint32_t png_u32max = 2147483647;
 
 static const uint8_t type_ihdr[4] = { 73, 72, 68, 82 };
@@ -206,6 +218,30 @@ static int check_ihdr(struct spng_ihdr *ihdr)
     return 0;
 }
 
+/* Validate PNG keyword *str, *str must be 80 bytes */
+static int check_png_keyword(const char str[80])
+{
+    if(str == NULL) return 1;
+    char *end = memchr(str, '\0', 80);
+
+    if(end == NULL) return 1; /* unterminated string */
+    if(end == str) return 1; /* zero-length string */
+    if(str[0] == ' ') return 1; /* leading space */
+    if(end[-1] == ' ') return 1; /* trailing space */
+    if(strstr(str, "  ") != NULL) return 1; /* consecutive spaces */
+
+    uint8_t c;
+    while(str != end)
+    {
+        memcpy(&c, str, 1);
+
+        if( (c >= 32 && c <= 126) || (c >= 161 && c <= 255) ) str++;
+        else return 1; /* invalid character */
+    }
+
+    return 0;
+}
+
 static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
 {
     int16_t p = (int16_t)a + (int16_t)b - (int16_t)c;
@@ -277,6 +313,82 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 
         memcpy(scanline + i, &x, 1);
     }
+
+    return 0;
+}
+
+/* Decompress a zlib stream from params->buf to params->out,
+   params->out is allocated by the function,
+   params->size and initial_size should be non-zero. */
+static int decompress_zstream(struct spng_decomp *params)
+{
+    if(params == NULL) return 1;
+    if(params->buf == NULL || params->size == 0) return 1;
+    if(params->initial_size == 0) return 1;
+
+    params->decomp_alloc_size = params->initial_size;
+    params->out = malloc(params->decomp_alloc_size);
+    if(params->out == NULL) return 1;
+
+    int ret;
+    z_stream stream;
+    stream.zalloc = Z_NULL;
+    stream.zfree = Z_NULL;
+    stream.opaque = Z_NULL;
+
+    if(inflateInit(&stream) != Z_OK)
+    {
+        free(params->out);
+        return SPNG_EZLIB;
+    }
+
+    stream.avail_in = params->size;
+    stream.next_in = params->buf;
+
+    stream.avail_out = params->decomp_alloc_size;
+    stream.next_out = (unsigned char*)params->out;
+
+    do
+    {
+        ret = inflate(&stream, Z_SYNC_FLUSH);
+
+        if(ret != Z_OK && ret != Z_STREAM_END && ret != Z_BUF_ERROR)
+        {
+            inflateEnd(&stream);
+            free(params->out);
+            return SPNG_EZLIB;
+        }
+
+        if(stream.avail_out == 0 && stream.avail_in != 0)
+        {
+            if(2 > SIZE_MAX / params->decomp_alloc_size)
+            {
+                inflateEnd(&stream);
+                free(params->out);
+                return SPNG_EOVERFLOW;
+            }
+
+            params->decomp_alloc_size *= 2;
+            void *temp = realloc(params->out, params->decomp_alloc_size);
+
+            if(temp == NULL)
+            {
+                inflateEnd(&stream);
+                free(params->out);
+                return SPNG_EMEM;
+            }
+
+            params->out = temp;
+
+            /* doubling the buffer size means its now half full */
+            stream.avail_out = params->decomp_alloc_size / 2;
+            stream.next_out = (unsigned char*)params->out + params->decomp_alloc_size / 2;
+        }
+
+    }while(ret != Z_STREAM_END);
+
+    params->decomp_size = stream.total_out;
+    inflateEnd(&stream);
 
     return 0;
 }
@@ -442,8 +554,36 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
         {
             if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
             if(dec->have_iccp) return SPNG_EDUP_ICCP;
+
+            size_t name_len = chunk.length > 80 ? 80 : chunk.length;
+            char *name_nul = memchr(data, '\0', name_len);
+            if(name_nul == NULL) return SPNG_EICCP_NAME;
+
+            memcpy(&dec->iccp.profile_name, data, name_len);
+
+            if(check_png_keyword(dec->iccp.profile_name)) return SPNG_EICCP_NAME;
+
+            name_len = strlen(dec->iccp.profile_name);
+
+            /* check for at least 2 bytes after profile name */
+            if( (chunk.length - name_len - 1) < 2) return SPNG_ECHUNK_SIZE;
+
+            uint8_t compression_method;
+            memcpy(&compression_method, data + name_len + 1, 1);
+            if(compression_method) return SPNG_EICCP_COMPRESSION_METHOD;
+
+            struct spng_decomp params;
+            params.buf = data + name_len + 2;
+            params.size = chunk.length - name_len - 2;
+            params.initial_size = 1024;
+
+            ret = decompress_zstream(&params);
+            if(ret) return ret;
+
+            dec->iccp.profile = params.out;
+            dec->iccp.profile_len = params.decomp_size;
+
             dec->have_iccp = 1;
-            /* TODO: read */
         }
         else if(!memcmp(chunk.type, type_sbit, 4))
         {
@@ -647,7 +787,107 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             dec->have_phys = 1;
         }
         else if(!memcmp(chunk.type, type_splt, 4))
-        {/* TODO: read */
+        {
+            if(!dec->have_splt)
+            {
+                dec->n_splt = 1;
+                dec->splt_list = malloc(sizeof(struct spng_splt));
+                if(dec->splt_list == NULL) return SPNG_EMEM;
+            }
+            else
+            {
+                dec->n_splt++;
+                if(dec->n_splt < 1) return SPNG_EOVERFLOW;
+                if(dec->n_splt > SIZE_MAX / sizeof(struct spng_splt)) return SPNG_EOVERFLOW;
+
+                void *buf = realloc(dec->splt_list, dec->n_splt * sizeof(struct spng_splt));
+                if(buf == NULL) return SPNG_EMEM;
+                dec->splt_list = buf;
+            }
+
+            uint32_t i = dec->n_splt - 1;
+
+            size_t keyword_len = chunk.length > 80 ? 80 : chunk.length;
+            char *keyword_nul = memchr(data, '\0', keyword_len);
+            if(keyword_nul == NULL) return SPNG_ESPLT_NAME;
+
+            memcpy(&dec->splt_list[i].name, data, keyword_len);
+
+            if(check_png_keyword(dec->splt_list[i].name)) return SPNG_ESPLT_NAME;
+
+            keyword_len = strlen(dec->splt_list[i].name);
+
+            if( (chunk.length - keyword_len - 1) ==  0) return SPNG_ECHUNK_SIZE;
+
+            memcpy(&dec->splt_list[i].sample_depth, data + keyword_len + 1, 1);
+
+            if(dec->n_splt > 1)
+            {
+                uint32_t j;
+                for(j=0; j < i; j++)
+                {
+                    if(!strcmp(dec->splt_list[j].name, dec->splt_list[i].name)) return SPNG_ESPLT_DUP_NAME;
+                }
+            }
+
+            if(dec->splt_list[i].sample_depth == 16)
+            {
+                if( (chunk.length - keyword_len - 2) % 10 != 0) return SPNG_ECHUNK_SIZE;
+                dec->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 10;
+            }
+            else if(dec->splt_list[i].sample_depth == 8)
+            {
+                if( (chunk.length - keyword_len - 2) % 6 != 0) return SPNG_ECHUNK_SIZE;
+                dec->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 6;
+            }
+            else return SPNG_ESPLT_DEPTH;
+
+            if(dec->splt_list[i].n_entries == 0) return SPNG_ECHUNK_SIZE;
+            if(sizeof(struct spng_splt_entry) > SIZE_MAX / dec->splt_list[i].n_entries) return SPNG_EOVERFLOW;
+
+            dec->splt_list[i].entries = malloc(sizeof(struct spng_splt_entry) * dec->splt_list[i].n_entries);
+            if(dec->splt_list[i].entries == NULL) return SPNG_EMEM;
+
+            const unsigned char *splt = data + keyword_len + 2;
+
+            size_t k;
+            if(dec->splt_list[i].sample_depth == 16)
+            {
+                for(k=0; k < dec->splt_list[i].n_entries; k++)
+                {
+                    memcpy(&dec->splt_list[i].entries[k].red,   splt + k * 10, 2);
+                    memcpy(&dec->splt_list[i].entries[k].green, splt + k * 10 + 2, 2);
+                    memcpy(&dec->splt_list[i].entries[k].blue,  splt + k * 10 + 4, 2);
+                    memcpy(&dec->splt_list[i].entries[k].alpha, splt + k * 10 + 6, 2);
+                    memcpy(&dec->splt_list[i].entries[k].frequency, splt + k * 10 + 8, 2);
+
+                    dec->splt_list[i].entries[k].red = ntohs(dec->splt_list[i].entries[k].red);
+                    dec->splt_list[i].entries[k].green = ntohs(dec->splt_list[i].entries[k].green);
+                    dec->splt_list[i].entries[k].blue = ntohs(dec->splt_list[i].entries[k].blue);
+                    dec->splt_list[i].entries[k].alpha = ntohs(dec->splt_list[i].entries[k].alpha);
+                    dec->splt_list[i].entries[k].frequency = ntohs(dec->splt_list[i].entries[k].frequency);
+                }
+            }
+            else if(dec->splt_list[i].sample_depth == 8)
+            {
+                for(k=0; k < dec->splt_list[i].n_entries; k++)
+                {
+                    uint8_t red, green, blue, alpha;
+                    memcpy(&red,   splt + k * 6, 1);
+                    memcpy(&green, splt + k * 6 + 1, 1);
+                    memcpy(&blue,  splt + k * 6 + 2, 1);
+                    memcpy(&alpha, splt + k * 6 + 3, 1);
+                    memcpy(&dec->splt_list[i].entries[k].frequency, splt + k * 6 + 4, 2);
+
+                    dec->splt_list[i].entries[k].red = red;
+                    dec->splt_list[i].entries[k].green = green;
+                    dec->splt_list[i].entries[k].blue = blue;
+                    dec->splt_list[i].entries[k].alpha = alpha;
+                    dec->splt_list[i].entries[k].frequency = ntohs(dec->splt_list[i].entries[k].frequency);
+                }
+            }
+
+            dec->have_splt = 1;
         }
         else if(!memcmp(chunk.type, type_time, 4))
         {
@@ -787,6 +1027,18 @@ struct spng_decoder * spng_decoder_new(void)
 void spng_decoder_free(struct spng_decoder *dec)
 {
     if(dec==NULL) return;
+
+    if(dec->iccp.profile != NULL) free(dec->iccp.profile);
+
+    if(dec->splt_list != NULL)
+    {
+        uint32_t i;
+        for(i=0; i < dec->n_splt; i++)
+        {
+            if(dec->splt_list[i].entries != NULL) free(dec->splt_list[i].entries);
+        }
+        free(dec->splt_list);
+    }
 
     memset(dec, 0, sizeof(struct spng_decoder));
 

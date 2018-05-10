@@ -45,6 +45,11 @@ extern "C" {
 #define SPNG_ETIME 68
 #define SPNG_ECHRM 300
 #define SPNG_EGAMA 301
+#define SPNG_ESPLT_NAME 303
+#define SPNG_ESPLT_DUP_NAME 303
+#define SPNG_ESPLT_DEPTH 304
+#define SPNG_EICCP_NAME 320
+#define SPNG_EICCP_COMPRESSION_METHOD 321
 #define SPNG_EPLTE_IDX 67
 #define SPNG_ETRNS_COLOUR_TYPE 68
 #define SPNG_EIDAT_TOO_SHORT 80
@@ -131,6 +136,13 @@ struct spng_chrm
     uint32_t blue_y;
 };
 
+struct spng_iccp
+{
+    char profile_name[80];
+    size_t profile_len;
+    char *profile;
+};
+
 struct spng_sbit
 {
     uint8_t greyscale_bits;
@@ -166,6 +178,23 @@ struct spng_phys
 {
     uint32_t ppu_x, ppu_y;
     uint8_t unit_specifier;
+};
+
+struct spng_splt_entry
+{
+    uint16_t red;
+    uint16_t green;
+    uint16_t blue;
+    uint16_t alpha;
+    uint16_t frequency;
+};
+
+struct spng_splt
+{
+    char name[80];
+    uint8_t sample_depth;
+    uint32_t n_entries;
+    struct spng_splt_entry *entries;
 };
 
 struct spng_time
@@ -218,10 +247,11 @@ struct spng_decoder
     uint8_t have_chrm;
     struct spng_chrm chrm;
 
+    uint8_t have_iccp;
+    struct spng_iccp iccp;
+
     uint8_t have_gama;
     uint32_t gama;
-
-    uint8_t have_iccp;
 
     uint8_t have_sbit;
     struct spng_sbit sbit;
@@ -240,6 +270,10 @@ struct spng_decoder
 
     uint8_t have_phys;
     struct spng_phys phys;
+
+    uint8_t have_splt;
+    uint32_t n_splt;
+    struct spng_splt *splt_list;
 
     uint8_t have_time;
     struct spng_time time;
