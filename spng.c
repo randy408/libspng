@@ -741,6 +741,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             else if(dec->ihdr.colour_type == 3)
             {
                 if(chunk.length > dec->plte.n_entries) return SPNG_ECHUNK_SIZE;
+                if(!dec->have_plte) return SPNG_ETRNS_NO_PLTE;
 
                 size_t k;
                 for(k=0; k < chunk.length; k++)
