@@ -70,9 +70,9 @@ int main(int argc, char **argv)
         clr_type_str = "grayscale";
     else if(ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR)
         clr_type_str = "truecolor";
-    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR)
+    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED)
         clr_type_str = "indexed colour";
-    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
         clr_type_str = "grayscale with alpha";
     else
         clr_type_str = "truecolor with alpha";

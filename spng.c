@@ -184,7 +184,7 @@ static int check_ihdr(struct spng_ihdr *ihdr)
 
             break;
         }
-        case SPNG_COLOUR_TYPE_INDEXED_COLOUR:
+        case SPNG_COLOUR_TYPE_INDEXED:
         {
             if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
                   ihdr->bit_depth == 4 || ihdr->bit_depth == 8) )
@@ -192,14 +192,14 @@ static int check_ihdr(struct spng_ihdr *ihdr)
 
             break;
         }
-        case SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA:
+        case SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
                 return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA:
+        case SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
                 return SPNG_EBIT_DEPTH;
@@ -1164,8 +1164,8 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
     uint8_t channels = 1; /* grayscale or indexed_colour */
 
     if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR) channels = 3;
-    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA) channels = 2;
-    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA) channels = 4;
+    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA) channels = 2;
+    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA) channels = 4;
 
     uint8_t bytes_per_pixel;
 
@@ -1256,7 +1256,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
     alpha_sbits = dec->ihdr.bit_depth;
     greyscale_sbits = dec->ihdr.bit_depth;
 
-    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR)
+    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED)
     {
         red_sbits = 8;
         green_sbits = 8;
@@ -1540,7 +1540,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case SPNG_COLOUR_TYPE_INDEXED_COLOUR:
+                    case SPNG_COLOUR_TYPE_INDEXED:
                     {
                         uint8_t entry = 0;
                         memcpy(&entry, scanline + k / (8 / dec->ihdr.bit_depth), 1);
@@ -1573,7 +1573,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA:
+                    case SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1592,7 +1592,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                    case SPNG_COLOUR_TYPE_TRUECOLOR_WITH_ALPHA:
+                    case SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA:
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
@@ -1632,7 +1632,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
 
                 if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
-                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
                 {
                     gray = sample_to_target(gray, dec->ihdr.bit_depth, greyscale_sbits, depth_target);
                     a = sample_to_target(a, dec->ihdr.bit_depth, alpha_sbits, depth_target);
@@ -1640,7 +1640,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 else
                 {
                     uint8_t processing_depth = dec->ihdr.bit_depth;
-                    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED_COLOUR) processing_depth = 8;
+                    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED) processing_depth = 8;
 
                     r = sample_to_target(r, processing_depth, red_sbits, depth_target);
                     g = sample_to_target(g, processing_depth, green_sbits, depth_target);
@@ -1651,7 +1651,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
 
                 if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
-                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_WITH_ALPHA)
+                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
                 {
                     r = gray;
                     g = gray;
