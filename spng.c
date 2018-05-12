@@ -483,7 +483,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
                 if(dec->ihdr.colour_type == 3)
                 {
-                    if(chunk.length / 3 > ( (1 << dec->ihdr.bit_depth) - 1 ) ) return SPNG_ECHUNK_SIZE;
+                    if(chunk.length / 3 > (1 << dec->ihdr.bit_depth) ) return SPNG_ECHUNK_SIZE;
                 }
 
                 dec->plte.n_entries = chunk.length / 3;
