@@ -3,14 +3,17 @@
 libspng is a C library for reading and writing Portable Network Graphics (PNG) 
 format files with a focus on security and ease of use.
 
-# Compatibility
+libspng is an alternative to libpng, the projects are separate and the APIs are
+not compatible.
+
+# Testing
 
 Over 150 test images of different bit depth, color type, and size combinations 
 are verified to decode to the same output as libpng.
 
 # Safety
 
-spng does verify input data, it should be free of arithmetic overflow and buffer 
+libspng does verify input data, it should be free of arithmetic overflow and buffer 
 overflow errors.
 
 # Usage
