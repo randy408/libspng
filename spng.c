@@ -1129,6 +1129,9 @@ int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out)
 
     if(!dec->valid_state) return SPNG_EBADSTATE;
 
+    int ret = get_ancillary(dec);
+    if(ret) return ret;
+
     size_t res;
     if(fmt == SPNG_FMT_RGBA8)
     {
