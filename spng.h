@@ -80,8 +80,9 @@ extern "C" {
 #define SPNG_FMT_RGBA8 1
 #define SPNG_FMT_RGBA16 2
 
-#define SPNG_DECODE_USE_TRNS 32
-#define SPNG_DECODE_USE_SBIT 64 /* Rescale samples using sBIT values */
+#define SPNG_DECODE_USE_TRNS 1
+#define SPNG_DECODE_USE_GAMA 2
+#define SPNG_DECODE_USE_SBIT 8 /* Rescale samples using sBIT values */
 
 struct spng_ihdr
 {
@@ -253,6 +254,9 @@ struct spng_decoder
 
     uint8_t have_gama;
     uint32_t gama;
+
+    uint32_t lut_entries;
+    uint16_t *gamma_lut;
 
     uint8_t have_sbit;
     struct spng_sbit sbit;

@@ -4,10 +4,56 @@
 #include "test_spng.h"
 #include "test_png.h"
 
+struct spng_test_case
+{
+    int fmt;
+    int flags;
+};
+
 int should_fail = 0;
 int info_printed = 0;
 
-int compare_images(struct spng_ihdr *ihdr, int fmt, unsigned char *img_spng, unsigned char *img_png)
+
+void print_test_args(struct spng_test_case *test_case)
+{
+    printf("Decode and compare ");
+    if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
+    else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
+
+    printf("FLAGS: ");
+
+    if(!test_case->flags) printf("(NONE)");
+    if(test_case->flags & SPNG_DECODE_USE_TRNS) printf("USE_TRNS ");
+    if(test_case->flags & SPNG_DECODE_USE_GAMA) printf("USE_GAMA ");
+
+    printf("\n");
+}
+
+void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
+{
+    const int fmt_list[] = { SPNG_FMT_RGBA8, SPNG_FMT_RGBA16 };
+    const int fmt_n = 2;
+
+    int i, j;
+    int k = 0;
+
+    for(i=0; i < fmt_n; i++)
+    {
+    /* With libpng it's not possible to request 8/16-bit images regardless of
+       PNG format without calling functions that alias to png_set_expand(_16),
+       which acts as if png_set_tRNS_to_alpha() was called, as a result
+       there are no tests where the tRNS chunk is ignored. */
+        for(j=1; j <= SPNG_DECODE_USE_GAMA; j++, k++)
+        {
+            test_cases[k].fmt = fmt_list[i];
+            test_cases[k].flags = j | SPNG_DECODE_USE_TRNS;
+        }
+    }
+
+    *test_cases_n = k;
+}
+
+int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
 {
     uint32_t w, h;
     uint32_t x, y;
@@ -107,9 +153,32 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, unsigned char *img_spng, uns
 
             if(spng_red != png_red || spng_green != png_green || spng_blue != png_blue)
             {
-                printf("color difference at x: %u y:%u, spng: %u %u %u png: %u %u %u\n", x, y,
-                       spng_red, spng_green, spng_blue, png_red, png_green, png_blue);
-                pixel_diff = 1;
+                if(flags & SPNG_DECODE_USE_GAMA)
+                {
+                    uint32_t red_diff, green_diff, blue_diff;
+                    uint32_t max_diff=0;
+
+                    /* allow up to ~2% difference for each channel */
+                    if(fmt == SPNG_FMT_RGBA8) max_diff = 256 / 50;
+                    else if(fmt == SPNG_FMT_RGBA16) max_diff = 65536 / 50;
+
+                    red_diff = abs(spng_red - png_red);
+                    green_diff = abs(spng_green - png_green);
+                    blue_diff = abs(spng_blue - png_blue);
+
+                    if(red_diff > max_diff || green_diff > max_diff || blue_diff > max_diff)
+                    {
+                        printf("invalid gamma correction at x: %u y:%u, spng: %u %u %u png: %u %u %u\n",
+                               x, y, spng_red, spng_green, spng_blue, png_red, png_green, png_blue);
+                        pixel_diff = 1;
+                    }
+                }
+                else
+                {
+                    printf("color difference at x: %u y:%u, spng: %u %u %u png: %u %u %u\n",
+                           x, y, spng_red, spng_green, spng_blue, png_red, png_green, png_blue);
+                    pixel_diff = 1;
+                }
             }
         }
     }
@@ -157,27 +226,22 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
         return 1;
     }
 
-    if(!info_printed)
-    {
-        printf("image info: %ux%u %u bits per sample, type %u, %s\n",
-            ihdr.width, ihdr.height, ihdr.bit_depth, ihdr.colour_type,
-            ihdr.interlace_method ? "interlaced" : "non-interlaced");
-        info_printed = 1;
-    }
-
     int ret_memcmp = memcmp(img_spng, img_png, img_spng_size);
 
-    int ret = compare_images(&ihdr, fmt, img_spng, img_png);
+    int ret = compare_images(&ihdr, fmt, flags, img_spng, img_png);
 
-    /* in case compare_images() has some edge case */
-    if(!ret && ret_memcmp)
+    if(!(flags & SPNG_DECODE_USE_GAMA))
     {
-        printf("compare_images() returned 0 but images are not identical\n");
-        ret = 1;
-    }
-    else if(ret && !ret_memcmp)
-    {
-        printf("compare_images() returned non-zero but images are identical\n");
+        /* in case compare_images() has some edge case */
+        if(!ret && ret_memcmp)
+        {
+            printf("compare_images() returned 0 but images are not identical\n");
+            ret = 1;
+        }
+        else if(ret && !ret_memcmp)
+        {
+            printf("compare_images() returned non-zero but images are identical\n");
+        }
     }
 
     free(img_spng);
@@ -227,22 +291,22 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int flags = SPNG_DECODE_USE_TRNS;
+    struct spng_test_case test_cases[100];
+    int test_cases_n;
+
+    gen_test_cases(test_cases, &test_cases_n);
 
     int ret=0;
-    int e = 0;
+    uint32_t i;
+    for(i=0; i < test_cases_n; i++)
+    {
+        print_test_args(&test_cases[i]);
 
-    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA8, flags);
-    printf("decode and compare FMT_RGBA8: %s\n", ret ? "fail" : "ok");
-
-    if(ret) e = ret;
-
-    ret = decode_and_compare(pngbuf, siz_pngbuf, SPNG_FMT_RGBA16, flags);
-    printf("decode and compare FMT_RGBA16: %s\n", ret ? "fail" : "ok");
-
-    if(!e && ret) e = ret;
+        int e = decode_and_compare(pngbuf, siz_pngbuf, test_cases[i].fmt, test_cases[i].flags);
+        if(!ret) ret = e;
+    }
 
     free(pngbuf);
 
-    return e;
+    return ret;
 }

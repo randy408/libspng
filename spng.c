@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <limits.h>
 #include <string.h>
+#include <math.h>
 
 #include <zlib.h>
 
@@ -1034,7 +1035,14 @@ void spng_decoder_free(struct spng_decoder *dec)
 {
     if(dec==NULL) return;
 
+    if(dec->streaming)
+    {
+        if(dec->data != NULL) free(dec->data);
+    }
+
     if(dec->iccp.profile != NULL) free(dec->iccp.profile);
+
+    if(dec->gamma_lut != NULL) free(dec->gamma_lut);
 
     if(dec->splt_list != NULL)
     {
@@ -1246,6 +1254,51 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
     {
         sub[0].width = dec->ihdr.width;
         sub[0].height = dec->ihdr.height;
+    }
+
+
+    if(flags & SPNG_DECODE_USE_GAMA && dec->have_gama)
+    {
+        float file_gamma = (float)dec->gama / 100000.0f;
+        float max;
+
+        uint32_t i, lut_entries;
+
+        if(fmt == SPNG_FMT_RGBA8)
+        {
+            lut_entries = 256;
+            max = 255.0f;
+        }
+        else /* SPNG_FMT_RGBA16 */
+        {
+            lut_entries = 65536;
+            max = 65535.0f;
+        }
+
+        if(dec->lut_entries != lut_entries)
+        {
+            if(dec->gamma_lut != NULL) free(dec->gamma_lut);
+
+            dec->gamma_lut = malloc(lut_entries * sizeof(uint16_t));
+            if(dec->gamma_lut == NULL)
+            {
+                inflateEnd(&stream);
+                free(scanline_orig);
+                free(prev_scanline);
+                return SPNG_EMEM;
+            }
+        }
+
+        for(i=0; i < lut_entries; i++)
+        {
+            float screen_gamma = 2.2f;
+            float exp = 1.0f / (file_gamma * screen_gamma);
+            float c = pow((float)i / max, exp) * max;
+
+            dec->gamma_lut[i] = c;
+        }
+
+        dec->lut_entries = lut_entries;
     }
 
     uint8_t red_sbits, green_sbits, blue_sbits, alpha_sbits, greyscale_sbits;
@@ -1657,6 +1710,15 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     g = gray;
                     b = gray;
                 }
+
+
+                if(flags & SPNG_DECODE_USE_GAMA && dec->have_gama)
+                {
+                    r = dec->gamma_lut[r];
+                    g = dec->gamma_lut[g];
+                    b = dec->gamma_lut[b];
+                }
+
 
                 size_t pixel_size;
                 size_t pixel_offset;

@@ -83,7 +83,7 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
         printf("libpng error\n");
         png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
         if(image != NULL) free(image);
-        if(row_pointers !=NULL) free(row_pointers);
+        if(row_pointers != NULL) free(row_pointers);
         return NULL;
     }
 
@@ -108,6 +108,13 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
         return NULL;
     }
 
+    if(flags & SPNG_DECODE_USE_GAMA)
+    {
+        double gamma;
+        if(png_get_gAMA(png_ptr, info_ptr, &gamma))
+            png_set_gamma(png_ptr, 2.2, gamma);
+    }
+
     if(fmt == SPNG_FMT_RGBA16)
     {
         png_set_gray_to_rgb(png_ptr);
@@ -125,7 +132,7 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
 
         png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
 
-        /* png_set_palette_to_rgb() + png_set_gray_1_2_4_to_8() + png_set_tRNS_to_alpha() */
+        /* png_set_palette_to_rgb() + png_set_expand_gray_1_2_4_to_8() + png_set_tRNS_to_alpha() */
         png_set_expand(png_ptr);
 
         png_set_strip_16(png_ptr);

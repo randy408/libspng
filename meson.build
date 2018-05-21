@@ -3,16 +3,19 @@ project('libspng', 'c', default_options : ['c_std=c99'])
 zlibdep = dependency('zlib')
 pngdep = dependency('libpng16')
 
-lib = library('spng', 'spng.c', dependencies : zlibdep)
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required : false)
 
-example = executable('example', 'example.c', 'spng.c', dependencies : zlibdep)
+lib = library('spng', 'spng.c', dependencies : [ zlibdep, m_dep ])
 
-bench_spng = executable('bench_spng', 'benchmark_spng.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
-bench_png = executable('bench_png', 'benchmark_png.c', dependencies : [ zlibdep, pngdep ], link_with: lib, override_options : ['c_std=c11'])
+example = executable('example', 'example.c', link_with : lib, dependencies : zlibdep)
+
+bench_spng = executable('bench_spng', 'benchmark_spng.c', link_with: lib, override_options : ['c_std=c11'])
+bench_png = executable('bench_png', 'benchmark_png.c', dependencies : [ zlibdep, pngdep ], override_options : ['c_std=c11'])
 benchmark('spng_benchmark', bench_spng, args: ['../benchmark_images/large_mona_lisa.png'])
 benchmark('png_benchmark', bench_png, args: ['../benchmark_images/large_mona_lisa.png'])
 
-test_exe = executable('testsuite', 'testsuite.c', 'spng.c', dependencies : [zlibdep, pngdep])
+test_exe = executable('testsuite', 'testsuite.c', link_with : lib, dependencies : pngdep)
 
 test('basi0g01', test_exe, args: ['../test_images/basi0g01.png'])
 test('basi0g02', test_exe, args: ['../test_images/basi0g02.png'])
