@@ -63,6 +63,7 @@ int main(int argc, char **argv)
     printf("time: %lu microseconds\n", nanoseconds / 1000);
 
     free(img_png);
+    free(pngbuf);
 
     return 0;
 }
