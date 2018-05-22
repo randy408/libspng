@@ -220,8 +220,8 @@ struct spng_chunk
 struct spng_decoder;
 
 /* A read callback function should copy "n" bytes to *data and return 0 or
-   spng_io_eof/spng_io_error on error. */
-typedef int (*spng_read_fn)(struct spng_decoder *dec, void *user, void *data, size_t n);
+   SPNG_IO_EOF/SPNG_IO_ERROR on error. */
+typedef int spng_read_fn(struct spng_decoder *dec, void *user, void *data, size_t n);
 
 
 struct spng_decoder
@@ -232,7 +232,7 @@ struct spng_decoder
     int valid_state;
 
     uint8_t streaming;
-    spng_read_fn read_fn;
+    spng_read_fn *read_fn;
     void *read_user_ptr;
 
     uint8_t have_first_idat;
@@ -289,7 +289,7 @@ extern struct spng_decoder *spng_decoder_new(void);
 extern void spng_decoder_free(struct spng_decoder *dec);
 
 extern int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size);
-extern int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn read_fn, void *user);
+extern int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn *read_fn, void *user);
 
 extern int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
 
