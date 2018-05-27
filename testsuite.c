@@ -1,6 +1,8 @@
 /*#define TEST_SPNG_STREAM_READ_INFO*/
 /*#define TEST_SPNG_ANALYZE_MALLOC */
 
+#include <inttypes.h>
+
 #include "test_spng.h"
 #include "test_png.h"
 
@@ -147,7 +149,10 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
 
             if(have_alpha && spng_alpha != png_alpha)
             {
-                printf("alpha mismatch at x:%u y:%u, spng: %u png: %u\n", x, y, spng_alpha, png_alpha);
+                printf("alpha mismatch at x:%" PRIu32 " y:%" PRIu32 ", "
+                       "spng: %" PRIu16 " png: %" PRIu16 "\n",
+                       x, y,
+                       spng_alpha, png_alpha);
                 alpha_mismatch = 1;
             }
 
@@ -168,15 +173,23 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
 
                     if(red_diff > max_diff || green_diff > max_diff || blue_diff > max_diff)
                     {
-                        printf("invalid gamma correction at x: %u y:%u, spng: %u %u %u png: %u %u %u\n",
-                               x, y, spng_red, spng_green, spng_blue, png_red, png_green, png_blue);
+                        printf("invalid gamma correction at x: %" PRIu32 " y:%" PRIu32 ", "
+                               "spng: %" PRIu16 " %" PRIu16 " %" PRIu16 " "
+                               "png: %" PRIu16 " %" PRIu16 " %" PRIu16 "\n",
+                               x, y,
+                               spng_red, spng_green, spng_blue,
+                               png_red, png_green, png_blue);
                         pixel_diff = 1;
                     }
                 }
                 else
                 {
-                    printf("color difference at x: %u y:%u, spng: %u %u %u png: %u %u %u\n",
-                           x, y, spng_red, spng_green, spng_blue, png_red, png_green, png_blue);
+                    printf("color difference at x: %" PRIu32 " y:%" PRIu32 ", "
+                           "spng: %" PRIu16 " %" PRIu16 " %" PRIu16 " "
+                           "png: %" PRIu16 " %" PRIu16 " %" PRIu16 "\n",
+                           x, y,
+                           spng_red, spng_green, spng_blue,
+                           png_red, png_green, png_blue);
                     pixel_diff = 1;
                 }
             }

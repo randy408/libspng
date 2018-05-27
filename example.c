@@ -1,5 +1,6 @@
 #include "spng.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 
 int main(int argc, char **argv)
@@ -77,10 +78,14 @@ int main(int argc, char **argv)
     else
         clr_type_str = "truecolor with alpha";
 
-    printf("width: %u\nheight: %u\nbit depth: %u\ncolour type: %u - %s\n",
-            ihdr.width, ihdr.height, ihdr.bit_depth, ihdr.colour_type, clr_type_str);
-    printf("compression method: %u\nfilter method: %u\ninterlace method: %u\n",
-            ihdr.compression_method, ihdr.filter_method, ihdr.interlace_method);
+    printf("width: %" PRIu32 "\nheight: %" PRIu32 "\n"
+           "bit depth: %" PRIu8 "\ncolour type: %" PRIu8 " - %s\n",
+           ihdr.width, ihdr.height,
+           ihdr.bit_depth, ihdr.colour_type, clr_type_str);
+    printf("compression method: %" PRIu8 "\nfilter method: %" PRIu8 "\n"
+           "interlace method: %" PRIu8 "\n",
+           ihdr.compression_method, ihdr.filter_method,
+           ihdr.interlace_method);
 
     size_t out_size;
 
