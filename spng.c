@@ -1285,10 +1285,8 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
             dec->gamma_lut = malloc(lut_entries * sizeof(uint16_t));
             if(dec->gamma_lut == NULL)
             {
-                inflateEnd(&stream);
-                free(scanline_orig);
-                free(prev_scanline);
-                return SPNG_EMEM;
+                ret = SPNG_EMEM;
+                goto decode_err;
             }
         }
 
