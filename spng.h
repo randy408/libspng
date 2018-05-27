@@ -8,6 +8,10 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 
+#define SPNG_VERSION_MAJOR 0
+#define SPNG_VERSION_MINOR 2
+#define SPNG_VERSION_PATCH 0
+
 #define SPNG_OK 0
 #define SPNG_EINVAL 1
 #define SPNG_EMEM 2
