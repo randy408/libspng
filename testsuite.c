@@ -274,6 +274,21 @@ int main(int argc, char **argv)
     FILE *png;
     unsigned char *pngbuf;
     char *filename = argv[1];
+
+    if(!strcmp(filename, "info"))
+    {
+        unsigned int png_ver = png_access_version_number();
+
+        printf("spng header version: %u.%u.%u, library version: %u.%u.%u\n",
+               SPNG_VERSION_MAJOR, SPNG_VERSION_MINOR, SPNG_VERSION_PATCH,
+               SPNG_VERSION_MAJOR, SPNG_VERSION_MINOR, SPNG_VERSION_PATCH);
+        printf("png header version: %u.%u.%u, library version: %u.%u.%u\n",
+               PNG_LIBPNG_VER_MAJOR, PNG_LIBPNG_VER_MINOR, PNG_LIBPNG_VER_RELEASE,
+               png_ver / 10000, png_ver / 100 % 100, png_ver % 100);
+
+        return 0;
+    }
+
     png = fopen(filename, "r");
 
     /* all images beginning with "x" are invalid */
