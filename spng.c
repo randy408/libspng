@@ -180,10 +180,10 @@ static int get_chunk_data(struct spng_decoder *dec, struct spng_chunk *chunk)
     return 0;
 }
 
-static int check_ihdr(struct spng_ihdr *ihdr)
+static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
-    if(ihdr->width > png_u32max) return SPNG_EWIDTH;
-    if(ihdr->height > png_u32max) return SPNG_EHEIGHT;
+    if(ihdr->width > png_u32max || ihdr->width > max_width) return SPNG_EWIDTH;
+    if(ihdr->height > png_u32max || ihdr->height > max_height) return SPNG_EHEIGHT;
 
     switch(ihdr->colour_type)
     {
@@ -460,7 +460,10 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
     memcpy(&dec->ihdr.filter_method, data + 27, 1);
     memcpy(&dec->ihdr.interlace_method, data + 28, 1);
 
-    ret = check_ihdr(&dec->ihdr);
+    if(!dec->max_width) dec->max_width = png_u32max;
+    if(!dec->max_height) dec->max_height = png_u32max;
+
+    ret = check_ihdr(&dec->ihdr, dec->max_width, dec->max_height);
     if(ret) return ret;
 
     dec->have_ihdr = 1;
@@ -1094,6 +1097,28 @@ int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr)
     if(ret) return ret;
 
     memcpy(ihdr, &dec->ihdr, sizeof(struct spng_ihdr));
+
+    return 0;
+}
+
+int spng_set_image_limits(struct spng_decoder *dec, uint32_t width, uint32_t height)
+{
+    if(dec == NULL) return 1;
+
+    if(width > png_u32max || height > png_u32max) return 1;
+
+    dec->max_width = width;
+    dec->max_height = height;
+
+    return 0;
+}
+
+int spng_get_image_limits(struct spng_decoder *dec, uint32_t *width, uint32_t *height)
+{
+    if(dec == NULL || width == NULL || height == NULL) return 1;
+
+    *width = dec->max_width;
+    *height = dec->max_height;
 
     return 0;
 }

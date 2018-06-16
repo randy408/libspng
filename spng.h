@@ -243,6 +243,8 @@ struct spng_decoder
     uint8_t have_last_idat;
     struct spng_chunk first_idat, last_idat;
 
+    uint32_t max_width, max_height;
+
     int8_t have_ihdr;
     struct spng_ihdr ihdr;
 
@@ -296,6 +298,9 @@ extern int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t s
 extern int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn *read_fn, void *user);
 
 extern int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
+
+int spng_set_image_limits(struct spng_decoder *dec, uint32_t width, uint32_t height);
+int spng_get_image_limits(struct spng_decoder *dec, uint32_t *width, uint32_t *height);
 
 extern int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out);
 
