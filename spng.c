@@ -52,26 +52,35 @@ static const uint8_t type_phys[4] = { 112, 72, 89, 115 };
 static const uint8_t type_splt[4] = { 115, 80, 76, 84 };
 static const uint8_t type_time[4] = { 116, 73, 77, 69 };
 
+static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
 
-/* Read big endian data (16 bits) */
-static inline unsigned short be16tou(const void *_data)
+
+static inline uint16_t read_u16(const void *_data)
 {
     const unsigned char *data = _data;
-
-    if(data == NULL) return 0;
 
     return (data[0] & 0xffU) << 8 | (data[1] & 0xffU);
 }
 
-/* Read big endian data (32 bits) */
-static inline unsigned long be32tou(const void *_data)
+static inline uint32_t read_u32(const void *_data)
 {
     const unsigned char *data = _data;
 
-    if(data == NULL) return 0;
-
     return (data[0] & 0xffUL) << 24 | (data[1] & 0xffUL) << 16 |
            (data[2] & 0xffUL) << 8  | (data[3] & 0xffUL);
+}
+
+static inline int32_t read_i32(const void *_data)
+{
+    const unsigned char *data = _data;
+
+    int32_t ret;
+    uint32_t val = (data[0] & 0xffUL) << 24 | (data[1] & 0xffUL) << 16 |
+                   (data[2] & 0xffUL) << 8  | (data[3] & 0xffUL);
+
+    memcpy(&ret, &val, 4);
+
+    return ret;
 }
 
 /* Used to check if a chunk actually fits in dec->data */
@@ -108,12 +117,12 @@ static int next_header(struct spng_decoder *dec, const struct spng_chunk *curren
 
     if(dec->streaming)
     {
-        next->length = be32tou(dec->data);
+        next->length = read_u32(dec->data);
         memcpy(&next->type, dec->data + 4, 4);
     }
     else
     {
-        next->length = be32tou(dec->data + next->offset);
+        next->length = read_u32(dec->data + next->offset);
         memcpy(&next->type, dec->data + next->offset + 4, 4);
     }
 
@@ -166,12 +175,12 @@ static int get_chunk_data(struct spng_decoder *dec, struct spng_chunk *chunk)
     if(dec->streaming)
     {
         actual_crc = crc32(actual_crc, dec->data, chunk->length);
-        chunk->crc = be32tou(dec->data + chunk->length);
+        chunk->crc = read_u32(dec->data + chunk->length);
     }
     else
     {
         actual_crc = crc32(actual_crc, dec->data + chunk->offset + 8, chunk->length);
-        chunk->crc = be32tou(dec->data + chunk->offset + 8 + chunk->length);
+        chunk->crc = read_u32(dec->data + chunk->offset + 8 + chunk->length);
     }
 
     if(actual_crc != chunk->crc) return SPNG_ECHUNK_CRC;
@@ -440,9 +449,9 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
     uint8_t signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
     if(memcmp(data, signature, sizeof(signature))) return SPNG_ESIGNATURE;
 
-    chunk.length = be32tou(data + 8);
+    chunk.length = read_u32(data + 8);
     memcpy(&chunk.type, data + 12, 4);
-    chunk.crc = be32tou(data + 29);
+    chunk.crc = read_u32(data + 29);
 
     uint32_t actual_crc = crc32(0, Z_NULL, 0);
     actual_crc = crc32(actual_crc, dec->data + 12, 17);
@@ -451,8 +460,8 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
     if(chunk.length != 13) return SPNG_EIHDR_SIZE;
     if(memcmp(chunk.type, type_ihdr, 4)) return SPNG_ENOIHDR;
 
-    dec->ihdr.width = be32tou(data + 16);
-    dec->ihdr.height = be32tou(data + 20);
+    dec->ihdr.width = read_u32(data + 16);
+    dec->ihdr.height = read_u32(data + 20);
     memcpy(&dec->ihdr.bit_depth, data + 24, 1);
     memcpy(&dec->ihdr.colour_type, data + 25, 1);
     memcpy(&dec->ihdr.compression_method, data + 26, 1);
@@ -526,14 +535,14 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
             if(chunk.length != 32) return SPNG_ECHUNK_SIZE;
 
-            dec->chrm.white_point_x = be32tou(data);
-            dec->chrm.white_point_y = be32tou(data + 4);
-            dec->chrm.red_x = be32tou(data + 8);
-            dec->chrm.red_y = be32tou(data + 12);
-            dec->chrm.green_x = be32tou(data + 16);
-            dec->chrm.green_y = be32tou(data + 20);
-            dec->chrm.blue_x = be32tou(data + 24);
-            dec->chrm.blue_y = be32tou(data + 28);
+            dec->chrm.white_point_x = read_u32(data);
+            dec->chrm.white_point_y = read_u32(data + 4);
+            dec->chrm.red_x = read_u32(data + 8);
+            dec->chrm.red_y = read_u32(data + 12);
+            dec->chrm.green_x = read_u32(data + 16);
+            dec->chrm.green_y = read_u32(data + 20);
+            dec->chrm.blue_x = read_u32(data + 24);
+            dec->chrm.blue_y = read_u32(data + 28);
 
             if(dec->chrm.white_point_x > png_u32max ||
                dec->chrm.white_point_y > png_u32max ||
@@ -553,7 +562,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
             if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
-            dec->gama = be32tou(data);
+            dec->gama = read_u32(data);
 
             if(dec->gama > png_u32max) return SPNG_EGAMA;
 
@@ -686,15 +695,15 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                dec->bkgd.type0_4_greyscale = be16tou(data) & mask;
+                dec->bkgd.type0_4_greyscale = read_u16(data) & mask;
             }
             else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 6)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                dec->bkgd.type2_6.red = be16tou(data) & mask;
-                dec->bkgd.type2_6.green = be16tou(data + 2) & mask;
-                dec->bkgd.type2_6.blue = be16tou(data + 4) & mask;
+                dec->bkgd.type2_6.red = read_u16(data) & mask;
+                dec->bkgd.type2_6.green = read_u16(data + 2) & mask;
+                dec->bkgd.type2_6.blue = read_u16(data + 4) & mask;
             }
             else if(dec->ihdr.colour_type == 3)
             {
@@ -720,15 +729,15 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                dec->trns.type0_grey_sample = be16tou(data) & mask;
+                dec->trns.type0_grey_sample = read_u16(data) & mask;
             }
             else if(dec->ihdr.colour_type == 2)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                dec->trns.type2.red = be16tou(data) & mask;
-                dec->trns.type2.green = be16tou(data + 2) & mask;
-                dec->trns.type2.blue = be16tou(data + 4) & mask;
+                dec->trns.type2.red = read_u16(data) & mask;
+                dec->trns.type2.green = read_u16(data + 2) & mask;
+                dec->trns.type2.blue = read_u16(data + 4) & mask;
             }
             else if(dec->ihdr.colour_type == 3)
             {
@@ -757,7 +766,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             size_t k;
             for(k=0; k < (chunk.length / 2); k++)
             {
-                dec->hist.frequency[k] = be16tou(data + k*2);
+                dec->hist.frequency[k] = read_u16(data + k*2);
             }
 
             dec->have_hist = 1;
@@ -768,8 +777,8 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
             if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
 
-            dec->phys.ppu_x = be32tou(data);
-            dec->phys.ppu_y = be32tou(data + 4);
+            dec->phys.ppu_x = read_u32(data);
+            dec->phys.ppu_y = read_u32(data + 4);
             memcpy(&dec->phys.unit_specifier, data + 8, 1);
 
             if(dec->phys.unit_specifier > 1) return SPNG_EPHYS;
@@ -848,11 +857,11 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 for(k=0; k < dec->splt_list[i].n_entries; k++)
                 {
-                    dec->splt_list[i].entries[k].red = be16tou(splt + k * 10);
-                    dec->splt_list[i].entries[k].green = be16tou(splt + k * 10 + 2);
-                    dec->splt_list[i].entries[k].blue = be16tou(splt + k * 10 + 4);
-                    dec->splt_list[i].entries[k].alpha = be16tou(splt + k * 10 + 6);
-                    dec->splt_list[i].entries[k].frequency = be16tou(splt + k * 10 + 8);
+                    dec->splt_list[i].entries[k].red = read_u16(splt + k * 10);
+                    dec->splt_list[i].entries[k].green = read_u16(splt + k * 10 + 2);
+                    dec->splt_list[i].entries[k].blue = read_u16(splt + k * 10 + 4);
+                    dec->splt_list[i].entries[k].alpha = read_u16(splt + k * 10 + 6);
+                    dec->splt_list[i].entries[k].frequency = read_u16(splt + k * 10 + 8);
                 }
             }
             else if(dec->splt_list[i].sample_depth == 8)
@@ -864,7 +873,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
                     memcpy(&green, splt + k * 6 + 1, 1);
                     memcpy(&blue,  splt + k * 6 + 2, 1);
                     memcpy(&alpha, splt + k * 6 + 3, 1);
-                    dec->splt_list[i].entries[k].frequency = be16tou(splt + k * 6 + 4);
+                    dec->splt_list[i].entries[k].frequency = read_u16(splt + k * 6 + 4);
 
                     dec->splt_list[i].entries[k].red = red;
                     dec->splt_list[i].entries[k].green = green;
@@ -881,7 +890,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
 
             if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
 
-            dec->time.year = be16tou(data);
+            dec->time.year = read_u16(data);
             memcpy(&dec->time.month, data + 2, 1);
             memcpy(&dec->time.day, data + 3, 1);
             memcpy(&dec->time.hour, data + 4, 1);
@@ -904,6 +913,16 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_itxt, 4))
         {/* TODO: read */
+        }
+        else if(!memcmp(chunk.type, type_offs, 4))
+        {
+            if(dec->have_offs) return SPNG_EDUP_OFFS;
+
+            dec->offs.x = read_i32(data);
+            dec->offs.y = read_i32(data + 4);
+            memcpy(&dec->offs.unit_specifier, data + 8, 1);
+
+            dec->have_offs = 1;
         }
     }
 
@@ -952,6 +971,7 @@ static int validate_past_idat(struct spng_decoder *dec)
         if(!memcmp(chunk.type, type_trns, 4)) return SPNG_ECHUNK_POS;
         if(!memcmp(chunk.type, type_phys, 4)) return SPNG_ECHUNK_POS;
         if(!memcmp(chunk.type, type_splt, 4)) return SPNG_ECHUNK_POS;
+        if(!memcmp(chunk.type, type_offs, 4)) return SPNG_ECHUNK_POS;
     }
 
     return ret;
@@ -1380,7 +1400,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
             ret = dec->read_fn(dec, dec->read_user_ptr, crc, sizeof(crc));
             if(ret) goto decode_err;
 
-            chunk.crc = be32tou(crc);
+            chunk.crc = read_u32(crc);
 
             if(actual_crc != chunk.crc)
             {
@@ -1479,7 +1499,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             ret = dec->read_fn(dec, dec->read_user_ptr, crc, sizeof(crc));
                             if(ret) goto decode_err;
 
-                            chunk.crc = be32tou(crc);
+                            chunk.crc = read_u32(crc);
 
                             if(actual_crc != chunk.crc)
                             {
@@ -1530,7 +1550,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            gray_16 = be16tou(scanline + (k * 2));
+                            gray_16 = read_u16(scanline + (k * 2));
 
                             if(dec->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
@@ -1562,9 +1582,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            r_16 = be16tou(scanline + (k * 6));
-                            g_16 = be16tou(scanline + (k * 6) + 2);
-                            b_16 = be16tou(scanline + (k * 6) + 4);
+                            r_16 = read_u16(scanline + (k * 6));
+                            g_16 = read_u16(scanline + (k * 6) + 2);
+                            b_16 = read_u16(scanline + (k * 6) + 4);
 
                             if(dec->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
@@ -1626,8 +1646,8 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            gray_16 = be16tou(scanline + (k * 4));
-                            a_16 = be16tou(scanline + (k * 4) + 2);
+                            gray_16 = read_u16(scanline + (k * 4));
+                            a_16 = read_u16(scanline + (k * 4) + 2);
                         }
                         else /* == 8 */
                         {
@@ -1641,10 +1661,10 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     {
                         if(dec->ihdr.bit_depth == 16)
                         {
-                            r_16 = be16tou(scanline + (k * 8));
-                            g_16 = be16tou(scanline + (k * 8) + 2);
-                            b_16 = be16tou(scanline + (k * 8) + 4);
-                            a_16 = be16tou(scanline + (k * 8) + 6);
+                            r_16 = read_u16(scanline + (k * 8));
+                            g_16 = read_u16(scanline + (k * 8) + 2);
+                            b_16 = read_u16(scanline + (k * 8) + 4);
+                            a_16 = read_u16(scanline + (k * 8) + 6);
                         }
                         else /* == 8 */
                         {
@@ -1781,7 +1801,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
         ret = dec->read_fn(dec, dec->read_user_ptr, crc, sizeof(crc));
         if(ret) goto decode_err;
 
-        chunk.crc = be32tou(crc);
+        chunk.crc = read_u32(crc);
 
         if(actual_crc != chunk.crc)
         {

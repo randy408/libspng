@@ -44,6 +44,7 @@ extern "C" {
 #define SPNG_EDUP_TRNS 63
 #define SPNG_EDUP_PHYS 64
 #define SPNG_EDUP_TIME 65
+#define SPNG_EDUP_OFFS 150
 #define SPNG_ESBIT 66
 #define SPNG_EPHYS 67
 #define SPNG_ETIME 68
@@ -213,6 +214,12 @@ struct spng_time
     uint8_t second;
 };
 
+struct spng_offs
+{
+    int32_t x, y;
+    uint8_t unit_specifier;
+};
+
 struct spng_chunk
 {
     size_t offset;
@@ -288,6 +295,9 @@ struct spng_decoder
 
     uint8_t have_time;
     struct spng_time time;
+
+    uint8_t have_offs;
+    struct spng_offs offs;
 };
 
 
