@@ -12,7 +12,7 @@ struct read_fn_state
     size_t bytes_left;
 };
 
-int read_fn(struct spng_decoder *dec, void *user, void *data, size_t n)
+int read_fn(struct spng_ctx *ctx, void *user, void *data, size_t n)
 {
     struct read_fn_state *state = user;
     if(n > state->bytes_left) return SPNG_IO_EOF;
@@ -39,11 +39,11 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     unsigned char *out = NULL;
     struct spng_ihdr ihdr;
 
-    struct spng_decoder *dec = spng_decoder_new();
+    struct spng_ctx *ctx = spng_ctx_new();
 
-    if(dec==NULL)
+    if(ctx==NULL)
     {
-        printf("spng_decoder_new() failed\n");
+        printf("spng_ctx_new() failed\n");
         return NULL;
     }
 
@@ -51,24 +51,24 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     state.data = buf;
     state.bytes_left = size;
 
-    r = spng_decoder_set_stream(dec, read_fn, &state);
+    r = spng_set_png_stream(ctx, read_fn, &state);
 
     if(r)
     {
-        printf("spng_decoder_set_stream() returned %d\n", r);
+        printf("spng_set_png_stream() returned %d\n", r);
         goto err;
     }
 
-/*
-    r = spng_decoder_set_buffer(dec, buf, size);
+
+/*    r = spng_set_png_buffer(dec, buf, size);
 
     if(r)
     {
-        printf("spng_decoder_set_buffer() returned %d\n", r);
+        printf("spng_set_png_buffer() returned %d\n", r);
         goto err;
-    }
-*/
-    r = spng_get_ihdr(dec, &ihdr);
+    }*/
+
+    r = spng_get_ihdr(ctx, &ihdr);
 
     if(r)
     {
@@ -78,7 +78,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
 
     memcpy(info, &ihdr, sizeof(struct spng_ihdr));
 
-    r = spng_get_output_image_size(dec, fmt, &siz);
+    r = spng_decoded_image_size(ctx, fmt, &siz);
     if(r) goto err;
 
     *out_size = siz;
@@ -86,7 +86,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     out = malloc(siz);
     if(out==NULL) goto err;
 
-    r = spng_decode_image(dec, fmt, out, siz, flags);
+    r = spng_decode_image(ctx, fmt, out, siz, flags);
 
     if(r)
     {
@@ -94,12 +94,12 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
         goto err;
     }
 
-    spng_decoder_free(dec);
+    spng_ctx_free(ctx);
 
 goto skip_err;
 
 err:
-    spng_decoder_free(dec);
+    spng_ctx_free(ctx);
     if(out !=NULL) free(out);
     return NULL;
 

@@ -41,24 +41,24 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    struct spng_decoder *dec = spng_decoder_new();
-    if(dec==NULL)
+    struct spng_ctx *ctx = spng_ctx_new();
+    if(ctx == NULL)
     {
-        printf("spng_decoder_new() failed\n");
+        printf("spng_ctx_new() failed\n");
         return 1;
     }
 
     int r;
-    r = spng_decoder_set_buffer(dec, pngbuf, siz_pngbuf);
+    r = spng_set_png_buffer(ctx, pngbuf, siz_pngbuf);
 
     if(r)
     {
-        printf("spng_decoder_set_buffer() returned %d\n", r);
+        printf("spng_set_png_buffer() returned %d\n", r);
         return 1;
     }
 
     struct spng_ihdr ihdr;
-    r = spng_get_ihdr(dec, &ihdr);
+    r = spng_get_ihdr(ctx, &ihdr);
 
     if(r)
     {
@@ -89,14 +89,14 @@ int main(int argc, char **argv)
 
     size_t out_size;
 
-    r = spng_get_output_image_size(dec, SPNG_FMT_RGBA8, &out_size);
+    r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
 
     if(r) return 1;
 
     unsigned char *out = malloc(out_size);
     if(out==NULL) return 1;
 
-    r = spng_decode_image(dec, SPNG_FMT_RGBA8, out, out_size, 0);
+    r = spng_decode_image(ctx, SPNG_FMT_RGBA8, out, out_size, 0);
 
     if(r)
     {
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    spng_decoder_free(dec);
+    spng_ctx_free(ctx);
 
     /* write raw pixels to file */
     char *out_name = "image.data";

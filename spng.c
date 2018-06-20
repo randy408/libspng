@@ -83,7 +83,7 @@ static inline int32_t read_i32(const void *_data)
     return ret;
 }
 
-/* Used to check if a chunk actually fits in dec->data */
+/* Used to check if a chunk actually fits in ctx->data */
 static int require_bytes(size_t offset, size_t bytes, size_t data_size)
 {
     size_t required = offset + bytes;
@@ -95,10 +95,10 @@ static int require_bytes(size_t offset, size_t bytes, size_t data_size)
 }
 
 /* Read and validate the next chunk header */
-static int next_header(struct spng_decoder *dec, const struct spng_chunk *current,
+static int next_header(struct spng_ctx *ctx, const struct spng_chunk *current,
                        struct spng_chunk *next)
 {
-    if(dec == NULL || current == NULL || next == NULL) return 1;
+    if(ctx == NULL || current == NULL || next == NULL) return 1;
 
     int ret;
     size_t bytes_required;
@@ -106,8 +106,8 @@ static int next_header(struct spng_decoder *dec, const struct spng_chunk *curren
     bytes_required = current->length + 20; /* current header, current crc, next header */
     if(bytes_required < current->length) return SPNG_EOVERFLOW;
 
-    if(dec->streaming) ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, 8);
-    else ret = require_bytes(current->offset, bytes_required, dec->data_size);
+    if(ctx->streaming) ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, 8);
+    else ret = require_bytes(current->offset, bytes_required, ctx->data_size);
 
     if(ret) return ret;
 
@@ -115,15 +115,15 @@ static int next_header(struct spng_decoder *dec, const struct spng_chunk *curren
     next->offset = current->offset + bytes_required;
     if(next->offset < current->offset) return SPNG_EOVERFLOW;
 
-    if(dec->streaming)
+    if(ctx->streaming)
     {
-        next->length = read_u32(dec->data);
-        memcpy(&next->type, dec->data + 4, 4);
+        next->length = read_u32(ctx->data);
+        memcpy(&next->type, ctx->data + 4, 4);
     }
     else
     {
-        next->length = read_u32(dec->data + next->offset);
-        memcpy(&next->type, dec->data + next->offset + 4, 4);
+        next->length = read_u32(ctx->data + next->offset);
+        memcpy(&next->type, ctx->data + next->offset + 4, 4);
     }
 
     if(next->length > png_u32max)
@@ -136,35 +136,35 @@ static int next_header(struct spng_decoder *dec, const struct spng_chunk *curren
 }
 
 /* Read chunk data when streaming and check crc */
-static int get_chunk_data(struct spng_decoder *dec, struct spng_chunk *chunk)
+static int get_chunk_data(struct spng_ctx *ctx, struct spng_chunk *chunk)
 {
-    if(dec == NULL || chunk == NULL) return 1;
+    if(ctx == NULL || chunk == NULL) return 1;
 
     int ret;
     size_t bytes_required;
 
-    if(dec->streaming)
+    if(ctx->streaming)
     {
         bytes_required = chunk->length + 4;
         if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
 
-        if(bytes_required > dec->data_size)
+        if(bytes_required > ctx->data_size)
         {
-            void *buf = realloc(dec->data, bytes_required);
+            void *buf = realloc(ctx->data, bytes_required);
             if(buf == NULL) return SPNG_EMEM;
 
-            dec->data = buf;
-            dec->data_size = bytes_required;
+            ctx->data = buf;
+            ctx->data_size = bytes_required;
         }
 
-        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, bytes_required);
+        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, bytes_required);
     }
     else
     {
         bytes_required = chunk->length + 12; /* header, crc */
         if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
 
-        ret = require_bytes(chunk->offset, bytes_required, dec->data_size);
+        ret = require_bytes(chunk->offset, bytes_required, ctx->data_size);
     }
 
     if(ret) return ret;
@@ -172,15 +172,15 @@ static int get_chunk_data(struct spng_decoder *dec, struct spng_chunk *chunk)
     uint32_t actual_crc = crc32(0, Z_NULL, 0);
     actual_crc = crc32(actual_crc, chunk->type, 4);
 
-    if(dec->streaming)
+    if(ctx->streaming)
     {
-        actual_crc = crc32(actual_crc, dec->data, chunk->length);
-        chunk->crc = read_u32(dec->data + chunk->length);
+        actual_crc = crc32(actual_crc, ctx->data, chunk->length);
+        chunk->crc = read_u32(ctx->data + chunk->length);
     }
     else
     {
-        actual_crc = crc32(actual_crc, dec->data + chunk->offset + 8, chunk->length);
-        chunk->crc = read_u32(dec->data + chunk->offset + 8 + chunk->length);
+        actual_crc = crc32(actual_crc, ctx->data + chunk->offset + 8, chunk->length);
+        chunk->crc = read_u32(ctx->data + chunk->offset + 8 + chunk->length);
     }
 
     if(actual_crc != chunk->crc) return SPNG_ECHUNK_CRC;
@@ -422,13 +422,13 @@ static int decompress_zstream(struct spng_decomp *params)
 
 /*
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
-    Returns zero and sets dec->first_idat on success
+    Returns zero and sets ctx->first_idat on success
 */
-static int get_ancillary_data_first_idat(struct spng_decoder *dec)
+static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
 {
-    if(dec==NULL) return 1;
-    if(dec->data == NULL) return 1;
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(ctx==NULL) return 1;
+    if(ctx->data == NULL) return 1;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
 
     int ret;
     unsigned char *data;
@@ -438,13 +438,13 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
     chunk.length = 13;
     size_t sizeof_sig_ihdr = 33;
 
-    if(dec->streaming)
+    if(ctx->streaming)
     {
-        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, sizeof_sig_ihdr);
+        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, sizeof_sig_ihdr);
         if(ret) return ret;
     }
 
-    data = dec->data;
+    data = ctx->data;
 
     uint8_t signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
     if(memcmp(data, signature, sizeof(signature))) return SPNG_ESIGNATURE;
@@ -454,43 +454,43 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
     chunk.crc = read_u32(data + 29);
 
     uint32_t actual_crc = crc32(0, Z_NULL, 0);
-    actual_crc = crc32(actual_crc, dec->data + 12, 17);
+    actual_crc = crc32(actual_crc, ctx->data + 12, 17);
     if(actual_crc != chunk.crc) return SPNG_ECHUNK_CRC;
 
     if(chunk.length != 13) return SPNG_EIHDR_SIZE;
     if(memcmp(chunk.type, type_ihdr, 4)) return SPNG_ENOIHDR;
 
-    dec->ihdr.width = read_u32(data + 16);
-    dec->ihdr.height = read_u32(data + 20);
-    memcpy(&dec->ihdr.bit_depth, data + 24, 1);
-    memcpy(&dec->ihdr.colour_type, data + 25, 1);
-    memcpy(&dec->ihdr.compression_method, data + 26, 1);
-    memcpy(&dec->ihdr.filter_method, data + 27, 1);
-    memcpy(&dec->ihdr.interlace_method, data + 28, 1);
+    ctx->ihdr.width = read_u32(data + 16);
+    ctx->ihdr.height = read_u32(data + 20);
+    memcpy(&ctx->ihdr.bit_depth, data + 24, 1);
+    memcpy(&ctx->ihdr.colour_type, data + 25, 1);
+    memcpy(&ctx->ihdr.compression_method, data + 26, 1);
+    memcpy(&ctx->ihdr.filter_method, data + 27, 1);
+    memcpy(&ctx->ihdr.interlace_method, data + 28, 1);
 
-    if(!dec->max_width) dec->max_width = png_u32max;
-    if(!dec->max_height) dec->max_height = png_u32max;
+    if(!ctx->max_width) ctx->max_width = png_u32max;
+    if(!ctx->max_height) ctx->max_height = png_u32max;
 
-    ret = check_ihdr(&dec->ihdr, dec->max_width, dec->max_height);
+    ret = check_ihdr(&ctx->ihdr, ctx->max_width, ctx->max_height);
     if(ret) return ret;
 
-    dec->have_ihdr = 1;
+    ctx->have_ihdr = 1;
 
-    while( !(ret = next_header(dec, &chunk, &next)))
+    while( !(ret = next_header(ctx, &chunk, &next)))
     {
         memcpy(&chunk, &next, sizeof(struct spng_chunk));
 
         if(!memcmp(chunk.type, type_idat, 4))
         {
-            memcpy(&dec->first_idat, &chunk, sizeof(struct spng_chunk));
+            memcpy(&ctx->first_idat, &chunk, sizeof(struct spng_chunk));
             return 0;
         }
 
-        ret = get_chunk_data(dec, &chunk);
+        ret = get_chunk_data(ctx, &chunk);
         if(ret) return ret;
 
-        if(dec->streaming) data = dec->data;
-        else data = dec->data + chunk.offset + 8;
+        if(ctx->streaming) data = ctx->data;
+        else data = ctx->data + chunk.offset + 8;
 
         /* Reserved bit must be zero */
         if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
@@ -505,24 +505,24 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
                 if(chunk.length % 3 != 0) return SPNG_ECHUNK_SIZE;
                 if( (chunk.length / 3) > 256 ) return SPNG_ECHUNK_SIZE;
 
-                if(dec->ihdr.colour_type == 3)
+                if(ctx->ihdr.colour_type == 3)
                 {
-                    if(chunk.length / 3 > (1 << dec->ihdr.bit_depth) ) return SPNG_ECHUNK_SIZE;
+                    if(chunk.length / 3 > (1 << ctx->ihdr.bit_depth) ) return SPNG_ECHUNK_SIZE;
                 }
 
-                dec->plte.n_entries = chunk.length / 3;
+                ctx->plte.n_entries = chunk.length / 3;
 
                 size_t i;
-                for(i=0; i < dec->plte.n_entries; i++)
+                for(i=0; i < ctx->plte.n_entries; i++)
                 {
-                    memcpy(&dec->plte.entries[i].red,   data + i * 3, 1);
-                    memcpy(&dec->plte.entries[i].green, data + i * 3 + 1, 1);
-                    memcpy(&dec->plte.entries[i].blue,  data + i * 3 + 2, 1);
+                    memcpy(&ctx->plte.entries[i].red,   data + i * 3, 1);
+                    memcpy(&ctx->plte.entries[i].green, data + i * 3 + 1, 1);
+                    memcpy(&ctx->plte.entries[i].blue,  data + i * 3 + 2, 1);
                 }
 
-                dec->plte_offset = chunk.offset;
+                ctx->plte_offset = chunk.offset;
 
-                dec->have_plte = 1;
+                ctx->have_plte = 1;
             }
             else if(!memcmp(chunk.type, type_iend, 4)) return SPNG_ECHUNK_POS;
             else if(!memcmp(chunk.type, type_ihdr, 4)) return SPNG_ECHUNK_POS;
@@ -530,58 +530,58 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_chrm, 4)) /* Ancillary chunks */
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_chrm) return SPNG_EDUP_CHRM;
+            if(ctx->have_plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_chrm) return SPNG_EDUP_CHRM;
 
             if(chunk.length != 32) return SPNG_ECHUNK_SIZE;
 
-            dec->chrm.white_point_x = read_u32(data);
-            dec->chrm.white_point_y = read_u32(data + 4);
-            dec->chrm.red_x = read_u32(data + 8);
-            dec->chrm.red_y = read_u32(data + 12);
-            dec->chrm.green_x = read_u32(data + 16);
-            dec->chrm.green_y = read_u32(data + 20);
-            dec->chrm.blue_x = read_u32(data + 24);
-            dec->chrm.blue_y = read_u32(data + 28);
+            ctx->chrm.white_point_x = read_u32(data);
+            ctx->chrm.white_point_y = read_u32(data + 4);
+            ctx->chrm.red_x = read_u32(data + 8);
+            ctx->chrm.red_y = read_u32(data + 12);
+            ctx->chrm.green_x = read_u32(data + 16);
+            ctx->chrm.green_y = read_u32(data + 20);
+            ctx->chrm.blue_x = read_u32(data + 24);
+            ctx->chrm.blue_y = read_u32(data + 28);
 
-            if(dec->chrm.white_point_x > png_u32max ||
-               dec->chrm.white_point_y > png_u32max ||
-               dec->chrm.red_x > png_u32max ||
-               dec->chrm.red_y > png_u32max ||
-               dec->chrm.green_x  > png_u32max ||
-               dec->chrm.green_y  > png_u32max ||
-               dec->chrm.blue_x > png_u32max ||
-               dec->chrm.blue_y > png_u32max) return SPNG_ECHRM;
+            if(ctx->chrm.white_point_x > png_u32max ||
+               ctx->chrm.white_point_y > png_u32max ||
+               ctx->chrm.red_x > png_u32max ||
+               ctx->chrm.red_y > png_u32max ||
+               ctx->chrm.green_x  > png_u32max ||
+               ctx->chrm.green_y  > png_u32max ||
+               ctx->chrm.blue_x > png_u32max ||
+               ctx->chrm.blue_y > png_u32max) return SPNG_ECHRM;
 
-            dec->have_chrm = 1;
+            ctx->have_chrm = 1;
         }
         else if(!memcmp(chunk.type, type_gama, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_gama) return SPNG_EDUP_GAMA;
+            if(ctx->have_plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_gama) return SPNG_EDUP_GAMA;
 
             if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
-            dec->gama = read_u32(data);
+            ctx->gama = read_u32(data);
 
-            if(dec->gama > png_u32max) return SPNG_EGAMA;
+            if(ctx->gama > png_u32max) return SPNG_EGAMA;
 
-            dec->have_gama = 1;
+            ctx->have_gama = 1;
         }
         else if(!memcmp(chunk.type, type_iccp, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_iccp) return SPNG_EDUP_ICCP;
+            if(ctx->have_plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_iccp) return SPNG_EDUP_ICCP;
 
             size_t name_len = chunk.length > 80 ? 80 : chunk.length;
             char *name_nul = memchr(data, '\0', name_len);
             if(name_nul == NULL) return SPNG_EICCP_NAME;
 
-            memcpy(&dec->iccp.profile_name, data, name_len);
+            memcpy(&ctx->iccp.profile_name, data, name_len);
 
-            if(check_png_keyword(dec->iccp.profile_name)) return SPNG_EICCP_NAME;
+            if(check_png_keyword(ctx->iccp.profile_name)) return SPNG_EICCP_NAME;
 
-            name_len = strlen(dec->iccp.profile_name);
+            name_len = strlen(ctx->iccp.profile_name);
 
             /* check for at least 2 bytes after profile name */
             if( (chunk.length - name_len - 1) < 2) return SPNG_ECHUNK_SIZE;
@@ -598,312 +598,312 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             ret = decompress_zstream(&params);
             if(ret) return ret;
 
-            dec->iccp.profile = params.out;
-            dec->iccp.profile_len = params.decomp_size;
+            ctx->iccp.profile = params.out;
+            ctx->iccp.profile_len = params.decomp_size;
 
-            dec->have_iccp = 1;
+            ctx->have_iccp = 1;
         }
         else if(!memcmp(chunk.type, type_sbit, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_sbit) return SPNG_EDUP_SBIT;
+            if(ctx->have_plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_sbit) return SPNG_EDUP_SBIT;
 
-            if(dec->ihdr.colour_type == 0)
+            if(ctx->ihdr.colour_type == 0)
             {
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit.greyscale_bits, data, 1);
+                memcpy(&ctx->sbit.greyscale_bits, data, 1);
 
-                if(dec->sbit.greyscale_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.greyscale_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.greyscale_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
             }
-            else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
+            else if(ctx->ihdr.colour_type == 2 || ctx->ihdr.colour_type == 3)
             {
                 if(chunk.length != 3) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit.red_bits, data, 1);
-                memcpy(&dec->sbit.green_bits, data + 1 , 1);
-                memcpy(&dec->sbit.blue_bits, data + 2, 1);
+                memcpy(&ctx->sbit.red_bits, data, 1);
+                memcpy(&ctx->sbit.green_bits, data + 1 , 1);
+                memcpy(&ctx->sbit.blue_bits, data + 2, 1);
 
-                if(dec->sbit.red_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.green_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.blue_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.red_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.green_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.blue_bits == 0) return SPNG_ESBIT;
 
                 uint8_t bit_depth;
-                if(dec->ihdr.colour_type == 3) bit_depth = 8;
-                else bit_depth = dec->ihdr.bit_depth;
+                if(ctx->ihdr.colour_type == 3) bit_depth = 8;
+                else bit_depth = ctx->ihdr.bit_depth;
 
-                if(dec->sbit.red_bits > bit_depth) return SPNG_ESBIT;
-                if(dec->sbit.green_bits > bit_depth) return SPNG_ESBIT;
-                if(dec->sbit.blue_bits > bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.red_bits > bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.green_bits > bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.blue_bits > bit_depth) return SPNG_ESBIT;
             }
-            else if(dec->ihdr.colour_type == 4)
+            else if(ctx->ihdr.colour_type == 4)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit.greyscale_bits, data, 1);
-                memcpy(&dec->sbit.alpha_bits, data + 1, 1);
+                memcpy(&ctx->sbit.greyscale_bits, data, 1);
+                memcpy(&ctx->sbit.alpha_bits, data + 1, 1);
 
-                if(dec->sbit.greyscale_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.greyscale_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.greyscale_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.greyscale_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
 
-                if(dec->sbit.alpha_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.alpha_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.alpha_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.alpha_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
             }
-            else if(dec->ihdr.colour_type == 6)
+            else if(ctx->ihdr.colour_type == 6)
             {
                 if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&dec->sbit.red_bits, data, 1);
-                memcpy(&dec->sbit.green_bits, data + 1, 1);
-                memcpy(&dec->sbit.blue_bits, data + 2, 1);
-                memcpy(&dec->sbit.alpha_bits, data + 3, 1);
+                memcpy(&ctx->sbit.red_bits, data, 1);
+                memcpy(&ctx->sbit.green_bits, data + 1, 1);
+                memcpy(&ctx->sbit.blue_bits, data + 2, 1);
+                memcpy(&ctx->sbit.alpha_bits, data + 3, 1);
 
-                if(dec->sbit.red_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.green_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.blue_bits == 0) return SPNG_ESBIT;
-                if(dec->sbit.alpha_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.red_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.green_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.blue_bits == 0) return SPNG_ESBIT;
+                if(ctx->sbit.alpha_bits == 0) return SPNG_ESBIT;
 
-                if(dec->sbit.red_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
-                if(dec->sbit.green_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
-                if(dec->sbit.blue_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
-                if(dec->sbit.alpha_bits > dec->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.red_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.green_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.blue_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
+                if(ctx->sbit.alpha_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
             }
 
-            dec->have_sbit = 1;
+            ctx->have_sbit = 1;
         }
         else if(!memcmp(chunk.type, type_srgb, 4))
         {
-            if(dec->have_plte && chunk.offset > dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_srgb) return SPNG_EDUP_SRGB;
+            if(ctx->have_plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_srgb) return SPNG_EDUP_SRGB;
 
             if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
-            memcpy(&dec->srgb_rendering_intent, data, 1);
+            memcpy(&ctx->srgb_rendering_intent, data, 1);
 
-            dec->have_srgb = 1;
+            ctx->have_srgb = 1;
         }
         else if(!memcmp(chunk.type, type_bkgd, 4))
         {
-            if(dec->have_plte && chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_bkgd) return SPNG_EDUP_BKGD;
+            if(ctx->have_plte && chunk.offset < ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_bkgd) return SPNG_EDUP_BKGD;
 
             uint16_t mask = ~0;
-            if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
+            if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
 
-            if(dec->ihdr.colour_type == 0 || dec->ihdr.colour_type == 4)
+            if(ctx->ihdr.colour_type == 0 || ctx->ihdr.colour_type == 4)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                dec->bkgd.type0_4_greyscale = read_u16(data) & mask;
+                ctx->bkgd.type0_4_greyscale = read_u16(data) & mask;
             }
-            else if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 6)
+            else if(ctx->ihdr.colour_type == 2 || ctx->ihdr.colour_type == 6)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                dec->bkgd.type2_6.red = read_u16(data) & mask;
-                dec->bkgd.type2_6.green = read_u16(data + 2) & mask;
-                dec->bkgd.type2_6.blue = read_u16(data + 4) & mask;
+                ctx->bkgd.type2_6.red = read_u16(data) & mask;
+                ctx->bkgd.type2_6.green = read_u16(data + 2) & mask;
+                ctx->bkgd.type2_6.blue = read_u16(data + 4) & mask;
             }
-            else if(dec->ihdr.colour_type == 3)
+            else if(ctx->ihdr.colour_type == 3)
             {
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
-                if(!dec->have_plte) return SPNG_EBKGD_NO_PLTE;
+                if(!ctx->have_plte) return SPNG_EBKGD_NO_PLTE;
 
-                memcpy(&dec->bkgd.type3_plte_index, data, 1);
-                if(dec->bkgd.type3_plte_index >= dec->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
+                memcpy(&ctx->bkgd.type3_plte_index, data, 1);
+                if(ctx->bkgd.type3_plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
             }
 
-            dec->have_bkgd = 1;
+            ctx->have_bkgd = 1;
         }
         else if(!memcmp(chunk.type, type_trns, 4))
         {
-            if(dec->have_plte && chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_trns) return SPNG_EDUP_TRNS;
+            if(ctx->have_plte && chunk.offset < ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_trns) return SPNG_EDUP_TRNS;
             if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
             uint16_t mask = ~0;
-            if(dec->ihdr.bit_depth < 16) mask = (1 << dec->ihdr.bit_depth) - 1;
+            if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
 
-            if(dec->ihdr.colour_type == 0)
+            if(ctx->ihdr.colour_type == 0)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                dec->trns.type0_grey_sample = read_u16(data) & mask;
+                ctx->trns.type0_grey_sample = read_u16(data) & mask;
             }
-            else if(dec->ihdr.colour_type == 2)
+            else if(ctx->ihdr.colour_type == 2)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                dec->trns.type2.red = read_u16(data) & mask;
-                dec->trns.type2.green = read_u16(data + 2) & mask;
-                dec->trns.type2.blue = read_u16(data + 4) & mask;
+                ctx->trns.type2.red = read_u16(data) & mask;
+                ctx->trns.type2.green = read_u16(data + 2) & mask;
+                ctx->trns.type2.blue = read_u16(data + 4) & mask;
             }
-            else if(dec->ihdr.colour_type == 3)
+            else if(ctx->ihdr.colour_type == 3)
             {
-                if(chunk.length > dec->plte.n_entries) return SPNG_ECHUNK_SIZE;
-                if(!dec->have_plte) return SPNG_ETRNS_NO_PLTE;
+                if(chunk.length > ctx->plte.n_entries) return SPNG_ECHUNK_SIZE;
+                if(!ctx->have_plte) return SPNG_ETRNS_NO_PLTE;
 
                 size_t k;
                 for(k=0; k < chunk.length; k++)
                 {
-                    memcpy(&dec->trns.type3_alpha[k], data + k, 1);
+                    memcpy(&ctx->trns.type3_alpha[k], data + k, 1);
                 }
-                dec->trns.n_type3_entries = chunk.length;
+                ctx->trns.n_type3_entries = chunk.length;
             }
             else return SPNG_ETRNS_COLOUR_TYPE;
 
-            dec->have_trns = 1;
+            ctx->have_trns = 1;
         }
         else if(!memcmp(chunk.type, type_hist, 4))
         {
-            if(!dec->have_plte) return SPNG_EHIST_NO_PLTE;
-            if(chunk.offset < dec->plte_offset) return SPNG_ECHUNK_POS;
-            if(dec->have_hist) return SPNG_EDUP_HIST;
+            if(!ctx->have_plte) return SPNG_EHIST_NO_PLTE;
+            if(chunk.offset < ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->have_hist) return SPNG_EDUP_HIST;
 
-            if( (chunk.length / 2) != (dec->plte.n_entries) ) return SPNG_ECHUNK_SIZE;
+            if( (chunk.length / 2) != (ctx->plte.n_entries) ) return SPNG_ECHUNK_SIZE;
 
             size_t k;
             for(k=0; k < (chunk.length / 2); k++)
             {
-                dec->hist.frequency[k] = read_u16(data + k*2);
+                ctx->hist.frequency[k] = read_u16(data + k*2);
             }
 
-            dec->have_hist = 1;
+            ctx->have_hist = 1;
         }
         else if(!memcmp(chunk.type, type_phys, 4))
         {
-            if(dec->have_phys) return SPNG_EDUP_PHYS;
+            if(ctx->have_phys) return SPNG_EDUP_PHYS;
 
             if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
 
-            dec->phys.ppu_x = read_u32(data);
-            dec->phys.ppu_y = read_u32(data + 4);
-            memcpy(&dec->phys.unit_specifier, data + 8, 1);
+            ctx->phys.ppu_x = read_u32(data);
+            ctx->phys.ppu_y = read_u32(data + 4);
+            memcpy(&ctx->phys.unit_specifier, data + 8, 1);
 
-            if(dec->phys.unit_specifier > 1) return SPNG_EPHYS;
+            if(ctx->phys.unit_specifier > 1) return SPNG_EPHYS;
 
-            if(dec->phys.ppu_x > png_u32max) return SPNG_EPHYS;
-            if(dec->phys.ppu_y > png_u32max) return SPNG_EPHYS;
+            if(ctx->phys.ppu_x > png_u32max) return SPNG_EPHYS;
+            if(ctx->phys.ppu_y > png_u32max) return SPNG_EPHYS;
 
-            dec->have_phys = 1;
+            ctx->have_phys = 1;
         }
         else if(!memcmp(chunk.type, type_splt, 4))
         {
-            if(!dec->have_splt)
+            if(!ctx->have_splt)
             {
-                dec->n_splt = 1;
-                dec->splt_list = malloc(sizeof(struct spng_splt));
-                if(dec->splt_list == NULL) return SPNG_EMEM;
+                ctx->n_splt = 1;
+                ctx->splt_list = malloc(sizeof(struct spng_splt));
+                if(ctx->splt_list == NULL) return SPNG_EMEM;
             }
             else
             {
-                dec->n_splt++;
-                if(dec->n_splt < 1) return SPNG_EOVERFLOW;
-                if(sizeof(struct spng_splt) > SIZE_MAX / dec->n_splt) return SPNG_EOVERFLOW;
+                ctx->n_splt++;
+                if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
+                if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
 
-                void *buf = realloc(dec->splt_list, dec->n_splt * sizeof(struct spng_splt));
+                void *buf = realloc(ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
                 if(buf == NULL) return SPNG_EMEM;
-                dec->splt_list = buf;
+                ctx->splt_list = buf;
             }
 
-            uint32_t i = dec->n_splt - 1;
+            uint32_t i = ctx->n_splt - 1;
 
             size_t keyword_len = chunk.length > 80 ? 80 : chunk.length;
             char *keyword_nul = memchr(data, '\0', keyword_len);
             if(keyword_nul == NULL) return SPNG_ESPLT_NAME;
 
-            memcpy(&dec->splt_list[i].name, data, keyword_len);
+            memcpy(&ctx->splt_list[i].name, data, keyword_len);
 
-            if(check_png_keyword(dec->splt_list[i].name)) return SPNG_ESPLT_NAME;
+            if(check_png_keyword(ctx->splt_list[i].name)) return SPNG_ESPLT_NAME;
 
-            keyword_len = strlen(dec->splt_list[i].name);
+            keyword_len = strlen(ctx->splt_list[i].name);
 
             if( (chunk.length - keyword_len - 1) ==  0) return SPNG_ECHUNK_SIZE;
 
-            memcpy(&dec->splt_list[i].sample_depth, data + keyword_len + 1, 1);
+            memcpy(&ctx->splt_list[i].sample_depth, data + keyword_len + 1, 1);
 
-            if(dec->n_splt > 1)
+            if(ctx->n_splt > 1)
             {
                 uint32_t j;
                 for(j=0; j < i; j++)
                 {
-                    if(!strcmp(dec->splt_list[j].name, dec->splt_list[i].name)) return SPNG_ESPLT_DUP_NAME;
+                    if(!strcmp(ctx->splt_list[j].name, ctx->splt_list[i].name)) return SPNG_ESPLT_DUP_NAME;
                 }
             }
 
-            if(dec->splt_list[i].sample_depth == 16)
+            if(ctx->splt_list[i].sample_depth == 16)
             {
                 if( (chunk.length - keyword_len - 2) % 10 != 0) return SPNG_ECHUNK_SIZE;
-                dec->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 10;
+                ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 10;
             }
-            else if(dec->splt_list[i].sample_depth == 8)
+            else if(ctx->splt_list[i].sample_depth == 8)
             {
                 if( (chunk.length - keyword_len - 2) % 6 != 0) return SPNG_ECHUNK_SIZE;
-                dec->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 6;
+                ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 6;
             }
             else return SPNG_ESPLT_DEPTH;
 
-            if(dec->splt_list[i].n_entries == 0) return SPNG_ECHUNK_SIZE;
-            if(sizeof(struct spng_splt_entry) > SIZE_MAX / dec->splt_list[i].n_entries) return SPNG_EOVERFLOW;
+            if(ctx->splt_list[i].n_entries == 0) return SPNG_ECHUNK_SIZE;
+            if(sizeof(struct spng_splt_entry) > SIZE_MAX / ctx->splt_list[i].n_entries) return SPNG_EOVERFLOW;
 
-            dec->splt_list[i].entries = malloc(sizeof(struct spng_splt_entry) * dec->splt_list[i].n_entries);
-            if(dec->splt_list[i].entries == NULL) return SPNG_EMEM;
+            ctx->splt_list[i].entries = malloc(sizeof(struct spng_splt_entry) * ctx->splt_list[i].n_entries);
+            if(ctx->splt_list[i].entries == NULL) return SPNG_EMEM;
 
             const unsigned char *splt = data + keyword_len + 2;
 
             size_t k;
-            if(dec->splt_list[i].sample_depth == 16)
+            if(ctx->splt_list[i].sample_depth == 16)
             {
-                for(k=0; k < dec->splt_list[i].n_entries; k++)
+                for(k=0; k < ctx->splt_list[i].n_entries; k++)
                 {
-                    dec->splt_list[i].entries[k].red = read_u16(splt + k * 10);
-                    dec->splt_list[i].entries[k].green = read_u16(splt + k * 10 + 2);
-                    dec->splt_list[i].entries[k].blue = read_u16(splt + k * 10 + 4);
-                    dec->splt_list[i].entries[k].alpha = read_u16(splt + k * 10 + 6);
-                    dec->splt_list[i].entries[k].frequency = read_u16(splt + k * 10 + 8);
+                    ctx->splt_list[i].entries[k].red = read_u16(splt + k * 10);
+                    ctx->splt_list[i].entries[k].green = read_u16(splt + k * 10 + 2);
+                    ctx->splt_list[i].entries[k].blue = read_u16(splt + k * 10 + 4);
+                    ctx->splt_list[i].entries[k].alpha = read_u16(splt + k * 10 + 6);
+                    ctx->splt_list[i].entries[k].frequency = read_u16(splt + k * 10 + 8);
                 }
             }
-            else if(dec->splt_list[i].sample_depth == 8)
+            else if(ctx->splt_list[i].sample_depth == 8)
             {
-                for(k=0; k < dec->splt_list[i].n_entries; k++)
+                for(k=0; k < ctx->splt_list[i].n_entries; k++)
                 {
                     uint8_t red, green, blue, alpha;
                     memcpy(&red,   splt + k * 6, 1);
                     memcpy(&green, splt + k * 6 + 1, 1);
                     memcpy(&blue,  splt + k * 6 + 2, 1);
                     memcpy(&alpha, splt + k * 6 + 3, 1);
-                    dec->splt_list[i].entries[k].frequency = read_u16(splt + k * 6 + 4);
+                    ctx->splt_list[i].entries[k].frequency = read_u16(splt + k * 6 + 4);
 
-                    dec->splt_list[i].entries[k].red = red;
-                    dec->splt_list[i].entries[k].green = green;
-                    dec->splt_list[i].entries[k].blue = blue;
-                    dec->splt_list[i].entries[k].alpha = alpha;
+                    ctx->splt_list[i].entries[k].red = red;
+                    ctx->splt_list[i].entries[k].green = green;
+                    ctx->splt_list[i].entries[k].blue = blue;
+                    ctx->splt_list[i].entries[k].alpha = alpha;
                 }
             }
 
-            dec->have_splt = 1;
+            ctx->have_splt = 1;
         }
         else if(!memcmp(chunk.type, type_time, 4))
         {
-            if(dec->have_time) return SPNG_EDUP_TIME;
+            if(ctx->have_time) return SPNG_EDUP_TIME;
 
             if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
 
-            dec->time.year = read_u16(data);
-            memcpy(&dec->time.month, data + 2, 1);
-            memcpy(&dec->time.day, data + 3, 1);
-            memcpy(&dec->time.hour, data + 4, 1);
-            memcpy(&dec->time.minute, data + 5, 1);
-            memcpy(&dec->time.second, data + 6, 1);
+            ctx->time.year = read_u16(data);
+            memcpy(&ctx->time.month, data + 2, 1);
+            memcpy(&ctx->time.day, data + 3, 1);
+            memcpy(&ctx->time.hour, data + 4, 1);
+            memcpy(&ctx->time.minute, data + 5, 1);
+            memcpy(&ctx->time.second, data + 6, 1);
 
-            if(dec->time.month == 0 || dec->time.month > 12) return SPNG_ETIME;
-            if(dec->time.day == 0 || dec->time.day > 31) return SPNG_ETIME;
-            if(dec->time.hour > 23) return SPNG_ETIME;
-            if(dec->time.minute > 59) return SPNG_ETIME;
-            if(dec->time.second > 60) return SPNG_ETIME;
+            if(ctx->time.month == 0 || ctx->time.month > 12) return SPNG_ETIME;
+            if(ctx->time.day == 0 || ctx->time.day > 31) return SPNG_ETIME;
+            if(ctx->time.hour > 23) return SPNG_ETIME;
+            if(ctx->time.minute > 59) return SPNG_ETIME;
+            if(ctx->time.second > 60) return SPNG_ETIME;
 
-            dec->have_time = 1;
+            ctx->have_time = 1;
         }
         else if(!memcmp(chunk.type, type_text, 4))
         {/* TODO: read */
@@ -916,34 +916,34 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
         }
         else if(!memcmp(chunk.type, type_offs, 4))
         {
-            if(dec->have_offs) return SPNG_EDUP_OFFS;
+            if(ctx->have_offs) return SPNG_EDUP_OFFS;
 
-            dec->offs.x = read_i32(data);
-            dec->offs.y = read_i32(data + 4);
-            memcpy(&dec->offs.unit_specifier, data + 8, 1);
+            ctx->offs.x = read_i32(data);
+            ctx->offs.y = read_i32(data + 4);
+            memcpy(&ctx->offs.unit_specifier, data + 8, 1);
 
-            dec->have_offs = 1;
+            ctx->have_offs = 1;
         }
     }
 
     return ret;
 }
 
-static int validate_past_idat(struct spng_decoder *dec)
+static int validate_past_idat(struct spng_ctx *ctx)
 {
-    if(dec == NULL) return 1;
+    if(ctx == NULL) return 1;
 
     int ret;
     int prev_was_idat = 1;
     struct spng_chunk chunk, next;
 
-    memcpy(&chunk, &dec->last_idat, sizeof(struct spng_chunk));
+    memcpy(&chunk, &ctx->last_idat, sizeof(struct spng_chunk));
 
-    while( !(ret = next_header(dec, &chunk, &next)))
+    while( !(ret = next_header(ctx, &chunk, &next)))
     {
         memcpy(&chunk, &next, sizeof(struct spng_chunk));
 
-        ret = get_chunk_data(dec, &chunk);
+        ret = get_chunk_data(ctx, &chunk);
         if(ret) return ret;
 
         /* Reserved bit must be zero */
@@ -1017,90 +1017,90 @@ static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbi
 }
 
 
-struct spng_decoder * spng_decoder_new(void)
+struct spng_ctx * spng_ctx_new(void)
 {
-    struct spng_decoder *dec = malloc(sizeof(struct spng_decoder));
-    if(dec==NULL) return NULL;
+    struct spng_ctx *ctx = malloc(sizeof(struct spng_ctx));
+    if(ctx==NULL) return NULL;
 
-    memset(dec, 0, sizeof(struct spng_decoder));
-    dec->valid_state = 1;
+    memset(ctx, 0, sizeof(struct spng_ctx));
+    ctx->valid_state = 1;
 
-    return dec;
+    return ctx;
 }
 
-void spng_decoder_free(struct spng_decoder *dec)
+void spng_ctx_free(struct spng_ctx *ctx)
 {
-    if(dec==NULL) return;
+    if(ctx==NULL) return;
 
-    if(dec->streaming)
+    if(ctx->streaming)
     {
-        if(dec->data != NULL) free(dec->data);
+        if(ctx->data != NULL) free(ctx->data);
     }
 
-    if(dec->iccp.profile != NULL) free(dec->iccp.profile);
+    if(ctx->iccp.profile != NULL) free(ctx->iccp.profile);
 
-    if(dec->gamma_lut != NULL) free(dec->gamma_lut);
+    if(ctx->gamma_lut != NULL) free(ctx->gamma_lut);
 
-    if(dec->splt_list != NULL)
+    if(ctx->splt_list != NULL)
     {
         uint32_t i;
-        for(i=0; i < dec->n_splt; i++)
+        for(i=0; i < ctx->n_splt; i++)
         {
-            if(dec->splt_list[i].entries != NULL) free(dec->splt_list[i].entries);
+            if(ctx->splt_list[i].entries != NULL) free(ctx->splt_list[i].entries);
         }
-        free(dec->splt_list);
+        free(ctx->splt_list);
     }
 
-    memset(dec, 0, sizeof(struct spng_decoder));
+    memset(ctx, 0, sizeof(struct spng_ctx));
 
-    free(dec);
+    free(ctx);
 }
 
-int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size)
+int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size)
 {
-    if(dec==NULL || buf==NULL) return 1;
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(ctx==NULL || buf==NULL) return 1;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
 
-    if(dec->data != NULL) return SPNG_EBUF_SET;
+    if(ctx->data != NULL) return SPNG_EBUF_SET;
 
-    dec->data = buf;
-    dec->data_size = size;
+    ctx->data = buf;
+    ctx->data_size = size;
 
     return 0;
 }
 
-int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn read_func, void *user)
+int spng_set_png_stream(struct spng_ctx *ctx, spng_read_fn read_func, void *user)
 {
-    if(dec == NULL || read_func == NULL) return 1;
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(ctx == NULL || read_func == NULL) return 1;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
 
-    if(dec->data != NULL) return SPNG_EBUF_SET;
+    if(ctx->data != NULL) return SPNG_EBUF_SET;
 
-    dec->data = malloc(8192);
-    if(dec->data == NULL) return SPNG_EMEM;
-    dec->data_size = 8192;
+    ctx->data = malloc(8192);
+    if(ctx->data == NULL) return SPNG_EMEM;
+    ctx->data_size = 8192;
 
-    dec->read_fn = read_func;
-    dec->read_user_ptr = user;
+    ctx->read_fn = read_func;
+    ctx->read_user_ptr = user;
 
-    dec->streaming = 1;
+    ctx->streaming = 1;
 
     return 0;
 }
 
-static int get_ancillary(struct spng_decoder *dec)
+static int get_ancillary(struct spng_ctx *ctx)
 {
-    if(dec == NULL) return 1;
-    if(dec->data == NULL) return 1;
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(ctx == NULL) return 1;
+    if(ctx->data == NULL) return 1;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
 
     int ret;
-    if(!dec->first_idat.offset)
+    if(!ctx->first_idat.offset)
     {
-        ret = get_ancillary_data_first_idat(dec);
+        ret = get_ancillary_data_first_idat(ctx);
         if(ret)
         {
-            dec->valid_state = 0;
+            ctx->valid_state = 0;
             return ret;
         }
     }
@@ -1108,65 +1108,65 @@ static int get_ancillary(struct spng_decoder *dec)
     return 0;
 }
 
-int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr)
+int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
     if(ihdr==NULL) return 1;
 
-    int ret = get_ancillary(dec);
+    int ret = get_ancillary(ctx);
     if(ret) return ret;
 
-    memcpy(ihdr, &dec->ihdr, sizeof(struct spng_ihdr));
+    memcpy(ihdr, &ctx->ihdr, sizeof(struct spng_ihdr));
 
     return 0;
 }
 
-int spng_set_image_limits(struct spng_decoder *dec, uint32_t width, uint32_t height)
+int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height)
 {
-    if(dec == NULL) return 1;
+    if(ctx == NULL) return 1;
 
     if(width > png_u32max || height > png_u32max) return 1;
 
-    dec->max_width = width;
-    dec->max_height = height;
+    ctx->max_width = width;
+    ctx->max_height = height;
 
     return 0;
 }
 
-int spng_get_image_limits(struct spng_decoder *dec, uint32_t *width, uint32_t *height)
+int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *height)
 {
-    if(dec == NULL || width == NULL || height == NULL) return 1;
+    if(ctx == NULL || width == NULL || height == NULL) return 1;
 
-    *width = dec->max_width;
-    *height = dec->max_height;
+    *width = ctx->max_width;
+    *height = ctx->max_height;
 
     return 0;
 }
 
-int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out)
+int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out)
 {
-    if(dec==NULL || out==NULL) return 1;
+    if(ctx==NULL || out==NULL) return 1;
 
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
 
-    int ret = get_ancillary(dec);
+    int ret = get_ancillary(ctx);
     if(ret) return ret;
 
     size_t res;
     if(fmt == SPNG_FMT_RGBA8)
     {
-        if(4 > SIZE_MAX / dec->ihdr.width) return SPNG_EOVERFLOW;
-        res = 4 * dec->ihdr.width;
+        if(4 > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
+        res = 4 * ctx->ihdr.width;
 
-        if(res > SIZE_MAX / dec->ihdr.height) return SPNG_EOVERFLOW;
-        res = res * dec->ihdr.height;
+        if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
+        res = res * ctx->ihdr.height;
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        if(8 > SIZE_MAX / dec->ihdr.width) return SPNG_EOVERFLOW;
-        res = 8 * dec->ihdr.width;
+        if(8 > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
+        res = 8 * ctx->ihdr.width;
 
-        if(res > SIZE_MAX / dec->ihdr.height) return SPNG_EOVERFLOW;
-        res = res * dec->ihdr.height;
+        if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
+        res = res * ctx->ihdr.height;
     }
     else return SPNG_EFMT;
 
@@ -1175,41 +1175,41 @@ int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out)
     return 0;
 }
 
-int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags)
+int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t out_size, int flags)
 {
-    if(dec==NULL) return 1;
+    if(ctx==NULL) return 1;
     if(out==NULL) return 1;
-    if(!dec->valid_state) return SPNG_EBADSTATE;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
 
     int ret;
     size_t out_size_required;
 
-    ret = spng_get_output_image_size(dec, fmt, &out_size_required);
+    ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
 
-    ret = get_ancillary(dec);
+    ret = get_ancillary(ctx);
     if(ret) return ret;
 
     uint8_t channels = 1; /* grayscale or indexed_colour */
 
-    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR) channels = 3;
-    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA) channels = 2;
-    else if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA) channels = 4;
+    if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR) channels = 3;
+    else if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA) channels = 2;
+    else if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA) channels = 4;
 
     uint8_t bytes_per_pixel;
 
-    if(dec->ihdr.bit_depth < 8) bytes_per_pixel = 1;
-    else bytes_per_pixel = channels * (dec->ihdr.bit_depth / 8);
+    if(ctx->ihdr.bit_depth < 8) bytes_per_pixel = 1;
+    else bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
 
     /* Calculate scanline width in bits, round up to a multiple of 8, convert to bytes */
-    size_t scanline_width = dec->ihdr.width;
+    size_t scanline_width = ctx->ihdr.width;
 
     if(scanline_width > SIZE_MAX / channels) return SPNG_EOVERFLOW;
     scanline_width = scanline_width * channels;
 
-    if(scanline_width > SIZE_MAX / dec->ihdr.bit_depth) return SPNG_EOVERFLOW;
-    scanline_width = scanline_width * dec->ihdr.bit_depth;
+    if(scanline_width > SIZE_MAX / ctx->ihdr.bit_depth) return SPNG_EOVERFLOW;
+    scanline_width = scanline_width * ctx->ihdr.bit_depth;
 
     scanline_width = scanline_width + 8; /* filter byte */
     if(scanline_width < 8) return SPNG_EOVERFLOW;
@@ -1255,33 +1255,33 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
     struct spng_subimage sub[7];
     memset(sub, 0, sizeof(struct spng_subimage) * 7);
 
-    if(dec->ihdr.interlace_method == 1)
+    if(ctx->ihdr.interlace_method == 1)
     {
-        sub[0].width = (dec->ihdr.width + 7) >> 3;
-        sub[0].height = (dec->ihdr.height + 7) >> 3;
-        sub[1].width = (dec->ihdr.width + 3) >> 3;
-        sub[1].height = (dec->ihdr.height + 7) >> 3;
-        sub[2].width = (dec->ihdr.width + 3) >> 2;
-        sub[2].height = (dec->ihdr.height + 3) >> 3;
-        sub[3].width = (dec->ihdr.width + 1) >> 2;
-        sub[3].height = (dec->ihdr.height + 3) >> 2;
-        sub[4].width = (dec->ihdr.width + 1) >> 1;
-        sub[4].height = (dec->ihdr.height + 1) >> 2;
-        sub[5].width = dec->ihdr.width >> 1;
-        sub[5].height = (dec->ihdr.height + 1) >> 1;
-        sub[6].width = dec->ihdr.width;
-        sub[6].height = dec->ihdr.height >> 1;
+        sub[0].width = (ctx->ihdr.width + 7) >> 3;
+        sub[0].height = (ctx->ihdr.height + 7) >> 3;
+        sub[1].width = (ctx->ihdr.width + 3) >> 3;
+        sub[1].height = (ctx->ihdr.height + 7) >> 3;
+        sub[2].width = (ctx->ihdr.width + 3) >> 2;
+        sub[2].height = (ctx->ihdr.height + 3) >> 3;
+        sub[3].width = (ctx->ihdr.width + 1) >> 2;
+        sub[3].height = (ctx->ihdr.height + 3) >> 2;
+        sub[4].width = (ctx->ihdr.width + 1) >> 1;
+        sub[4].height = (ctx->ihdr.height + 1) >> 2;
+        sub[5].width = ctx->ihdr.width >> 1;
+        sub[5].height = (ctx->ihdr.height + 1) >> 1;
+        sub[6].width = ctx->ihdr.width;
+        sub[6].height = ctx->ihdr.height >> 1;
     }
     else
     {
-        sub[0].width = dec->ihdr.width;
-        sub[0].height = dec->ihdr.height;
+        sub[0].width = ctx->ihdr.width;
+        sub[0].height = ctx->ihdr.height;
     }
 
 
-    if(flags & SPNG_DECODE_USE_GAMA && dec->have_gama)
+    if(flags & SPNG_DECODE_USE_GAMA && ctx->have_gama)
     {
-        float file_gamma = (float)dec->gama / 100000.0f;
+        float file_gamma = (float)ctx->gama / 100000.0f;
         float max;
 
         uint32_t i, lut_entries;
@@ -1297,12 +1297,12 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
             max = 65535.0f;
         }
 
-        if(dec->lut_entries != lut_entries)
+        if(ctx->lut_entries != lut_entries)
         {
-            if(dec->gamma_lut != NULL) free(dec->gamma_lut);
+            if(ctx->gamma_lut != NULL) free(ctx->gamma_lut);
 
-            dec->gamma_lut = malloc(lut_entries * sizeof(uint16_t));
-            if(dec->gamma_lut == NULL)
+            ctx->gamma_lut = malloc(lut_entries * sizeof(uint16_t));
+            if(ctx->gamma_lut == NULL)
             {
                 ret = SPNG_EMEM;
                 goto decode_err;
@@ -1315,21 +1315,21 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
             float exp = 1.0f / (file_gamma * screen_gamma);
             float c = pow((float)i / max, exp) * max;
 
-            dec->gamma_lut[i] = c;
+            ctx->gamma_lut[i] = c;
         }
 
-        dec->lut_entries = lut_entries;
+        ctx->lut_entries = lut_entries;
     }
 
     uint8_t red_sbits, green_sbits, blue_sbits, alpha_sbits, greyscale_sbits;
 
-    red_sbits = dec->ihdr.bit_depth;
-    green_sbits = dec->ihdr.bit_depth;
-    blue_sbits = dec->ihdr.bit_depth;
-    alpha_sbits = dec->ihdr.bit_depth;
-    greyscale_sbits = dec->ihdr.bit_depth;
+    red_sbits = ctx->ihdr.bit_depth;
+    green_sbits = ctx->ihdr.bit_depth;
+    blue_sbits = ctx->ihdr.bit_depth;
+    alpha_sbits = ctx->ihdr.bit_depth;
+    greyscale_sbits = ctx->ihdr.bit_depth;
 
-    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED)
+    if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED)
     {
         red_sbits = 8;
         green_sbits = 8;
@@ -1337,33 +1337,33 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
         alpha_sbits = 8;
     }
 
-    if(dec->have_sbit)
+    if(ctx->have_sbit)
     {
         if(flags & SPNG_DECODE_USE_SBIT)
         {
-            if(dec->ihdr.colour_type == 0)
+            if(ctx->ihdr.colour_type == 0)
             {
-                greyscale_sbits = dec->sbit.greyscale_bits;
-                alpha_sbits = dec->ihdr.bit_depth;
+                greyscale_sbits = ctx->sbit.greyscale_bits;
+                alpha_sbits = ctx->ihdr.bit_depth;
             }
-            if(dec->ihdr.colour_type == 2 || dec->ihdr.colour_type == 3)
+            if(ctx->ihdr.colour_type == 2 || ctx->ihdr.colour_type == 3)
             {
-                red_sbits = dec->sbit.red_bits;
-                green_sbits = dec->sbit.green_bits;
-                blue_sbits = dec->sbit.blue_bits;
-                alpha_sbits = dec->ihdr.bit_depth;
+                red_sbits = ctx->sbit.red_bits;
+                green_sbits = ctx->sbit.green_bits;
+                blue_sbits = ctx->sbit.blue_bits;
+                alpha_sbits = ctx->ihdr.bit_depth;
             }
-            else if(dec->ihdr.colour_type == 4)
+            else if(ctx->ihdr.colour_type == 4)
             {
-                greyscale_sbits = dec->sbit.greyscale_bits;
-                alpha_sbits = dec->sbit.alpha_bits;
+                greyscale_sbits = ctx->sbit.greyscale_bits;
+                alpha_sbits = ctx->sbit.alpha_bits;
             }
             else /* == 6 */
             {
-                red_sbits = dec->sbit.red_bits;
-                green_sbits = dec->sbit.green_bits;
-                blue_sbits = dec->sbit.blue_bits;
-                alpha_sbits = dec->sbit.alpha_bits;
+                red_sbits = ctx->sbit.red_bits;
+                green_sbits = ctx->sbit.green_bits;
+                blue_sbits = ctx->sbit.blue_bits;
+                alpha_sbits = ctx->sbit.alpha_bits;
             }
         }
     }
@@ -1373,31 +1373,31 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
     struct spng_chunk chunk, next;
 
-    memcpy(&chunk, &dec->first_idat, sizeof(struct spng_chunk));
+    memcpy(&chunk, &ctx->first_idat, sizeof(struct spng_chunk));
 
     uint32_t actual_crc;
 
     /* chunk data left for current IDAT, only used when streaming */
     uint32_t bytes_left = 0;
 
-    if(dec->streaming)
+    if(ctx->streaming)
     {
         bytes_left = chunk.length;
         uint32_t len = 8192;
         if(bytes_left < len) len = bytes_left;
 
-        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, len);
+        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
         if(ret) goto decode_err;
 
         bytes_left -= len;
         actual_crc = crc32(0, NULL, 0);
         actual_crc = crc32(actual_crc, chunk.type, 4);
-        actual_crc = crc32(actual_crc, dec->data, len);
+        actual_crc = crc32(actual_crc, ctx->data, len);
 
         if(!bytes_left)
         {
             unsigned char crc[4];
-            ret = dec->read_fn(dec, dec->read_user_ptr, crc, sizeof(crc));
+            ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
             if(ret) goto decode_err;
 
             chunk.crc = read_u32(crc);
@@ -1410,15 +1410,15 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
         }
 
         stream.avail_in = len;
-        stream.next_in = dec->data;
+        stream.next_in = ctx->data;
     }
     else
     {
-        ret = get_chunk_data(dec, &chunk);
+        ret = get_chunk_data(ctx, &chunk);
         if(ret) goto decode_err;
 
         stream.avail_in = chunk.length;
-        stream.next_in = dec->data + chunk.offset + 8;
+        stream.next_in = ctx->data + chunk.offset + 8;
     }
 
     int pass;
@@ -1430,7 +1430,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
         /* Recalculate scanline_width for every subimage */
         /* Omitting overflow checks, we already did a worst-case calculation for *buf's size */
-        scanline_width = sub[pass].width * channels * dec->ihdr.bit_depth + 8;
+        scanline_width = sub[pass].width * channels * ctx->ihdr.bit_depth + 8;
         if(scanline_width % 8 !=0) scanline_width = scanline_width + 8 - (scanline_width % 8);
         scanline_width /= 8;
 
@@ -1467,7 +1467,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 /* We don't have scanline_width of data and we ran out of data for this chunk */
                 if(stream.avail_out !=0 && stream.avail_in == 0)
                 {
-                    ret = next_header(dec, &chunk, &next);
+                    ret = next_header(ctx, &chunk, &next);
                     if(ret) goto decode_err;
 
                     memcpy(&chunk, &next, sizeof(struct spng_chunk));
@@ -1478,25 +1478,25 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         goto decode_err;
                     }
 
-                    if(dec->streaming)
+                    if(ctx->streaming)
                     {
                         bytes_left = chunk.length;
                         uint32_t len = 8192;
                         if(bytes_left < len) len = bytes_left;
 
-                        ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, len);
+                        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
                         if(ret) goto decode_err;
 
                         bytes_left -= len;
 
                         actual_crc = crc32(0, NULL, 0);
                         actual_crc = crc32(actual_crc, chunk.type, 4);
-                        actual_crc = crc32(actual_crc, dec->data, len);
+                        actual_crc = crc32(actual_crc, ctx->data, len);
 
                         if(!bytes_left)
                         {
                             unsigned char crc[4];
-                            ret = dec->read_fn(dec, dec->read_user_ptr, crc, sizeof(crc));
+                            ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
                             if(ret) goto decode_err;
 
                             chunk.crc = read_u32(crc);
@@ -1509,15 +1509,15 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                         }
 
                         stream.avail_in = len;
-                        stream.next_in = dec->data;
+                        stream.next_in = ctx->data;
                     }
                     else
                     {
-                        ret = get_chunk_data(dec, &chunk);
+                        ret = get_chunk_data(ctx, &chunk);
                         if(ret) goto decode_err;
 
                         stream.avail_in = chunk.length;
-                        stream.next_in = dec->data + chunk.offset + 8;
+                        stream.next_in = ctx->data + chunk.offset + 8;
                     }
                 }
 
@@ -1544,35 +1544,35 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 /* Extract a pixel from the scanline,
                    *_16/8 variables are used for memcpy'ing depending on bit_depth,
                    r, g, b, a, gray (all 16bits) are used for processing */
-                switch(dec->ihdr.colour_type)
+                switch(ctx->ihdr.colour_type)
                 {
                     case SPNG_COLOUR_TYPE_GRAYSCALE:
                     {
-                        if(dec->ihdr.bit_depth == 16)
+                        if(ctx->ihdr.bit_depth == 16)
                         {
                             gray_16 = read_u16(scanline + (k * 2));
 
-                            if(dec->have_trns &&
+                            if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               dec->trns.type0_grey_sample == gray_16) a_16 = 0;
+                               ctx->trns.type0_grey_sample == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* <= 8 */
                         {
-                            memcpy(&gray_8, scanline + k / (8 / dec->ihdr.bit_depth), 1);
+                            memcpy(&gray_8, scanline + k / (8 / ctx->ihdr.bit_depth), 1);
 
-                            uint16_t mask16 = (1 << dec->ihdr.bit_depth) - 1;
+                            uint16_t mask16 = (1 << ctx->ihdr.bit_depth) - 1;
                             uint8_t mask = mask16; /* avoid shift by width */
-                            uint8_t samples_per_byte = 8 / dec->ihdr.bit_depth;
-                            uint8_t max_shift_amount = 8 - dec->ihdr.bit_depth;
-                            uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * dec->ihdr.bit_depth);
+                            uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
+                            uint8_t max_shift_amount = 8 - ctx->ihdr.bit_depth;
+                            uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * ctx->ihdr.bit_depth);
 
                             gray_8 = gray_8 & (mask << shift_amount);
                             gray_8 = gray_8 >> shift_amount;
 
-                            if(dec->have_trns &&
+                            if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               dec->trns.type0_grey_sample == gray_8) a_8 = 0;
+                               ctx->trns.type0_grey_sample == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1580,17 +1580,17 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     }
                     case SPNG_COLOUR_TYPE_TRUECOLOR:
                     {
-                        if(dec->ihdr.bit_depth == 16)
+                        if(ctx->ihdr.bit_depth == 16)
                         {
                             r_16 = read_u16(scanline + (k * 6));
                             g_16 = read_u16(scanline + (k * 6) + 2);
                             b_16 = read_u16(scanline + (k * 6) + 4);
 
-                            if(dec->have_trns &&
+                            if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               dec->trns.type2.red == r_16 &&
-                               dec->trns.type2.green == g_16 &&
-                               dec->trns.type2.blue == b_16) a_16 = 0;
+                               ctx->trns.type2.red == r_16 &&
+                               ctx->trns.type2.green == g_16 &&
+                               ctx->trns.type2.blue == b_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* == 8 */
@@ -1599,11 +1599,11 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             memcpy(&g_8, scanline + (k * 3) + 1, 1);
                             memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
-                            if(dec->have_trns &&
+                            if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               dec->trns.type2.red == r_8 &&
-                               dec->trns.type2.green == g_8 &&
-                               dec->trns.type2.blue == b_8) a_8 = 0;
+                               ctx->trns.type2.red == r_8 &&
+                               ctx->trns.type2.green == g_8 &&
+                               ctx->trns.type2.blue == b_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1612,22 +1612,22 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     case SPNG_COLOUR_TYPE_INDEXED:
                     {
                         uint8_t entry = 0;
-                        memcpy(&entry, scanline + k / (8 / dec->ihdr.bit_depth), 1);
+                        memcpy(&entry, scanline + k / (8 / ctx->ihdr.bit_depth), 1);
 
-                        uint16_t mask16 = (1 << dec->ihdr.bit_depth) - 1;
+                        uint16_t mask16 = (1 << ctx->ihdr.bit_depth) - 1;
                         uint8_t mask = mask16; /* avoid shift by width */
-                        uint8_t samples_per_byte = 8 / dec->ihdr.bit_depth;
-                        uint8_t max_shift_amount = 8 - dec->ihdr.bit_depth;
-                        uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * dec->ihdr.bit_depth);
+                        uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
+                        uint8_t max_shift_amount = 8 - ctx->ihdr.bit_depth;
+                        uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * ctx->ihdr.bit_depth);
 
                         entry = entry & (mask << shift_amount);
                         entry = entry >> shift_amount;
 
-                        if(entry < dec->plte.n_entries)
+                        if(entry < ctx->plte.n_entries)
                         {
-                            r_8 = dec->plte.entries[entry].red;
-                            g_8 = dec->plte.entries[entry].green;
-                            b_8 = dec->plte.entries[entry].blue;
+                            r_8 = ctx->plte.entries[entry].red;
+                            g_8 = ctx->plte.entries[entry].green;
+                            b_8 = ctx->plte.entries[entry].blue;
                         }
                         else
                         {
@@ -1635,16 +1635,16 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                             goto decode_err;
                         }
 
-                        if(dec->have_trns &&
+                        if(ctx->have_trns &&
                            flags & SPNG_DECODE_USE_TRNS &&
-                           (entry < dec->trns.n_type3_entries)) a_8 = dec->trns.type3_alpha[entry];
+                           (entry < ctx->trns.n_type3_entries)) a_8 = ctx->trns.type3_alpha[entry];
                         else a_8 = 255;
 
                         break;
                     }
                     case SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA:
                     {
-                        if(dec->ihdr.bit_depth == 16)
+                        if(ctx->ihdr.bit_depth == 16)
                         {
                             gray_16 = read_u16(scanline + (k * 4));
                             a_16 = read_u16(scanline + (k * 4) + 2);
@@ -1659,7 +1659,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     }
                     case SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA:
                     {
-                        if(dec->ihdr.bit_depth == 16)
+                        if(ctx->ihdr.bit_depth == 16)
                         {
                             r_16 = read_u16(scanline + (k * 8));
                             g_16 = read_u16(scanline + (k * 8) + 2);
@@ -1676,10 +1676,10 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
                         break;
                     }
-                }/* switch(dec->ihdr.colour_type) */
+                }/* switch(ctx->ihdr.colour_type) */
 
 
-                if(dec->ihdr.bit_depth == 16)
+                if(ctx->ihdr.bit_depth == 16)
                 {
                     r = r_16; g = g_16; b = b_16; a = a_16;
                     gray = gray_16;
@@ -1691,16 +1691,16 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 }
 
 
-                if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
-                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
+                if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
+                   ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
                 {
-                    gray = sample_to_target(gray, dec->ihdr.bit_depth, greyscale_sbits, depth_target);
-                    a = sample_to_target(a, dec->ihdr.bit_depth, alpha_sbits, depth_target);
+                    gray = sample_to_target(gray, ctx->ihdr.bit_depth, greyscale_sbits, depth_target);
+                    a = sample_to_target(a, ctx->ihdr.bit_depth, alpha_sbits, depth_target);
                 }
                 else
                 {
-                    uint8_t processing_depth = dec->ihdr.bit_depth;
-                    if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED) processing_depth = 8;
+                    uint8_t processing_depth = ctx->ihdr.bit_depth;
+                    if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED) processing_depth = 8;
 
                     r = sample_to_target(r, processing_depth, red_sbits, depth_target);
                     g = sample_to_target(g, processing_depth, green_sbits, depth_target);
@@ -1710,8 +1710,8 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
 
 
 
-                if(dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
-                   dec->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
+                if(ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE ||
+                   ctx->ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
                 {
                     r = gray;
                     g = gray;
@@ -1719,11 +1719,11 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 }
 
 
-                if(flags & SPNG_DECODE_USE_GAMA && dec->have_gama)
+                if(flags & SPNG_DECODE_USE_GAMA && ctx->have_gama)
                 {
-                    r = dec->gamma_lut[r];
-                    g = dec->gamma_lut[g];
-                    b = dec->gamma_lut[b];
+                    r = ctx->gamma_lut[r];
+                    g = ctx->gamma_lut[g];
+                    b = ctx->gamma_lut[b];
                 }
 
 
@@ -1756,9 +1756,9 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                 }
 
 
-                if(!dec->ihdr.interlace_method)
+                if(!ctx->ihdr.interlace_method)
                 {
-                    pixel_offset = (k + (scanline_idx * dec->ihdr.width)) * pixel_size;
+                    pixel_offset = (k + (scanline_idx * ctx->ihdr.width)) * pixel_size;
                 }
                 else
                 {
@@ -1768,7 +1768,7 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
                     const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
 
                     pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
-                                     dec->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
+                                     ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
                 }
 
                 memcpy(out + pixel_offset, pixel, pixel_size);
@@ -1784,21 +1784,21 @@ int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, siz
     }/* for(pass=0; pass < 7; pass++) */
 
     /* zlib stream ended before an IDAT chunk boundary */
-    if(dec->streaming && bytes_left)
+    if(ctx->streaming && bytes_left)
     {/* read the rest of the chunk and check crc */
         while(bytes_left)
         {
             uint32_t len = 8192;
             if(bytes_left < len) len = bytes_left;
 
-            ret = dec->read_fn(dec, dec->read_user_ptr, dec->data, len);
+            ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
             if(ret) goto decode_err;
 
             bytes_left -= len;
         }
 
         unsigned char crc[4];
-        ret = dec->read_fn(dec, dec->read_user_ptr, crc, sizeof(crc));
+        ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
         if(ret) goto decode_err;
 
         chunk.crc = read_u32(crc);
@@ -1818,15 +1818,15 @@ decode_err:
 
     if(ret)
     {
-        dec->valid_state = 0;
+        ctx->valid_state = 0;
         return ret;
     }
 
-    memcpy(&dec->last_idat, &chunk, sizeof(struct spng_chunk));
+    memcpy(&ctx->last_idat, &chunk, sizeof(struct spng_chunk));
 
-    ret = validate_past_idat(dec);
+    ret = validate_past_idat(ctx);
 
-    if(ret) dec->valid_state = 0;
+    if(ret) ctx->valid_state = 0;
 
     return ret;
 }

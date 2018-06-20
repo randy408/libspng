@@ -228,14 +228,14 @@ struct spng_chunk
     uint32_t crc;
 };
 
-struct spng_decoder;
+struct spng_ctx;
 
 /* A read callback function should copy "n" bytes to *data and return 0 or
    SPNG_IO_EOF/SPNG_IO_ERROR on error. */
-typedef int spng_read_fn(struct spng_decoder *dec, void *user, void *data, size_t n);
+typedef int spng_read_fn(struct spng_ctx *ctx, void *user, void *data, size_t n);
 
 
-struct spng_decoder
+struct spng_ctx
 {
     size_t data_size;
     unsigned char *data;
@@ -301,20 +301,20 @@ struct spng_decoder
 };
 
 
-struct spng_decoder *spng_decoder_new(void);
-void spng_decoder_free(struct spng_decoder *dec);
+struct spng_ctx *spng_ctx_new(void);
+void spng_ctx_free(struct spng_ctx *ctx);
 
-int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size);
-int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn *read_fn, void *user);
+int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size);
+int spng_set_png_stream(struct spng_ctx *ctx, spng_read_fn *read_fn, void *user);
 
-int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
+int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr);
 
-int spng_set_image_limits(struct spng_decoder *dec, uint32_t width, uint32_t height);
-int spng_get_image_limits(struct spng_decoder *dec, uint32_t *width, uint32_t *height);
+int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height);
+int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *height);
 
-int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out);
+int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out);
 
-int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags);
+int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t out_size, int flags);
 
 #ifdef __cplusplus
 }
