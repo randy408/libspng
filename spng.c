@@ -1,6 +1,5 @@
 #include "spng.h"
 
-#include <arpa/inet.h>
 #include <limits.h>
 #include <string.h>
 #include <math.h>
@@ -792,7 +791,7 @@ static int get_ancillary_data_first_idat(struct spng_decoder *dec)
             {
                 dec->n_splt++;
                 if(dec->n_splt < 1) return SPNG_EOVERFLOW;
-                if(dec->n_splt > SIZE_MAX / sizeof(struct spng_splt)) return SPNG_EOVERFLOW;
+                if(sizeof(struct spng_splt) > SIZE_MAX / dec->n_splt) return SPNG_EOVERFLOW;
 
                 void *buf = realloc(dec->splt_list, dec->n_splt * sizeof(struct spng_splt));
                 if(buf == NULL) return SPNG_EMEM;

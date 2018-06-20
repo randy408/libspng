@@ -291,20 +291,20 @@ struct spng_decoder
 };
 
 
-extern struct spng_decoder *spng_decoder_new(void);
-extern void spng_decoder_free(struct spng_decoder *dec);
+struct spng_decoder *spng_decoder_new(void);
+void spng_decoder_free(struct spng_decoder *dec);
 
-extern int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size);
-extern int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn *read_fn, void *user);
+int spng_decoder_set_buffer(struct spng_decoder *dec, void *buf, size_t size);
+int spng_decoder_set_stream(struct spng_decoder *dec, spng_read_fn *read_fn, void *user);
 
-extern int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
+int spng_get_ihdr(struct spng_decoder *dec, struct spng_ihdr *ihdr);
 
 int spng_set_image_limits(struct spng_decoder *dec, uint32_t width, uint32_t height);
 int spng_get_image_limits(struct spng_decoder *dec, uint32_t *width, uint32_t *height);
 
-extern int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out);
+int spng_get_output_image_size(struct spng_decoder *dec, int fmt, size_t *out);
 
-extern int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags);
+int spng_decode_image(struct spng_decoder *dec, int fmt, unsigned char *out, size_t out_size, int flags);
 
 #ifdef __cplusplus
 }
