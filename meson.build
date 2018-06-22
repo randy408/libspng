@@ -6,7 +6,7 @@ pngdep = dependency('libpng16')
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required : false)
 
-lib = library('spng', 'spng.c', dependencies : [ zlibdep, m_dep ])
+lib = library('spng', 'spng.c', 'common.c', dependencies : [ zlibdep, m_dep ])
 
 example = executable('example', 'example.c', link_with : lib, dependencies : zlibdep)
 

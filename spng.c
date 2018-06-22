@@ -1,22 +1,12 @@
 #include "spng.h"
 
+#include "common.h"
+
 #include <limits.h>
 #include <string.h>
 #include <math.h>
 
 #include <zlib.h>
-
-#define SPNG_FILTER_TYPE_NONE 0
-#define SPNG_FILTER_TYPE_SUB 1
-#define SPNG_FILTER_TYPE_UP 2
-#define SPNG_FILTER_TYPE_AVERAGE 3
-#define SPNG_FILTER_TYPE_PAETH 4
-
-struct spng_subimage
-{
-    uint32_t width;
-    uint32_t height;
-};
 
 struct spng_decomp
 {
@@ -184,87 +174,6 @@ static int get_chunk_data(struct spng_ctx *ctx, struct spng_chunk *chunk)
     }
 
     if(actual_crc != chunk->crc) return SPNG_ECHUNK_CRC;
-
-    return 0;
-}
-
-static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
-{
-    if(ihdr->width > png_u32max || ihdr->width > max_width) return SPNG_EWIDTH;
-    if(ihdr->height > png_u32max || ihdr->height > max_height) return SPNG_EHEIGHT;
-
-    switch(ihdr->colour_type)
-    {
-        case SPNG_COLOUR_TYPE_GRAYSCALE:
-        {
-            if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
-                  ihdr->bit_depth == 4 || ihdr->bit_depth == 8 ||
-                  ihdr->bit_depth == 16) )
-                  return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOUR_TYPE_TRUECOLOR:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOUR_TYPE_INDEXED:
-        {
-            if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
-                  ihdr->bit_depth == 4 || ihdr->bit_depth == 8) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-    default: return SPNG_ECOLOUR_TYPE;
-    }
-
-    if(ihdr->compression_method || ihdr->filter_method)
-        return SPNG_ECOMPRESSION_METHOD;
-
-    if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
-        return SPNG_EINTERLACE_METHOD;
-
-    return 0;
-}
-
-/* Validate PNG keyword *str, *str must be 80 bytes */
-static int check_png_keyword(const char str[80])
-{
-    if(str == NULL) return 1;
-    char *end = memchr(str, '\0', 80);
-
-    if(end == NULL) return 1; /* unterminated string */
-    if(end == str) return 1; /* zero-length string */
-    if(str[0] == ' ') return 1; /* leading space */
-    if(end[-1] == ' ') return 1; /* trailing space */
-    if(strstr(str, "  ") != NULL) return 1; /* consecutive spaces */
-
-    uint8_t c;
-    while(str != end)
-    {
-        memcpy(&c, str, 1);
-
-        if( (c >= 32 && c <= 126) || (c >= 161 && c <= 255) ) str++;
-        else return 1; /* invalid character */
-    }
 
     return 0;
 }
@@ -544,14 +453,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             ctx->chrm.blue_x = read_u32(data + 24);
             ctx->chrm.blue_y = read_u32(data + 28);
 
-            if(ctx->chrm.white_point_x > png_u32max ||
-               ctx->chrm.white_point_y > png_u32max ||
-               ctx->chrm.red_x > png_u32max ||
-               ctx->chrm.red_y > png_u32max ||
-               ctx->chrm.green_x  > png_u32max ||
-               ctx->chrm.green_y  > png_u32max ||
-               ctx->chrm.blue_x > png_u32max ||
-               ctx->chrm.blue_y > png_u32max) return SPNG_ECHRM;
+            if(check_chrm(&ctx->chrm)) return SPNG_ECHRM;
 
             ctx->have_chrm = 1;
         }
@@ -613,9 +515,6 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
                 memcpy(&ctx->sbit.greyscale_bits, data, 1);
-
-                if(ctx->sbit.greyscale_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.greyscale_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(ctx->ihdr.colour_type == 2 || ctx->ihdr.colour_type == 3)
             {
@@ -624,18 +523,6 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
                 memcpy(&ctx->sbit.red_bits, data, 1);
                 memcpy(&ctx->sbit.green_bits, data + 1 , 1);
                 memcpy(&ctx->sbit.blue_bits, data + 2, 1);
-
-                if(ctx->sbit.red_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.green_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.blue_bits == 0) return SPNG_ESBIT;
-
-                uint8_t bit_depth;
-                if(ctx->ihdr.colour_type == 3) bit_depth = 8;
-                else bit_depth = ctx->ihdr.bit_depth;
-
-                if(ctx->sbit.red_bits > bit_depth) return SPNG_ESBIT;
-                if(ctx->sbit.green_bits > bit_depth) return SPNG_ESBIT;
-                if(ctx->sbit.blue_bits > bit_depth) return SPNG_ESBIT;
             }
             else if(ctx->ihdr.colour_type == 4)
             {
@@ -643,12 +530,6 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
 
                 memcpy(&ctx->sbit.greyscale_bits, data, 1);
                 memcpy(&ctx->sbit.alpha_bits, data + 1, 1);
-
-                if(ctx->sbit.greyscale_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.greyscale_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
-
-                if(ctx->sbit.alpha_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.alpha_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
             }
             else if(ctx->ihdr.colour_type == 6)
             {
@@ -658,17 +539,9 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
                 memcpy(&ctx->sbit.green_bits, data + 1, 1);
                 memcpy(&ctx->sbit.blue_bits, data + 2, 1);
                 memcpy(&ctx->sbit.alpha_bits, data + 3, 1);
-
-                if(ctx->sbit.red_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.green_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.blue_bits == 0) return SPNG_ESBIT;
-                if(ctx->sbit.alpha_bits == 0) return SPNG_ESBIT;
-
-                if(ctx->sbit.red_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
-                if(ctx->sbit.green_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
-                if(ctx->sbit.blue_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
-                if(ctx->sbit.alpha_bits > ctx->ihdr.bit_depth) return SPNG_ESBIT;
             }
+
+            if(check_sbit(&ctx->sbit, &ctx->ihdr)) return SPNG_ESBIT;
 
             ctx->have_sbit = 1;
         }
@@ -897,11 +770,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             memcpy(&ctx->time.minute, data + 5, 1);
             memcpy(&ctx->time.second, data + 6, 1);
 
-            if(ctx->time.month == 0 || ctx->time.month > 12) return SPNG_ETIME;
-            if(ctx->time.day == 0 || ctx->time.day > 31) return SPNG_ETIME;
-            if(ctx->time.hour > 23) return SPNG_ETIME;
-            if(ctx->time.minute > 59) return SPNG_ETIME;
-            if(ctx->time.second > 60) return SPNG_ETIME;
+            if(check_time(&ctx->time)) return SPNG_ETIME;
 
             ctx->have_time = 1;
         }
