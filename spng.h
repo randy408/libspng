@@ -72,6 +72,7 @@ extern "C" {
 #define SPNG_EBADSTATE 141
 #define SPNG_EFMT 142
 #define SPNG_EFLAGS 143
+#define SPNG_ECHUNKAVAIL 144
 
 #define SPNG_COLOUR_TYPE_GRAYSCALE 0
 #define SPNG_COLOUR_TYPE_TRUECOLOR 2
@@ -307,14 +308,29 @@ void spng_ctx_free(struct spng_ctx *ctx);
 int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size);
 int spng_set_png_stream(struct spng_ctx *ctx, spng_read_fn *read_fn, void *user);
 
-int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr);
-
 int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height);
 int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *height);
 
 int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out);
 
 int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t out_size, int flags);
+
+int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr);
+int spng_get_plte(struct spng_ctx *ctx, struct spng_plte *plte);
+int spng_get_trns(struct spng_ctx *ctx, struct spng_trns *trns);
+int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm);
+int spng_get_gama(struct spng_ctx *ctx, double *gamma);
+int spng_get_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp);
+int spng_get_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit);
+int spng_get_srgb(struct spng_ctx *ctx, uint8_t *rendering_intent);
+
+int spng_get_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd);
+int spng_get_hist(struct spng_ctx *ctx, struct spng_hist *hist);
+int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys);
+
+int spng_get_time(struct spng_ctx *ctx, struct spng_time *time);
+
+int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs);
 
 #ifdef __cplusplus
 }

@@ -158,3 +158,182 @@ int check_png_keyword(const char str[80])
     return 0;
 }
 
+int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
+{
+    if(ctx == NULL || ihdr == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    memcpy(ihdr, &ctx->ihdr, sizeof(struct spng_ihdr));
+
+    return 0;
+}
+
+int spng_get_plte(struct spng_ctx *ctx, struct spng_plte *plte)
+{
+    if(ctx == NULL || plte == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_plte) return SPNG_ECHUNKAVAIL;
+
+    memcpy(plte, &ctx->plte, sizeof(struct spng_plte));
+
+    return 0;
+}
+
+int spng_get_trns(struct spng_ctx *ctx, struct spng_trns *trns)
+{
+    if(ctx == NULL || trns == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_trns) return SPNG_ECHUNKAVAIL;
+
+    memcpy(trns, &ctx->trns, sizeof(struct spng_trns));
+
+    return 0;
+}
+
+int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
+{
+    if(ctx == NULL || chrm == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_chrm) return SPNG_ECHUNKAVAIL;
+
+    memcpy(chrm, &ctx->chrm, sizeof(struct spng_chrm));
+
+    return 0;
+}
+
+int spng_get_gama(struct spng_ctx *ctx, double *gamma)
+{
+    if(ctx == NULL || gamma == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_gama) return SPNG_ECHUNKAVAIL;
+
+    *gamma = (double)ctx->gama / 100000.0;
+
+    return 0;
+}
+
+int spng_get_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
+{
+    if(ctx == NULL || iccp == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_iccp) return SPNG_ECHUNKAVAIL;
+
+    memcpy(iccp, &ctx->iccp, sizeof(struct spng_iccp));
+
+    return 0;
+}
+
+int spng_get_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit)
+{
+    if(ctx == NULL || sbit == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_sbit) return SPNG_ECHUNKAVAIL;
+
+    memcpy(sbit, &ctx->sbit, sizeof(struct spng_sbit));
+
+    return 0;
+}
+
+int spng_get_srgb(struct spng_ctx *ctx, uint8_t *rendering_intent)
+{
+    if(ctx == NULL || rendering_intent == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_srgb) return SPNG_ECHUNKAVAIL;
+
+    *rendering_intent = ctx->srgb_rendering_intent;
+
+    return 0;
+}
+
+int spng_get_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
+{
+    if(ctx == NULL || bkgd == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_bkgd) return SPNG_ECHUNKAVAIL;
+
+    memcpy(bkgd, &ctx->bkgd, sizeof(struct spng_bkgd));
+
+    return 0;
+}
+
+int spng_get_hist(struct spng_ctx *ctx, struct spng_hist *hist)
+{
+    if(ctx == NULL || hist == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_hist) return SPNG_ECHUNKAVAIL;
+
+    memcpy(hist, &ctx->hist, sizeof(struct spng_hist));
+
+    return 0;
+}
+
+int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys)
+{
+    if(ctx == NULL || phys == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_phys) return SPNG_ECHUNKAVAIL;
+
+    memcpy(phys, &ctx->phys, sizeof(struct spng_phys));
+
+    return 0;
+}
+
+int spng_get_time(struct spng_ctx *ctx, struct spng_time *time)
+{
+    if(ctx == NULL || time == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_time) return SPNG_ECHUNKAVAIL;
+
+    memcpy(time, &ctx->time, sizeof(struct spng_time));
+
+    return 0;
+}
+
+int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs)
+{
+    if(ctx == NULL || offs == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_offs) return SPNG_ECHUNKAVAIL;
+
+    memcpy(offs, &ctx->offs, sizeof(struct spng_offs));
+
+    return 0;
+}

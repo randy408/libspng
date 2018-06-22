@@ -957,7 +957,7 @@ int spng_set_png_stream(struct spng_ctx *ctx, spng_read_fn read_func, void *user
     return 0;
 }
 
-static int get_ancillary(struct spng_ctx *ctx)
+int get_ancillary(struct spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
@@ -976,19 +976,6 @@ static int get_ancillary(struct spng_ctx *ctx)
 
     return 0;
 }
-
-int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
-{
-    if(ihdr==NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
-
-    memcpy(ihdr, &ctx->ihdr, sizeof(struct spng_ihdr));
-
-    return 0;
-}
-
 int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height)
 {
     if(ctx == NULL) return 1;
