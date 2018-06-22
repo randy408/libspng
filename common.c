@@ -134,6 +134,20 @@ int check_time(struct spng_time *time)
     return 0;
 }
 
+int check_exif(struct spng_exif *exif)
+{
+    if(exif == NULL) return 1;
+
+    if(exif->length < 4) return SPNG_ECHUNK_SIZE;
+
+    const uint8_t exif_le[4] = { 73, 73, 42, 0 };
+    const uint8_t exif_be[4] = { 77, 77, 0, 42 };
+
+    if(memcmp(exif->data, exif_le, 4) && memcmp(exif->data, exif_be, 4)) return 1;
+
+    return 0;
+}
+
 /* Validate PNG keyword *str, *str must be 80 bytes */
 int check_png_keyword(const char str[80])
 {

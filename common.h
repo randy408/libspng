@@ -21,6 +21,7 @@ int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height);
 int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr);
 int check_chrm(struct spng_chrm *chrm);
 int check_time(struct spng_time *time);
+int check_exif(struct spng_exif *exif);
 
 int check_png_keyword(const char str[80]);
 

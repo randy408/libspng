@@ -43,6 +43,7 @@ static const uint8_t type_splt[4] = { 115, 80, 76, 84 };
 static const uint8_t type_time[4] = { 116, 73, 77, 69 };
 
 static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
+static const uint8_t type_exif[4] = { 101, 88, 73, 102 };
 
 
 static inline uint16_t read_u16(const void *_data)
@@ -793,6 +794,20 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
 
             ctx->have_offs = 1;
         }
+        else if(!memcmp(chunk.type, type_exif, 4))
+        {
+            if(ctx->have_exif) return SPNG_EDUP_EXIF;
+
+            ctx->exif.data = malloc(chunk.length);
+            if(ctx->exif.data == NULL) return SPNG_EMEM;
+
+            memcpy(ctx->exif.data, data, chunk.length);
+            ctx->exif.length = chunk.length;
+
+            if(check_exif(&ctx->exif)) return SPNG_EEXIF;
+
+            ctx->have_exif = 1;
+        }
     }
 
     return ret;
@@ -905,6 +920,8 @@ void spng_ctx_free(struct spng_ctx *ctx)
     {
         if(ctx->data != NULL) free(ctx->data);
     }
+
+    if(ctx->exif.data) free(ctx->exif.data);
 
     if(ctx->iccp.profile != NULL) free(ctx->iccp.profile);
 

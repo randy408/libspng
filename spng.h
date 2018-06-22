@@ -45,6 +45,8 @@ extern "C" {
 #define SPNG_EDUP_PHYS 64
 #define SPNG_EDUP_TIME 65
 #define SPNG_EDUP_OFFS 150
+#define SPNG_EDUP_EXIF 800
+#define SPNG_EEXIF 801
 #define SPNG_ESBIT 66
 #define SPNG_EPHYS 67
 #define SPNG_ETIME 68
@@ -221,6 +223,12 @@ struct spng_offs
     uint8_t unit_specifier;
 };
 
+struct spng_exif
+{
+    size_t length;
+    char *data;
+};
+
 struct spng_chunk
 {
     size_t offset;
@@ -299,6 +307,9 @@ struct spng_ctx
 
     uint8_t have_offs;
     struct spng_offs offs;
+
+    uint8_t have_exif;
+    struct spng_exif exif;
 };
 
 
