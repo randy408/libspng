@@ -47,6 +47,7 @@ extern "C" {
 #define SPNG_EDUP_OFFS 150
 #define SPNG_EDUP_EXIF 800
 #define SPNG_EEXIF 801
+#define SPNG_EOFFS 802
 #define SPNG_ESBIT 66
 #define SPNG_EPHYS 67
 #define SPNG_ETIME 68

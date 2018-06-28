@@ -3,6 +3,8 @@
 #include <string.h>
 
 static const uint32_t png_u32max = 2147483647;
+static const int32_t png_s32max = 2147483647;
+static const int32_t png_s32min = -2147483647;
 
 int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
@@ -130,6 +132,16 @@ int check_time(struct spng_time *time)
     if(time->hour > 23) return 1;
     if(time->minute > 59) return 1;
     if(time->second > 60) return 1;
+
+    return 0;
+}
+
+int check_offs(struct spng_offs *offs)
+{
+    if(offs == NULL) return 1;
+
+    if(offs->x > png_s32max || offs->x > png_s32max) return 1;
+    if(offs->x < png_s32min || offs->y < png_s32min) return 1;
 
     return 0;
 }

@@ -792,6 +792,8 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             ctx->offs.y = read_i32(data + 4);
             memcpy(&ctx->offs.unit_specifier, data + 8, 1);
 
+            if(check_offs(&ctx->offs)) return SPNG_EOFFS;
+
             ctx->have_offs = 1;
         }
         else if(!memcmp(chunk.type, type_exif, 4))
