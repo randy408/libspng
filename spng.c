@@ -655,10 +655,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             ctx->phys.ppu_y = read_u32(data + 4);
             memcpy(&ctx->phys.unit_specifier, data + 8, 1);
 
-            if(ctx->phys.unit_specifier > 1) return SPNG_EPHYS;
-
-            if(ctx->phys.ppu_x > png_u32max) return SPNG_EPHYS;
-            if(ctx->phys.ppu_y > png_u32max) return SPNG_EPHYS;
+            if(check_phys(&ctx->phys)) return SPNG_EPHYS;
 
             ctx->have_phys = 1;
         }

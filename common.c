@@ -123,6 +123,18 @@ int check_chrm(struct spng_chrm *chrm)
     return 0;
 }
 
+int check_phys(struct spng_phys *phys)
+{
+    if(phys == NULL) return 1;
+
+    if(phys->unit_specifier > 1) return SPNG_EPHYS;
+
+    if(phys->ppu_x > png_u32max) return SPNG_EPHYS;
+    if(phys->ppu_y > png_u32max) return SPNG_EPHYS;
+
+    return 0;
+}
+
 int check_time(struct spng_time *time)
 {
     if(time == NULL) return 1;
@@ -142,6 +154,7 @@ int check_offs(struct spng_offs *offs)
 
     if(offs->x > png_s32max || offs->x > png_s32max) return 1;
     if(offs->x < png_s32min || offs->y < png_s32min) return 1;
+    if(offs->unit_specifier > 1) return 1;
 
     return 0;
 }
