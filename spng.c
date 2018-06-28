@@ -61,7 +61,7 @@ static inline uint32_t read_u32(const void *_data)
            (data[2] & 0xffUL) << 8  | (data[3] & 0xffUL);
 }
 
-static inline int32_t read_i32(const void *_data)
+static inline int32_t read_s32(const void *_data)
 {
     const unsigned char *data = _data;
 
@@ -785,8 +785,8 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
         {
             if(ctx->have_offs) return SPNG_EDUP_OFFS;
 
-            ctx->offs.x = read_i32(data);
-            ctx->offs.y = read_i32(data + 4);
+            ctx->offs.x = read_s32(data);
+            ctx->offs.y = read_s32(data + 4);
             memcpy(&ctx->offs.unit_specifier, data + 8, 1);
 
             if(check_offs(&ctx->offs)) return SPNG_EOFFS;
