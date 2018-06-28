@@ -376,3 +376,18 @@ int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs)
 
     return 0;
 }
+
+int spng_get_exif(struct spng_ctx *ctx, struct spng_exif *exif)
+{
+    if(ctx == NULL || exif == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_exif) return SPNG_ECHUNKAVAIL;
+
+    memcpy(exif, &ctx->exif, sizeof(struct spng_exif));
+
+    return 0;
+}
+

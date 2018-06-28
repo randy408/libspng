@@ -343,6 +343,7 @@ int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys);
 int spng_get_time(struct spng_ctx *ctx, struct spng_time *time);
 
 int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs);
+int spng_get_exif(struct spng_ctx *ctx, struct spng_exif *exif);
 
 #ifdef __cplusplus
 }
