@@ -391,3 +391,277 @@ int spng_get_exif(struct spng_ctx *ctx, struct spng_exif *exif)
     return 0;
 }
 
+int spng_set_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
+{
+    if(ctx == NULL || ihdr == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(ctx->have_ihdr) return 1;
+
+    ret = check_ihdr(ihdr, ctx->max_width, ctx->max_height);
+    if(ret) return ret;
+
+    memcpy(&ctx->ihdr, ihdr, sizeof(struct spng_ihdr));
+
+    ctx->have_ihdr = 1;
+
+    return 0;
+}
+
+int spng_set_plte(struct spng_ctx *ctx, struct spng_plte *plte)
+{
+    if(ctx == NULL || plte == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_ihdr) return 1;
+
+    if(plte->n_entries > 256) return 1;
+
+    if(ctx->ihdr.colour_type == 3)
+    {
+        if(plte->n_entries > (1 << ctx->ihdr.bit_depth)) return 1;
+    }
+
+    memcpy(&ctx->plte, plte, sizeof(struct spng_plte));
+
+    ctx->have_plte = 1;
+
+    return 0;
+}
+
+int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
+{
+    if(ctx == NULL || trns == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_ihdr) return 1;
+
+    uint16_t mask = ~0;
+    if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
+
+    if(ctx->ihdr.colour_type == 0)
+    {
+        trns->type0_grey_sample &= mask;
+    }
+    else if(ctx->ihdr.colour_type == 2)
+    {
+        trns->type2.red &= mask;
+        trns->type2.green &= mask;
+        trns->type2.blue &= mask;
+    }
+    else if(ctx->ihdr.colour_type == 3)
+    {
+        if(!ctx->have_plte) return 1;
+    }
+    else return SPNG_ETRNS_COLOUR_TYPE;
+
+    memcpy(&ctx->trns, trns, sizeof(struct spng_trns));
+
+    ctx->have_trns = 1;
+
+    return 0;
+}
+
+int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
+{
+    if(ctx == NULL || chrm == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(check_chrm(chrm)) return SPNG_ECHRM;
+
+    memcpy(&ctx->chrm, chrm, sizeof(struct spng_chrm));
+
+    ctx->have_chrm = 1;
+
+    return 0;
+}
+
+int spng_set_gama(struct spng_ctx *ctx, double gamma)
+{
+    if(ctx == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    uint32_t gama = gamma * 100000.0;
+
+    if(gama > png_u32max) return 1;
+
+    ctx->gama = gama;
+
+    ctx->have_gama = 1;
+
+    return 0;
+}
+
+int spng_set_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
+{
+    if(ctx == NULL || iccp == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    memcpy(&ctx->iccp, iccp, sizeof(struct spng_iccp));
+
+    ctx->have_iccp = 1;
+
+    return 0;
+}
+
+int spng_set_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit)
+{
+    if(ctx == NULL || sbit == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_ihdr) return 1;
+    if(check_sbit(sbit, &ctx->ihdr)) return 1;
+
+    memcpy(&ctx->sbit, sbit, sizeof(struct spng_sbit));
+
+    ctx->have_sbit = 1;
+
+    return 0;
+}
+
+int spng_set_srgb(struct spng_ctx *ctx, uint8_t rendering_intent)
+{
+    if(ctx == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(rendering_intent > 3) return 1;
+
+    ctx->srgb_rendering_intent = rendering_intent;
+
+    ctx->have_srgb = 1;
+
+    return 0;
+}
+
+int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
+{
+    if(ctx == NULL || bkgd == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_ihdr) return 1;
+
+    uint16_t mask = ~0;
+
+    if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
+
+    if(ctx->ihdr.colour_type == 0 || ctx->ihdr.colour_type == 4)
+    {
+        bkgd->type0_4_greyscale &= mask;
+    }
+    else if(ctx->ihdr.colour_type == 2 || ctx->ihdr.colour_type == 6)
+    {
+        bkgd->type2_6.red &= mask;
+        bkgd->type2_6.green &= mask;
+        bkgd->type2_6.blue &= mask;
+    }
+    else if(ctx->ihdr.colour_type == 3)
+    {
+        if(!ctx->have_plte) return SPNG_EBKGD_NO_PLTE;
+        if(bkgd->type3_plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
+    }
+
+    memcpy(&ctx->bkgd, bkgd, sizeof(struct spng_bkgd));
+
+    ctx->have_bkgd = 1;
+
+    return 0;
+}
+
+int spng_set_hist(struct spng_ctx *ctx, struct spng_hist *hist)
+{
+    if(ctx == NULL || hist == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_plte) return SPNG_EHIST_NO_PLTE;
+
+    memcpy(&ctx->hist, hist, sizeof(struct spng_hist));
+
+    ctx->have_hist = 1;
+
+    return 0;
+}
+
+int spng_set_phys(struct spng_ctx *ctx, struct spng_phys *phys)
+{
+    if(ctx == NULL || phys == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(check_phys(phys)) return SPNG_EPHYS;
+
+    memcpy(&ctx->phys, phys, sizeof(struct spng_phys));
+
+    ctx->have_phys = 1;
+
+    return 0;
+}
+
+int spng_set_time(struct spng_ctx *ctx, struct spng_time *time)
+{
+    if(ctx == NULL || time == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(check_time(time)) return SPNG_ETIME;
+
+    memcpy(&ctx->time, time, sizeof(struct spng_time));
+
+    ctx->have_time = 1;
+
+    return 0;
+}
+
+int spng_set_offs(struct spng_ctx *ctx, struct spng_offs *offs)
+{
+    if(ctx == NULL || offs == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(check_offs(offs)) return SPNG_EOFFS;
+
+    memcpy(&ctx->offs, offs, sizeof(struct spng_offs));
+
+    ctx->have_offs = 1;
+
+    return 0;
+}
+
+int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif)
+{
+    if(ctx == NULL || exif == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(check_exif(exif)) return SPNG_EEXIF;
+
+    memcpy(&ctx->exif, exif, sizeof(struct spng_exif));
+
+    ctx->have_exif = 1;
+
+    return 0;
+}
+

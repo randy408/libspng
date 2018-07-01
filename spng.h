@@ -48,6 +48,7 @@ extern "C" {
 #define SPNG_EDUP_EXIF 800
 #define SPNG_EEXIF 801
 #define SPNG_EOFFS 802
+#define SPNG_ESRGB 803
 #define SPNG_ESBIT 66
 #define SPNG_EPHYS 67
 #define SPNG_ETIME 68
@@ -344,6 +345,25 @@ int spng_get_time(struct spng_ctx *ctx, struct spng_time *time);
 
 int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs);
 int spng_get_exif(struct spng_ctx *ctx, struct spng_exif *exif);
+
+
+int spng_set_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr);
+int spng_set_plte(struct spng_ctx *ctx, struct spng_plte *plte);
+int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns);
+int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm);
+int spng_set_gama(struct spng_ctx *ctx, double gamma);
+int spng_set_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp);
+int spng_set_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit);
+int spng_set_srgb(struct spng_ctx *ctx, uint8_t rendering_intent);
+
+int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd);
+int spng_set_hist(struct spng_ctx *ctx, struct spng_hist *hist);
+int spng_set_phys(struct spng_ctx *ctx, struct spng_phys *phys);
+
+int spng_set_time(struct spng_ctx *ctx, struct spng_time *time);
+
+int spng_set_offs(struct spng_ctx *ctx, struct spng_offs *offs);
+int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif);
 
 #ifdef __cplusplus
 }

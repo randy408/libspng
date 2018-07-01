@@ -16,6 +16,7 @@ struct spng_subimage
 };
 
 int get_ancillary(struct spng_ctx *ctx);
+int get_ancillary2(struct spng_ctx *ctx);
 
 int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height);
 int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr);

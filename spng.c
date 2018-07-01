@@ -555,6 +555,8 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
 
             memcpy(&ctx->srgb_rendering_intent, data, 1);
 
+            if(ctx->srgb_rendering_intent > 3) return SPNG_ESRGB;
+
             ctx->have_srgb = 1;
         }
         else if(!memcmp(chunk.type, type_bkgd, 4))
@@ -992,6 +994,29 @@ int get_ancillary(struct spng_ctx *ctx)
 
     return 0;
 }
+
+/* Same as above except it returns 0 if no buffer is set */
+int get_ancillary2(struct spng_ctx *ctx)
+{
+    if(ctx == NULL) return 1;
+    if(!ctx->valid_state) return SPNG_EBADSTATE;
+
+    if(ctx->data == NULL) return 0;
+
+    int ret;
+    if(!ctx->first_idat.offset)
+    {
+        ret = get_ancillary_data_first_idat(ctx);
+        if(ret)
+        {
+            ctx->valid_state = 0;
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
 int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height)
 {
     if(ctx == NULL) return 1;
