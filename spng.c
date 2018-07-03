@@ -1,5 +1,3 @@
-#include "spng.h"
-
 #include "common.h"
 
 #include <limits.h>
@@ -195,7 +193,7 @@ static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
 static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *scanline,
                              size_t scanline_width, uint8_t bytes_per_pixel)
 {
-    if(prev_scanline==NULL || scanline==NULL || scanline_width <= 1) return 1;
+    if(prev_scanline == NULL || scanline == NULL || scanline_width <= 1) return 1;
 
     uint8_t filter = 0;
     memcpy(&filter, scanline, 1);
@@ -336,7 +334,7 @@ static int decompress_zstream(struct spng_decomp *params)
 */
 static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
 {
-    if(ctx==NULL) return 1;
+    if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
 
@@ -905,7 +903,7 @@ static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbi
 struct spng_ctx * spng_ctx_new(void)
 {
     struct spng_ctx *ctx = malloc(sizeof(struct spng_ctx));
-    if(ctx==NULL) return NULL;
+    if(ctx == NULL) return NULL;
 
     memset(ctx, 0, sizeof(struct spng_ctx));
     ctx->valid_state = 1;
@@ -915,7 +913,7 @@ struct spng_ctx * spng_ctx_new(void)
 
 void spng_ctx_free(struct spng_ctx *ctx)
 {
-    if(ctx==NULL) return;
+    if(ctx == NULL) return;
 
     if(ctx->streaming)
     {
@@ -945,7 +943,7 @@ void spng_ctx_free(struct spng_ctx *ctx)
 
 int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size)
 {
-    if(ctx==NULL || buf==NULL) return 1;
+    if(ctx == NULL || buf == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
 
     if(ctx->data != NULL) return SPNG_EBUF_SET;
@@ -1041,7 +1039,7 @@ int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *heigh
 
 int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out)
 {
-    if(ctx==NULL || out==NULL) return 1;
+    if(ctx == NULL || out == NULL) return 1;
 
     if(!ctx->valid_state) return SPNG_EBADSTATE;
 
@@ -1074,8 +1072,8 @@ int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out)
 
 int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t out_size, int flags)
 {
-    if(ctx==NULL) return 1;
-    if(out==NULL) return 1;
+    if(ctx == NULL) return 1;
+    if(out == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
 
     int ret;
@@ -1131,7 +1129,7 @@ int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t 
     unsigned char *scanline_orig, *scanline, *prev_scanline;
 
     scanline_orig = malloc(scanline_width);
-    if(scanline_orig==NULL)
+    if(scanline_orig == NULL)
     {
         inflateEnd(&stream);
         return SPNG_EMEM;
@@ -1142,7 +1140,7 @@ int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t 
     scanline = scanline_orig;
 
     prev_scanline = malloc(scanline_width);
-    if(prev_scanline==NULL)
+    if(prev_scanline == NULL)
     {
         inflateEnd(&stream);
         free(scanline_orig);
@@ -1328,7 +1326,7 @@ int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t 
         /* Recalculate scanline_width for every subimage */
         /* Omitting overflow checks, we already did a worst-case calculation for *buf's size */
         scanline_width = sub[pass].width * channels * ctx->ihdr.bit_depth + 8;
-        if(scanline_width % 8 !=0) scanline_width = scanline_width + 8 - (scanline_width % 8);
+        if(scanline_width % 8 != 0) scanline_width = scanline_width + 8 - (scanline_width % 8);
         scanline_width /= 8;
 
         /* prev_scanline is all zeros for the first scanline */
@@ -1348,7 +1346,7 @@ int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t 
                 {
                     if(ret == Z_STREAM_END) /* zlib reached an end-marker */
                     {/* we don't have a full scanline or there are more scanlines left */
-                        if(stream.avail_out!=0 || scanline_idx != (sub[pass].height - 1))
+                        if(stream.avail_out != 0 || scanline_idx != (sub[pass].height - 1))
                         {
                             ret = SPNG_EIDAT_TOO_SHORT;
                             goto decode_err;
@@ -1362,7 +1360,7 @@ int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t 
                 }
 
                 /* We don't have scanline_width of data and we ran out of data for this chunk */
-                if(stream.avail_out !=0 && stream.avail_in == 0)
+                if(stream.avail_out != 0 && stream.avail_in == 0)
                 {
                     ret = next_header(ctx, &chunk, &next);
                     if(ret) goto decode_err;
