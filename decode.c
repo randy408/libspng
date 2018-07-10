@@ -1493,7 +1493,7 @@ int spng_decode_image(struct spng_ctx *ctx, int fmt, unsigned char *out, size_t 
                 }
 
 
-                size_t pixel_size;
+                size_t pixel_size = 4;
                 size_t pixel_offset;
 
                 /* only use *_8/16 for memcpy */
