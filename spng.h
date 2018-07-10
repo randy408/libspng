@@ -77,6 +77,20 @@ extern "C" {
 #define SPNG_EFMT 142
 #define SPNG_EFLAGS 143
 #define SPNG_ECHUNKAVAIL 144
+#define SPNG_ETEXT 310
+#define SPNG_ETEXT_KEYWORD 311
+#define SPNG_EZTXT 312
+#define SPNG_EZTXT_COMPRESSION_METHOD 313
+#define SPNG_EITXT 314
+#define SPNG_EITXT_COMPRESSION_FLAG 315
+#define SPNG_EITXT_COMPRESSION_METHOD 316
+#define SPNG_EITXT_LANG_TAG 317
+#define SPNG_EITXT_TRANSLATED_KEY 318
+#define SPNG_EINCOMPLETE 900
+
+#define SPNG_TEXT 1
+#define SPNG_ZTXT 2
+#define SPNG_ITXT 3
 
 #define SPNG_COLOUR_TYPE_GRAYSCALE 0
 #define SPNG_COLOUR_TYPE_TRUECOLOR 2
@@ -162,6 +176,20 @@ struct spng_sbit
     uint8_t green_bits;
     uint8_t blue_bits;
     uint8_t alpha_bits;
+};
+
+struct spng_text
+{
+    char keyword[80];
+    int type;
+
+    size_t length;
+    char *text;
+
+    uint8_t compression_flag; /* iTXt only */
+    uint8_t compression_method; /* iTXt, ztXt only */
+    char *language_tag; /* iTXt only */
+    char *translated_keyword; /* iTXt only */
 };
 
 struct spng_bkgd_type2_6
@@ -273,7 +301,7 @@ struct spng_ctx
     uint8_t have_chrm;
     struct spng_chrm chrm;
 
-    uint8_t have_iccp;
+    uint8_t have_iccp, user_iccp;
     struct spng_iccp iccp;
 
     uint8_t have_gama;
@@ -288,6 +316,10 @@ struct spng_ctx
     uint8_t have_srgb;
     uint8_t srgb_rendering_intent;
 
+    uint8_t have_text, user_text;
+    uint32_t n_text;
+    struct spng_text *text_list;
+
     uint8_t have_bkgd;
     struct spng_bkgd bkgd;
 
@@ -300,7 +332,7 @@ struct spng_ctx
     uint8_t have_phys;
     struct spng_phys phys;
 
-    uint8_t have_splt;
+    uint8_t have_splt, user_splt;
     uint32_t n_splt;
     struct spng_splt *splt_list;
 
@@ -310,7 +342,7 @@ struct spng_ctx
     uint8_t have_offs;
     struct spng_offs offs;
 
-    uint8_t have_exif;
+    uint8_t have_exif, user_exif;
     struct spng_exif exif;
 };
 
@@ -336,11 +368,11 @@ int spng_get_gama(struct spng_ctx *ctx, double *gamma);
 int spng_get_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp);
 int spng_get_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit);
 int spng_get_srgb(struct spng_ctx *ctx, uint8_t *rendering_intent);
-
+int spng_get_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t *n_text);
 int spng_get_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd);
 int spng_get_hist(struct spng_ctx *ctx, struct spng_hist *hist);
 int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys);
-
+int spng_get_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt);
 int spng_get_time(struct spng_ctx *ctx, struct spng_time *time);
 
 int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs);
@@ -355,11 +387,11 @@ int spng_set_gama(struct spng_ctx *ctx, double gamma);
 int spng_set_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp);
 int spng_set_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit);
 int spng_set_srgb(struct spng_ctx *ctx, uint8_t rendering_intent);
-
+int spng_set_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t n_text);
 int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd);
 int spng_set_hist(struct spng_ctx *ctx, struct spng_hist *hist);
 int spng_set_phys(struct spng_ctx *ctx, struct spng_phys *phys);
-
+int spng_set_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt);
 int spng_set_time(struct spng_ctx *ctx, struct spng_time *time);
 
 int spng_set_offs(struct spng_ctx *ctx, struct spng_offs *offs);

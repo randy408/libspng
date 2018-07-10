@@ -26,13 +26,13 @@ void spng_ctx_free(struct spng_ctx *ctx)
         if(ctx->data != NULL) free(ctx->data);
     }
 
-    if(ctx->exif.data) free(ctx->exif.data);
+    if(ctx->exif.data != NULL && !ctx->user_exif) free(ctx->exif.data);
 
-    if(ctx->iccp.profile != NULL) free(ctx->iccp.profile);
+    if(ctx->iccp.profile != NULL && !ctx->user_iccp) free(ctx->iccp.profile);
 
     if(ctx->gamma_lut != NULL) free(ctx->gamma_lut);
 
-    if(ctx->splt_list != NULL)
+    if(ctx->splt_list != NULL && !ctx->user_splt)
     {
         uint32_t i;
         for(i=0; i < ctx->n_splt; i++)
@@ -40,6 +40,18 @@ void spng_ctx_free(struct spng_ctx *ctx)
             if(ctx->splt_list[i].entries != NULL) free(ctx->splt_list[i].entries);
         }
         free(ctx->splt_list);
+    }
+
+    if(ctx->text_list != NULL && !ctx->user_text)
+    {
+        uint32_t i;
+        for(i=0; i< ctx->n_text; i++)
+        {
+            if(ctx->text_list[i].text != NULL) free(ctx->text_list[i].text);
+            if(ctx->text_list[i].language_tag != NULL) free(ctx->text_list[i].language_tag);
+            if(ctx->text_list[i].translated_keyword != NULL) free(ctx->text_list[i].translated_keyword);
+        }
+        free(ctx->text_list);
     }
 
     memset(ctx, 0, sizeof(struct spng_ctx));
@@ -325,6 +337,24 @@ int check_png_keyword(const char str[80])
     return 0;
 }
 
+/* Validate PNG text *str up to 'len' bytes */
+int check_png_text(const char *str, size_t len)
+{
+    if(str == NULL || len == 0) return 1;
+
+    uint8_t c;
+    size_t i = 0;
+    while(i < len)
+    {
+        memcpy(&c, str + i, 1);
+
+        if( (c >= 32 && c <= 126) || (c >= 161 && c <= 255) || c == 10) i++;
+        else return 1; /* invalid character */
+    }
+
+    return 0;
+}
+
 int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
     if(ctx == NULL || ihdr == NULL) return 1;
@@ -435,6 +465,27 @@ int spng_get_srgb(struct spng_ctx *ctx, uint8_t *rendering_intent)
     return 0;
 }
 
+int spng_get_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
+{
+    if(ctx == NULL || n_text == NULL) return 1;
+
+    if(text == NULL)
+    {
+        *n_text = ctx->n_text;
+        return 0;
+    }
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_text) return SPNG_ECHUNKAVAIL;
+    if(*n_text < ctx->n_text) return 1;
+
+    memcpy(text, &ctx->text_list, ctx->n_text * sizeof(struct spng_text));
+
+    return ret;
+}
+
 int spng_get_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
     if(ctx == NULL || bkgd == NULL) return 1;
@@ -473,6 +524,27 @@ int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys)
     if(!ctx->have_phys) return SPNG_ECHUNKAVAIL;
 
     memcpy(phys, &ctx->phys, sizeof(struct spng_phys));
+
+    return 0;
+}
+
+int spng_get_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
+{
+    if(ctx == NULL || n_splt == NULL) return 1;
+
+    if(splt == NULL)
+    {
+        *n_splt = ctx->n_splt;
+        return 0;
+    }
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_splt) return SPNG_ECHUNKAVAIL;
+    if(*n_splt < ctx->n_splt) return 1;
+
+    memcpy(splt, &ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
 
     return 0;
 }
@@ -637,9 +709,15 @@ int spng_set_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
     int ret = get_ancillary2(ctx);
     if(ret) return ret;
 
+    if(check_png_keyword(iccp->profile_name)) return SPNG_EICCP_NAME;
+    if(!iccp->profile_len) return 1;
+
+    if(ctx->iccp.profile && !ctx->user_iccp) free(ctx->iccp.profile);
+
     memcpy(&ctx->iccp, iccp, sizeof(struct spng_iccp));
 
     ctx->have_iccp = 1;
+    ctx->user_iccp = 1;
 
     return 0;
 }
@@ -673,6 +751,63 @@ int spng_set_srgb(struct spng_ctx *ctx, uint8_t rendering_intent)
     ctx->srgb_rendering_intent = rendering_intent;
 
     ctx->have_srgb = 1;
+
+    return 0;
+}
+
+int spng_set_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
+{
+    if(ctx == NULL || text == NULL || !n_text) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    uint32_t i;
+    for(i=0; i < n_text; i++)
+    {
+        if(check_png_keyword(text[i].keyword)) return SPNG_ETEXT_KEYWORD;
+        if(!text[i].length) return 1;
+        if(text[i].text == NULL) return 1;
+
+        if(text[i].type == SPNG_TEXT)
+        {
+            if(check_png_text(text[i].text, text[i].length)) return 1;
+        }
+        else if(text[i].type == SPNG_ZTXT)
+        {
+            if(check_png_text(text[i].text, text[i].length)) return 1;
+
+            if(text[i].compression_method != 0) return 1;
+        }
+        else if(text[i].type == SPNG_ITXT)
+        {
+            if(text[i].compression_flag > 1) return 1;
+            if(text[i].compression_method != 0) return 1;
+            if(text[i].language_tag == NULL) return SPNG_EITXT_LANG_TAG;
+            if(text[i].translated_keyword == NULL) return SPNG_EITXT_TRANSLATED_KEY;
+
+        }
+        else return 1;
+
+    }
+
+
+    if(ctx->text_list != NULL && !ctx->user_text)
+    {
+        for(i=0; i< ctx->n_text; i++)
+        {
+            if(ctx->text_list[i].text != NULL) free(ctx->text_list[i].text);
+            if(ctx->text_list[i].language_tag != NULL) free(ctx->text_list[i].language_tag);
+            if(ctx->text_list[i].translated_keyword != NULL) free(ctx->text_list[i].translated_keyword);
+        }
+        free(ctx->text_list);
+    }
+
+    ctx->text_list = text;
+    ctx->n_text = n_text;
+
+    ctx->have_text = 1;
+    ctx->user_text = 1;
 
     return 0;
 }
@@ -745,6 +880,38 @@ int spng_set_phys(struct spng_ctx *ctx, struct spng_phys *phys)
     return 0;
 }
 
+int spng_set_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
+{
+    if(ctx == NULL || splt == NULL || !n_splt) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    uint32_t i;
+    for(i=0; i < n_splt; i++)
+    {
+        if(check_png_keyword(splt[i].name)) return SPNG_ESPLT_NAME;
+        if( !(splt[i].sample_depth == 8 || splt[i].sample_depth == 16) ) return SPNG_ESPLT_DEPTH;
+    }
+
+    if(ctx->have_splt && !ctx->user_splt)
+    {
+        for(i=0; i < ctx->n_splt; i++)
+        {
+            if(ctx->splt_list[i].entries != NULL) free(ctx->splt_list[i].entries);
+        }
+        free(ctx->splt_list);
+    }
+
+    ctx->splt_list = splt;
+    ctx->n_splt = n_splt;
+
+    ctx->have_splt = 1;
+    ctx->user_splt = 1;
+
+    return 0;
+}
+
 int spng_set_time(struct spng_ctx *ctx, struct spng_time *time)
 {
     if(ctx == NULL || time == NULL) return 1;
@@ -786,9 +953,12 @@ int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif)
 
     if(check_exif(exif)) return SPNG_EEXIF;
 
+    if(ctx->exif.data != NULL && !ctx->user_exif) free(ctx->exif.data);
+
     memcpy(&ctx->exif, exif, sizeof(struct spng_exif));
 
     ctx->have_exif = 1;
+    ctx->user_exif = 1;
 
     return 0;
 }

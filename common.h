@@ -27,5 +27,6 @@ int check_offs(struct spng_offs *offs);
 int check_exif(struct spng_exif *exif);
 
 int check_png_keyword(const char str[80]);
+int check_png_text(const char *str, size_t len);
 
 #endif /* SPNG_COMMON_H */
