@@ -16,7 +16,7 @@ git remote add upstream https://gitlab.com/randy408/libspng.git
 Create a debug build
 
 ```
-meson --buildtype=debug build
+meson -Ddev_build=true --buildtype=debug build
 cd build
 ```
 
