@@ -3,7 +3,6 @@
 #include <string.h>
 
 static const uint32_t png_u32max = 2147483647;
-static const int32_t png_s32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
 struct spng_ctx * spng_ctx_new(void)
@@ -292,7 +291,6 @@ int check_offs(struct spng_offs *offs)
 {
     if(offs == NULL) return 1;
 
-    if(offs->x > png_s32max || offs->x > png_s32max) return 1;
     if(offs->x < png_s32min || offs->y < png_s32min) return 1;
     if(offs->unit_specifier > 1) return 1;
 
