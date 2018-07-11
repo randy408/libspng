@@ -86,7 +86,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     out = malloc(siz);
     if(out==NULL) goto err;
 
-    r = spng_decode_image(ctx, fmt, out, siz, flags);
+    r = spng_decode_image(ctx, out, siz,  fmt, flags);
 
     if(r)
     {

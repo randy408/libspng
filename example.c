@@ -96,7 +96,7 @@ int main(int argc, char **argv)
     unsigned char *out = malloc(out_size);
     if(out==NULL) return 1;
 
-    r = spng_decode_image(ctx, SPNG_FMT_RGBA8, out, out_size, 0);
+    r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 
     if(r)
     {
