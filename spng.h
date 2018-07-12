@@ -358,7 +358,7 @@ int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *heigh
 
 int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out);
 
-int spng_decode_image(struct spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags);
+int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags);
 
 int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr);
 int spng_get_plte(struct spng_ctx *ctx, struct spng_plte *plte);

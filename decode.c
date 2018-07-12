@@ -941,7 +941,7 @@ int get_ancillary2(struct spng_ctx *ctx)
     return 0;
 }
 
-int spng_decode_image(struct spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags)
+int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
     if(out == NULL) return 1;
@@ -1537,7 +1537,7 @@ int spng_decode_image(struct spng_ctx *ctx, unsigned char *out, size_t out_size,
                                      ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
                 }
 
-                memcpy(out + pixel_offset, pixel, pixel_size);
+                memcpy((char*)out + pixel_offset, pixel, pixel_size);
 
             }/* for(k=0; k < sub[pass].width; k++) */
 
