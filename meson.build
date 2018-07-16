@@ -26,6 +26,11 @@ if(dev_build)
     bench = executable('bench', 'benchmark.c', link_with: lib,
 	               dependencies : [ zlib_dep, png_dep ], override_options : ['c_std=c11'])
     benchmark('benchmark', bench, args: ['../benchmark_images/large_mona_lisa.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/large_swiss_lisa.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/medium_crop_lisa.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/medium_swiss_lisa.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/small_crop_lisa.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/small_swiss_lisa.png'])
 
     test_exe = executable('testsuite', 'testsuite.c', link_with : lib, dependencies : png_dep)
 
