@@ -279,70 +279,70 @@ struct spng_ctx
     size_t data_size;
     unsigned char *data;
 
-    int valid_state;
-
-    uint8_t streaming;
     spng_read_fn *read_fn;
     void *read_user_ptr;
 
-    uint8_t have_first_idat;
-    uint8_t have_last_idat;
+    unsigned valid_state: 1;
+    unsigned streaming: 1;
+
+    unsigned have_ihdr: 1;
+    unsigned have_plte: 1;
+    unsigned have_chrm: 1;
+    unsigned have_iccp: 1;
+    unsigned user_iccp: 1;
+    unsigned have_gama: 1;
+    unsigned have_sbit: 1;
+    unsigned have_srgb: 1;
+    unsigned have_text: 1;
+    unsigned user_text: 1;
+    unsigned have_bkgd: 1;
+    unsigned have_hist: 1;
+    unsigned have_trns: 1;
+    unsigned have_phys: 1;
+    unsigned have_splt: 1;
+    unsigned user_splt: 1;
+    unsigned have_time: 1;
+    unsigned file_time: 1;
+    unsigned have_offs: 1;
+    unsigned have_exif: 1;
+    unsigned file_exif: 1;
+    unsigned user_exif: 1;
+
+    unsigned have_first_idat: 1;
+    unsigned have_last_idat: 1;
+
     struct spng_chunk first_idat, last_idat;
 
     uint32_t max_width, max_height;
-
-    int8_t have_ihdr;
     struct spng_ihdr ihdr;
 
-    int8_t have_plte;
     size_t plte_offset;
     struct spng_plte plte;
 
-    uint8_t have_chrm;
     struct spng_chrm chrm;
-
-    uint8_t have_iccp, user_iccp;
     struct spng_iccp iccp;
 
-    uint8_t have_gama;
     uint32_t gama;
-
     uint32_t lut_entries;
     uint16_t *gamma_lut;
 
-    uint8_t have_sbit;
     struct spng_sbit sbit;
 
-    uint8_t have_srgb;
     uint8_t srgb_rendering_intent;
 
-    uint8_t have_text, user_text;
     uint32_t n_text;
     struct spng_text *text_list;
 
-    uint8_t have_bkgd;
     struct spng_bkgd bkgd;
-
-    uint8_t have_hist;
     struct spng_hist hist;
-
-    uint8_t have_trns;
     struct spng_trns trns;
-
-    uint8_t have_phys;
     struct spng_phys phys;
 
-    uint8_t have_splt, user_splt;
     uint32_t n_splt;
     struct spng_splt *splt_list;
 
-    uint8_t have_time;
     struct spng_time time;
-
-    uint8_t have_offs;
     struct spng_offs offs;
-
-    uint8_t have_exif, user_exif;
     struct spng_exif exif;
 };
 
