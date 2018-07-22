@@ -36,7 +36,7 @@ spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
 spng_decode_image(ctx, SPNG_FMT_RGBA8, out, out_size, 0);
 
 /* Get 16-bit RGBA image, do gamma-correction using gAMA chunk information if available.*/
-spng_decode_image(ctx, SPNG_FMT_RGBA16, out, out_size, SPNG_DECODE_USE_GAMA);
+spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA16, SPNG_DECODE_USE_GAMA);
 
 /* Free context memory */
 spng_ctx_free(ctx);
