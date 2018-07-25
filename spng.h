@@ -401,6 +401,8 @@ int spng_set_time(struct spng_ctx *ctx, struct spng_time *time);
 int spng_set_offs(struct spng_ctx *ctx, struct spng_offs *offs);
 int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif);
 
+char *spng_strerror(int err);
+
 #ifdef __cplusplus
 }
 #endif

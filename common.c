@@ -961,3 +961,85 @@ int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif)
     return 0;
 }
 
+char *spng_strerror(int err)
+{
+    switch(err)
+    {
+        case SPNG_EINVAL: return "invalid argument";
+        case SPNG_EMEM: return "out of memory";
+        case SPNG_EOVERFLOW: return "arithmetic overflow";
+        case SPNG_ESIGNATURE: return "invalid signature";
+        case SPNG_EWIDTH: return "invalid image width";
+        case SPNG_EHEIGHT: return "invalid image height";
+        case SPNG_EUSER_WIDTH: return "image width exceeds user limit";
+        case SPNG_EUSER_HEIGHT: return "image height exceeds user limit";
+        case SPNG_EBIT_DEPTH: return "invalid bit depth";
+        case SPNG_ECOLOUR_TYPE: return "invalid colour type";
+        case SPNG_ECOMPRESSION_METHOD: return "invalid compression method";
+        case SPNG_EFILTER_METHOD: return "invalid filter method";
+        case SPNG_EINTERLACE_METHOD: return "invalid interlace method";
+        case SPNG_EIHDR_SIZE: return "invalid IHDR chunk size";
+        case SPNG_ENOIHDR: return "missing IHDR chunk";
+        case SPNG_ECHUNK_POS: return "invalid chunk position";
+        case SPNG_ECHUNK_SIZE: return "invalid chunk length";
+        case SPNG_ECHUNK_CRC: return "invalid chunk checksum";
+        case SPNG_ECHUNK_TYPE: return "invalid chunk type";
+        case SPNG_ECHUNK_UNKNOWN_CRITICAL: return "unknown critical chunk";
+        case SPNG_EDUP_PLTE: return "duplicate PLTE chunk";
+        case SPNG_EDUP_CHRM: return "duplicate cHRM chunk";
+        case SPNG_EDUP_GAMA: return "duplicate gAMA chunk";
+        case SPNG_EDUP_ICCP: return "duplicate iCCP chunk";
+        case SPNG_EDUP_SBIT: return "duplicate sBIT chunk";
+        case SPNG_EDUP_SRGB: return "duplicate sRGB chunk";
+        case SPNG_EDUP_BKGD: return "duplicate bKGD chunk";
+        case SPNG_EDUP_HIST: return "duplicate hIST chunk";
+        case SPNG_EDUP_TRNS: return "duplicate tRNS chunk";
+        case SPNG_EDUP_PHYS: return "duplicate pHYs chunk";
+        case SPNG_EDUP_TIME: return "duplicate tIME chunk";
+        case SPNG_EDUP_OFFS: return "duplicate oFFs chunk";
+        case SPNG_EDUP_EXIF: return "duplicate eXIf chunk";
+        case SPNG_ECHRM: return "invalid cHRM chunk";
+        case SPNG_EPLTE_IDX: return "invalid palette (PLTE) index";
+        case SPNG_ETRNS_COLOUR_TYPE: return "tRNS chunk with incompatible colour type";
+        case SPNG_ETRNS_NO_PLTE: return "missing palette (PLTE) for tRNS chunk";
+        case SPNG_EGAMA: return "invalid gAMA chunk";
+        case SPNG_EICCP_NAME: return "invalid iCCP profile name";
+        case SPNG_EICCP_COMPRESSION_METHOD: return "invalid iCCP compression method";
+        case SPNG_ESBIT: return "invalid sBIT chunk";
+        case SPNG_ESRGB: return "invalid sRGB chunk";
+        case SPNG_ETEXT: return "invalid tEXt chunk";
+        case SPNG_ETEXT_KEYWORD: return "invalid tEXt keyword";
+        case SPNG_EZTXT: return "invalid zTXt chunk";
+        case SPNG_EZTXT_COMPRESSION_METHOD: return "invalid zTXt compression method";
+        case SPNG_EITXT: return "invalid iTXt chunk";
+        case SPNG_EITXT_COMPRESSION_FLAG: return "invalid iTXt compression flag";
+        case SPNG_EITXT_COMPRESSION_METHOD: return "invalid iTXt compression method";
+        case SPNG_EITXT_LANG_TAG: return "invalid iTXt language tag";
+        case SPNG_EITXT_TRANSLATED_KEY: return "invalid iTXt translated key";
+        case SPNG_EBKGD_NO_PLTE: return "missing palette for bKGD chunk";
+        case SPNG_EBKGD_PLTE_IDX: return "invalid palette index for bKGD chunk";
+        case SPNG_EHIST_NO_PLTE: return "missing palette for hIST chunk";
+        case SPNG_EPHYS: return "invalid pHYs chunk";
+        case SPNG_ESPLT_NAME: return "invalid suggested palette name";
+        case SPNG_ESPLT_DUP_NAME: return "duplicate suggested palette (sPLT) name";
+        case SPNG_ESPLT_DEPTH: return "invalid suggested palette (sPLT) sample depth";
+        case SPNG_ETIME: return "invalid tIME chunk";
+        case SPNG_EOFFS: return "invalid oFFs chunk";
+        case SPNG_EEXIF: return "invalid eXIf chunk";
+        case SPNG_EIDAT_TOO_SHORT: return "IDAT stream too short";
+        case SPNG_EIDAT_STREAM: return "IDAT stream error";
+        case SPNG_EZLIB: return "zlib error";
+        case SPNG_EFILTER: return "invalid scanline filter";
+        case SPNG_EBUFSIZ: return "output buffer too small";
+        case SPNG_EIO: return "i/o error";
+        case SPNG_EOF: return "end of file";
+        case SPNG_EBUF_SET: return "buffer already set";
+        case SPNG_EBADSTATE: return "non-recoverable state";
+        case SPNG_EFMT: return "invalid format";
+        case SPNG_EFLAGS: return "invalid flags";
+        case SPNG_ECHUNKAVAIL: return "chunk not available";
+        default: return "unknown error";
+    }
+
+    return "unknown error";
+}
