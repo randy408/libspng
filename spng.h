@@ -88,7 +88,6 @@ enum
     SPNG_EFMT,
     SPNG_EFLAGS,
     SPNG_ECHUNKAVAIL,
-    SPNG_EINCOMPLETE
 };
 
 
