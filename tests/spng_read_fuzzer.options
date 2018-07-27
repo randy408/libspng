@@ -1,2 +1,3 @@
 [libfuzzer]
 dict = spng.dict
+rss_limit_mb=0
