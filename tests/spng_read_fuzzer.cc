@@ -5,7 +5,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     struct spng_ctx *ctx = spng_ctx_new();
     if(ctx == NULL) return 0;
 
-    if(spng_set_png_buffer(ctx, data, size)) return 0;
+    if(spng_set_png_buffer(ctx, (void*)data, size)) return 0;
 
     spng_set_image_limits(ctx, 200000, 200000);
 
@@ -15,7 +15,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     unsigned char *out = (unsigned char*)malloc(out_size);
     if(out == NULL) return 0;
 
-    if(spng_decode_image(ctx, SPNG_FMT_RGBA8, out, out_size, 0)) return 0;
+    if(spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0)) return 0;
 
     spng_ctx_free(ctx);
     free(out);
