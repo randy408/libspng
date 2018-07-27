@@ -12,16 +12,16 @@ example = executable('example', 'example.c', link_with : lib, dependencies : zli
 
 install_headers('spng.h')
 
-pkg = import('pkgconfig')
-pkg.generate(name : 'libspng',
-		libraries : lib,
-		version : '0.2.0',
-		description : 'PNG decoding and encoding library',
-		libraries_private : [ '-lm', '-lz' ])
-
 dev_build = get_option('dev_build')
 
 if(dev_build)
+    pkg = import('pkgconfig')
+    pkg.generate(name : 'libspng',
+		         libraries : lib,
+		         version : '0.2.0',
+		         description : 'PNG decoding and encoding library',
+		         libraries_private : [ '-lm', '-lz' ])
+
     png_dep = dependency('libpng16')
     bench = executable('bench', 'tests/benchmark.c', link_with: lib,
 	               dependencies : [ zlib_dep, png_dep ], override_options : ['c_std=c11'])
