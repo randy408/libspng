@@ -963,7 +963,7 @@ int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif)
     return 0;
 }
 
-char *spng_strerror(int err)
+const char *spng_strerror(int err)
 {
     switch(err)
     {
