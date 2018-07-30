@@ -2,6 +2,13 @@
 
 #include <string.h>
 
+#define SPNG_STR(x) _SPNG_STR(x)
+#define _SPNG_STR(x) #x
+
+#define SPNG_VERSION_STRING SPNG_STR(SPNG_VERSION_MAJOR) "." \
+                            SPNG_STR(SPNG_VERSION_MINOR) "." \
+                            SPNG_STR(SPNG_VERSION_PATCH)
+
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
@@ -1042,4 +1049,9 @@ const char *spng_strerror(int err)
         case SPNG_ECHUNKAVAIL: return "chunk not available";
         default: return "unknown error";
     }
+}
+
+const char *spng_version_string(void)
+{
+    return SPNG_VERSION_STRING;
 }

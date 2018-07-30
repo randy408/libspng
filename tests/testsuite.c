@@ -279,9 +279,9 @@ int main(int argc, char **argv)
     {
         unsigned int png_ver = png_access_version_number();
 
-        printf("spng header version: %u.%u.%u, library version: %u.%u.%u\n",
+        printf("spng header version: %u.%u.%u, library version: %s\n",
                SPNG_VERSION_MAJOR, SPNG_VERSION_MINOR, SPNG_VERSION_PATCH,
-               SPNG_VERSION_MAJOR, SPNG_VERSION_MINOR, SPNG_VERSION_PATCH);
+               spng_version_string());
         printf("png header version: %u.%u.%u, library version: %u.%u.%u\n",
                PNG_LIBPNG_VER_MAJOR, PNG_LIBPNG_VER_MINOR, PNG_LIBPNG_VER_RELEASE,
                png_ver / 10000, png_ver / 100 % 100, png_ver % 100);
