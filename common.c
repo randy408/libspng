@@ -5,7 +5,7 @@
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
-struct spng_ctx * spng_ctx_new(void)
+struct spng_ctx * spng_ctx_new(int flags)
 {
     struct spng_ctx *ctx = malloc(sizeof(struct spng_ctx));
     if(ctx == NULL) return NULL;

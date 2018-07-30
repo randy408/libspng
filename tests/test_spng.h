@@ -39,7 +39,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
     unsigned char *out = NULL;
     struct spng_ihdr ihdr;
 
-    struct spng_ctx *ctx = spng_ctx_new();
+    struct spng_ctx *ctx = spng_ctx_new(0);
 
     if(ctx==NULL)
     {

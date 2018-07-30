@@ -24,7 +24,7 @@ by default they're ignored.
 
 ```c
 /* Create a context */
-struct spng_ctx *ctx = spng_ctx_new();
+struct spng_ctx *ctx = spng_ctx_new(0);
 
 /* Set an input buffer */
 spng_set_png_buffer(ctx, buf, buf_size);

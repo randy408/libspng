@@ -351,7 +351,7 @@ struct spng_ctx
 };
 
 
-struct spng_ctx *spng_ctx_new(void);
+struct spng_ctx *spng_ctx_new(int flags);
 void spng_ctx_free(struct spng_ctx *ctx);
 
 int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size);
