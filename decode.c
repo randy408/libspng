@@ -328,6 +328,7 @@ static int decompress_zstream(struct spng_decomp *params)
     return 0;
 }
 
+
 /*
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
     Returns zero and sets ctx->first_idat on success
@@ -661,6 +662,8 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
         }
         else if(!memcmp(chunk.type, type_splt, 4))
         {
+            if(ctx->user_splt) continue; /* XXX: should check profile names for uniqueness */
+
             if(!ctx->have_splt)
             {
                 ctx->n_splt = 1;
@@ -757,33 +760,39 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
         }
         else if(!memcmp(chunk.type, type_time, 4))
         {
-            if(ctx->have_time) return SPNG_EDUP_TIME;
+            if(ctx->file_time) return SPNG_EDUP_TIME;
 
             if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
 
-            ctx->time.year = read_u16(data);
-            memcpy(&ctx->time.month, data + 2, 1);
-            memcpy(&ctx->time.day, data + 3, 1);
-            memcpy(&ctx->time.hour, data + 4, 1);
-            memcpy(&ctx->time.minute, data + 5, 1);
-            memcpy(&ctx->time.second, data + 6, 1);
+            struct spng_time time;
 
-            if(check_time(&ctx->time)) return SPNG_ETIME;
+            time.year = read_u16(data);
+            memcpy(&time.month, data + 2, 1);
+            memcpy(&time.day, data + 3, 1);
+            memcpy(&time.hour, data + 4, 1);
+            memcpy(&time.minute, data + 5, 1);
+            memcpy(&time.second, data + 6, 1);
+
+            if(check_time(&time)) return SPNG_ETIME;
+
+            ctx->file_time = 1;
+
+            if(!ctx->user_time) memcpy(&ctx->time, &time, sizeof(struct spng_time));
 
             ctx->have_time = 1;
         }
-        else if(!memcmp(chunk.type, type_text, 4))
-        {/* TODO: read */
-        }
-        else if(!memcmp(chunk.type, type_ztxt, 4))
-        {/* TODO: read */
-        }
-        else if(!memcmp(chunk.type, type_itxt, 4))
-        {/* TODO: read */
+        else if(!memcmp(chunk.type, type_text, 4) ||
+                !memcmp(chunk.type, type_ztxt, 4) ||
+                !memcmp(chunk.type, type_itxt, 4))
+        {
+            if(ctx->user_text) continue;
+            /* TODO: read */
         }
         else if(!memcmp(chunk.type, type_offs, 4))
         {
             if(ctx->have_offs) return SPNG_EDUP_OFFS;
+
+            if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
 
             ctx->offs.x = read_s32(data);
             ctx->offs.y = read_s32(data + 4);
@@ -795,15 +804,22 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
         }
         else if(!memcmp(chunk.type, type_exif, 4))
         {
-            if(ctx->have_exif) return SPNG_EDUP_EXIF;
+            if(ctx->file_exif) return SPNG_EDUP_EXIF;
 
-            ctx->exif.data = malloc(chunk.length);
-            if(ctx->exif.data == NULL) return SPNG_EMEM;
+            struct spng_exif exif;
 
-            memcpy(ctx->exif.data, data, chunk.length);
-            ctx->exif.length = chunk.length;
+            exif.data = malloc(chunk.length);
+            if(exif.data == NULL) return SPNG_EMEM;
 
-            if(check_exif(&ctx->exif)) return SPNG_EEXIF;
+            memcpy(exif.data, data, chunk.length);
+            exif.length = chunk.length;
+
+            if(check_exif(&exif)) return SPNG_EEXIF;
+
+            ctx->file_exif = 1;
+
+            if(!ctx->user_exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+            else free(exif.data);
 
             ctx->have_exif = 1;
         }
@@ -819,6 +835,7 @@ static int validate_past_idat(struct spng_ctx *ctx)
     int ret;
     int prev_was_idat = 1;
     struct spng_chunk chunk, next;
+    unsigned char *data;
 
     memcpy(&chunk, &ctx->last_idat, sizeof(struct spng_chunk));
 
@@ -828,6 +845,9 @@ static int validate_past_idat(struct spng_ctx *ctx)
 
         ret = get_chunk_data(ctx, &chunk);
         if(ret) return ret;
+
+        if(ctx->streaming) data = ctx->data;
+        else data = ctx->data + chunk.offset + 8;
 
         /* Reserved bit must be zero */
         if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
@@ -845,16 +865,67 @@ static int validate_past_idat(struct spng_ctx *ctx)
         prev_was_idat = 0;
 
         if(!memcmp(chunk.type, type_chrm, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_gama, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_iccp, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_sbit, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_srgb, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_bkgd, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_hist, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_trns, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_phys, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_splt, 4)) return SPNG_ECHUNK_POS;
-        if(!memcmp(chunk.type, type_offs, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_gama, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_iccp, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_sbit, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_srgb, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_bkgd, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_hist, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_trns, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_phys, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_splt, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_offs, 4)) return SPNG_ECHUNK_POS;
+        else if(!memcmp(chunk.type, type_time, 4))
+        {
+           if(ctx->file_time) return SPNG_EDUP_TIME;
+
+           if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
+
+            struct spng_time time;
+
+            time.year = read_u16(data);
+            memcpy(&time.month, data + 2, 1);
+            memcpy(&time.day, data + 3, 1);
+            memcpy(&time.hour, data + 4, 1);
+            memcpy(&time.minute, data + 5, 1);
+            memcpy(&time.second, data + 6, 1);
+
+            if(check_time(&time)) return SPNG_ETIME;
+
+            ctx->file_time = 1;
+
+            if(!ctx->user_time) memcpy(&ctx->time, &time, sizeof(struct spng_time));
+
+            ctx->have_time = 1;
+        }
+        else if(!memcmp(chunk.type, type_exif, 4))
+        {
+            if(ctx->file_exif) return SPNG_EDUP_EXIF;
+
+            struct spng_exif exif;
+
+            exif.data = malloc(chunk.length);
+            if(exif.data == NULL) return SPNG_EMEM;
+
+            memcpy(exif.data, data, chunk.length);
+            exif.length = chunk.length;
+
+            if(check_exif(&exif)) return SPNG_EEXIF;
+
+            ctx->file_exif = 1;
+
+            if(!ctx->user_exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+            else free(exif.data);
+
+            ctx->have_exif = 1;
+        }
+        else if(!memcmp(chunk.type, type_text, 4) ||
+                !memcmp(chunk.type, type_ztxt, 4) ||
+                !memcmp(chunk.type, type_itxt, 4))
+        {
+            if(ctx->user_text) continue;
+            /* TODO: read */
+        }
     }
 
     return ret;
@@ -1141,7 +1212,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
     memcpy(&chunk, &ctx->first_idat, sizeof(struct spng_chunk));
 
-    uint32_t actual_crc;
+    uint32_t actual_crc = 0;
 
     /* chunk data left for current IDAT, only used when streaming */
     uint32_t bytes_left = 0;

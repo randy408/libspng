@@ -305,6 +305,7 @@ struct spng_ctx
     unsigned have_splt: 1;
     unsigned user_splt: 1;
     unsigned have_time: 1;
+    unsigned user_time: 1;
     unsigned file_time: 1;
     unsigned have_offs: 1;
     unsigned have_exif: 1;

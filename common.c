@@ -302,6 +302,7 @@ int check_exif(struct spng_exif *exif)
     if(exif == NULL) return 1;
 
     if(exif->length < 4) return SPNG_ECHUNK_SIZE;
+    if(exif->length > png_u32max) return SPNG_ECHUNK_SIZE;
 
     const uint8_t exif_le[4] = { 73, 73, 42, 0 };
     const uint8_t exif_be[4] = { 77, 77, 0, 42 };
@@ -922,6 +923,7 @@ int spng_set_time(struct spng_ctx *ctx, struct spng_time *time)
     memcpy(&ctx->time, time, sizeof(struct spng_time));
 
     ctx->have_time = 1;
+    ctx->user_time = 1;
 
     return 0;
 }
@@ -1040,6 +1042,4 @@ char *spng_strerror(int err)
         case SPNG_ECHUNKAVAIL: return "chunk not available";
         default: return "unknown error";
     }
-
-    return "unknown error";
 }
