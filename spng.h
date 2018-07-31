@@ -12,8 +12,10 @@ extern "C" {
 #define SPNG_VERSION_MINOR 2
 #define SPNG_VERSION_PATCH 0
 
-enum
+enum spng_errno
 {
+    SPNG_IO_ERROR = -2,
+    SPNG_IO_EOF = -1,
     SPNG_OK = 0,
     SPNG_EINVAL,
     SPNG_EMEM,
@@ -90,26 +92,34 @@ enum
     SPNG_ECHUNKAVAIL,
 };
 
+enum spng_text_type
+{
+    SPNG_TEXT = 1,
+    SPNG_ZTXT = 2,
+    SPNG_ITXT = 3
+};
 
-#define SPNG_TEXT 1
-#define SPNG_ZTXT 2
-#define SPNG_ITXT 3
+enum spng_colour_type
+{
+    SPNG_COLOUR_TYPE_GRAYSCALE = 0,
+    SPNG_COLOUR_TYPE_TRUECOLOR = 2,
+    SPNG_COLOUR_TYPE_INDEXED = 3,
+    SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA = 4,
+    SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA = 6
+};
 
-#define SPNG_COLOUR_TYPE_GRAYSCALE 0
-#define SPNG_COLOUR_TYPE_TRUECOLOR 2
-#define SPNG_COLOUR_TYPE_INDEXED 3
-#define SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA 4
-#define SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA 6
+enum spng_format
+{
+    SPNG_FMT_RGBA8 = 1,
+    SPNG_FMT_RGBA16 = 2
+};
 
-#define SPNG_IO_EOF -1
-#define SPNG_IO_ERROR -2
-
-#define SPNG_FMT_RGBA8 1
-#define SPNG_FMT_RGBA16 2
-
-#define SPNG_DECODE_USE_TRNS 1
-#define SPNG_DECODE_USE_GAMA 2
-#define SPNG_DECODE_USE_SBIT 8 /* Rescale samples using sBIT values */
+enum spng_decode_flags
+{
+    SPNG_DECODE_USE_TRNS = 1,
+    SPNG_DECODE_USE_GAMA = 2,
+    SPNG_DECODE_USE_SBIT = 8 /* Rescale samples using sBIT values */
+};
 
 struct spng_ihdr
 {
