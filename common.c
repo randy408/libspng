@@ -974,6 +974,9 @@ const char *spng_strerror(int err)
 {
     switch(err)
     {
+        case SPNG_IO_EOF: return "end of stream";
+        case SPNG_IO_ERROR: return "stream error";
+        case SPNG_OK: return "success";
         case SPNG_EINVAL: return "invalid argument";
         case SPNG_EMEM: return "out of memory";
         case SPNG_EOVERFLOW: return "arithmetic overflow";
