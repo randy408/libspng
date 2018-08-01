@@ -47,8 +47,8 @@ See [example.c](https://gitlab.com/randy408/libspng/blob/master/example.c).
 
 # Build instructions
 
-Building requires meson and ninja, zlib is a dependency and the testsuite also 
-requires libpng.
+Building requires meson and ninja, the library depends on zlib. Developer builds
+also require libpng.
 
 ## Building
 ```
@@ -59,14 +59,26 @@ ninja
 
 ## Running the testsuite
 ```
+meson configure -Ddev_build=true
 ninja test
 ```
 
 ## Benchmark
 
+Since v0.3.0 there is experimental patch to optimize defiltering.
+
 ```
-git clone --depth=1 https://gitlab.com/randy408/spng_images.git benchmark_images
-cd build
-meson configure -Dbuildtype=release
+#run in source directory
+git checkout tags/v0.3.0
+wget https://gitlab.com/randy408/libspng/snippets/1739147/raw?inline=false -O v030_opt.patch
+git apply v030_opt.patch
+git clone https://gitlab.com/randy408/benchmark_images.git
+cd benchmark_images;
+git checkout tags/v0.3.0
+cd ../build
+meson configure -Dbuildtype=release -Db_pgo=generate
 ninja benchmark
+meson configure -Db_pgo=use
+ninja benchmark
+cat meson-logs/benchmarklog.txt
 ```
