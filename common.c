@@ -345,7 +345,7 @@ int check_png_keyword(const char str[80])
 
 /* Validate PNG text *str up to 'len' bytes */
 int check_png_text(const char *str, size_t len)
-{
+{/* XXX: are consecutive newlines permitted? */
     if(str == NULL || len == 0) return 1;
 
     uint8_t c;

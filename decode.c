@@ -328,6 +328,167 @@ static int decompress_zstream(struct spng_decomp *params)
     return 0;
 }
 
+/* Read and validate tEXt, zTXt, iTXt chunks */
+static int get_text(struct spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk)
+{
+    if(ctx == NULL || data == NULL || chunk == NULL) return 1;
+
+    if(!ctx->have_text)
+    {
+        ctx->n_text = 1;
+        ctx->text_list = calloc(1, sizeof(struct spng_text));
+        if(ctx->text_list == NULL) return SPNG_EMEM;
+    }
+    else
+    {
+        ctx->n_text++;
+        if(ctx->n_text < 1) return SPNG_EOVERFLOW;
+        if(sizeof(struct spng_text) > SIZE_MAX / ctx->n_text) return SPNG_EOVERFLOW;
+
+        void *buf = realloc(ctx->text_list, ctx->n_text * sizeof(struct spng_text));
+        if(buf == NULL) return SPNG_EMEM;
+        ctx->text_list = buf;
+    }
+
+    struct spng_text text = { 0 };
+    struct spng_decomp params ={ 0 };
+    uint32_t i = ctx->n_text - 1;
+
+    memset(&ctx->text_list[i], 0, sizeof(struct spng_text));
+
+    size_t keyword_len = chunk->length > 80 ? 80 : chunk->length;
+    char *keyword_nul = memchr(data, '\0', keyword_len);
+    if(keyword_nul == NULL) return SPNG_ETEXT_KEYWORD;
+
+    memcpy(&text.keyword, data, keyword_len);
+
+    if(check_png_keyword(text.keyword)) return SPNG_ETEXT_KEYWORD;
+
+    keyword_len = strlen(text.keyword);
+
+    if(!memcmp(chunk->type, type_text, 4))
+    {
+        text.type = SPNG_TEXT;
+        text.length = chunk->length - keyword_len - 1;
+        if(text.length == 0) return SPNG_ETEXT;
+
+        /* one byte extra for nul, text is not terminated */
+        text.text = malloc(text.length + 1);
+        if(text.text == NULL) return SPNG_EMEM;
+
+        memcpy(text.text, data + keyword_len + 1, text.length);
+        text.text[text.length] = 0;
+
+        /* text could end up being nul-terminated twice,
+           make sure we have the right size */
+        text.length = strlen(text.text);
+
+        if(check_png_text(text.text, text.length)) return SPNG_ETEXT;
+    }
+    else if(!memcmp(chunk->type, type_ztxt, 4))
+    {
+        text.type = SPNG_ZTXT;
+        if((chunk->length - keyword_len) < 2) return SPNG_EZTXT;
+
+        memcpy(&text.compression_method, data + keyword_len + 1, 1);
+
+        if(text.compression_method) return SPNG_EZTXT_COMPRESSION_METHOD;
+
+        params.buf = data + keyword_len + 2;
+        params.size = chunk->length - keyword_len - 2;
+        params.initial_size = 1024;
+
+        int ret = decompress_zstream(&params);
+        if(ret) return ret;
+
+        text.text = params.out;
+        text.length = params.decomp_size;
+
+        if(check_png_text(text.text, text.length)) return SPNG_EZTXT;
+    }
+    else if(!memcmp(chunk->type, type_itxt, 4))
+    {
+        text.type = SPNG_ITXT;
+        if((chunk->length - keyword_len) < 3) return SPNG_EITXT;
+
+        uint8_t compression_method;
+        memcpy(&text.compression_flag, data + keyword_len + 1, 1);
+        memcpy(&compression_method, data + keyword_len + 2, 1);
+
+        if(compression_method) return SPNG_EITXT_COMPRESSION_METHOD;
+
+        size_t max_len = chunk->length - keyword_len - 3;
+        size_t lang_tag_len = max_len;
+
+        char *lang_tag_nul = memchr(data + keyword_len + 3, '\0', lang_tag_len);
+        if(lang_tag_nul == NULL) return SPNG_EITXT_LANG_TAG;
+
+        lang_tag_len = strlen((char*)data + keyword_len + 3);
+
+        text.language_tag = malloc(lang_tag_len + 1);
+        if(text.language_tag == NULL) return SPNG_EMEM;
+
+        max_len -= lang_tag_len - 1;
+        size_t translated_key_len = max_len;
+
+        char *translated_key_nul = memchr(data + keyword_len + 3 + lang_tag_len + 1, '\0', translated_key_len);
+        if(translated_key_nul == NULL) return SPNG_EITXT_TRANSLATED_KEY;
+
+        translated_key_len = strlen((char*)data + keyword_len + 3 + lang_tag_len + 1);
+
+        text.translated_keyword = malloc(translated_key_len + 1);
+        if(text.translated_keyword == NULL) return SPNG_EMEM;
+
+        max_len -= translated_key_len - 1;
+        size_t text_len = max_len;
+
+        if(text.compression_flag)
+        {
+            params.buf = data + keyword_len + 2;
+            params.size = chunk->length - keyword_len - 2;
+            params.initial_size = 1024;
+
+            int ret = decompress_zstream(&params);
+            if(ret) return ret;
+
+            text.text = params.out;
+        }
+        else
+        {
+            text.text = malloc(text_len);
+            if(text.text == NULL) return SPNG_EMEM;
+
+            memcpy(text.text, data + keyword_len + 3 + lang_tag_len + translated_key_len + 2, text_len);
+        }
+
+    }
+    else return 1;
+
+
+    if(!memcmp(chunk->type, type_ztxt, 4) || ( !memcmp(chunk->type, type_itxt, 4) && text.compression_flag) )
+    {
+        /* nul-terminate */
+        params.decomp_size++;
+        if(params.decomp_size < 1) return SPNG_EOVERFLOW;
+
+        if(params.decomp_alloc_size == params.decomp_size - 1)
+        {
+            void *temp = realloc(text.text, params.decomp_size);
+            if(temp == NULL) return SPNG_EMEM;
+            text.text = temp;
+        }
+
+        text.text[params.decomp_size - 1] = '\0';
+
+        text.length = strlen(text.text);
+    }
+
+    memcpy(&ctx->text_list[i], &text, sizeof(struct spng_text));
+
+    ctx->have_text = 1;
+
+    return 0;
+}
 
 /*
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
@@ -786,7 +947,9 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
                 !memcmp(chunk.type, type_itxt, 4))
         {
             if(ctx->user_text) continue;
-            /* TODO: read */
+
+            int ret = get_text(ctx, data, &chunk);
+            if(ret) return ret;
         }
         else if(!memcmp(chunk.type, type_offs, 4))
         {
@@ -924,7 +1087,9 @@ static int validate_past_idat(struct spng_ctx *ctx)
                 !memcmp(chunk.type, type_itxt, 4))
         {
             if(ctx->user_text) continue;
-            /* TODO: read */
+
+            int ret = get_text(ctx, data, &chunk);
+            if(ret) return ret;
         }
     }
 
