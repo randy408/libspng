@@ -25,12 +25,12 @@ if(dev_build)
     png_dep = dependency('libpng16')
     bench = executable('bench', 'tests/benchmark.c', link_with: lib,
 	               dependencies : [ zlib_dep, png_dep ], override_options : ['c_std=c11'])
-    benchmark('benchmark', bench, args: ['../benchmark_images/large_mona_lisa.png'])
-    benchmark('benchmark', bench, args: ['../benchmark_images/large_swiss_lisa.png'])
-    benchmark('benchmark', bench, args: ['../benchmark_images/medium_crop_lisa.png'])
-    benchmark('benchmark', bench, args: ['../benchmark_images/medium_swiss_lisa.png'])
-    benchmark('benchmark', bench, args: ['../benchmark_images/small_crop_lisa.png'])
-    benchmark('benchmark', bench, args: ['../benchmark_images/small_swiss_lisa.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/large_rgb8.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/large_rgba8.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/medium_rgb8.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/medium_rgba8.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/small_rgb8.png'])
+    benchmark('benchmark', bench, args: ['../benchmark_images/small_rgba8.png'])
 
     test_exe = executable('testsuite', 'tests/testsuite.c', link_with : lib, dependencies : png_dep)
 
