@@ -9,7 +9,7 @@ extern "C" {
 #include <stdint.h>
 
 #define SPNG_VERSION_MAJOR 0
-#define SPNG_VERSION_MINOR 2
+#define SPNG_VERSION_MINOR 3
 #define SPNG_VERSION_PATCH 0
 
 enum spng_errno

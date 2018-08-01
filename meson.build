@@ -1,4 +1,4 @@
-project('libspng', 'c', version : '0.2.0', default_options : ['c_std=c99'])
+project('libspng', 'c', version : '0.3.0', default_options : ['c_std=c99'])
 
 zlib_dep = dependency('zlib')
 
