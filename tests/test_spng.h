@@ -55,7 +55,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
 
     if(r)
     {
-        printf("spng_set_png_stream() returned %d\n", r);
+        printf("spng_set_png_stream() error: %s\n", spng_strerror(r));
         goto err;
     }
 
@@ -64,7 +64,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
 
     if(r)
     {
-        printf("spng_set_png_buffer() returned %d\n", r);
+        printf("spng_set_png_buffer() error: %s\n", spng_strerror(r));
         goto err;
     }*/
 
@@ -72,7 +72,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
 
     if(r)
     {
-        printf("spng_get_ihdr() returned %d\n", r);
+        printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
         goto err;
     }
 
@@ -90,7 +90,7 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
 
     if(r)
     {
-        printf("spng_decode_image() returned %d\n", r);
+        printf("spng_decode_image() error: %s\n", spng_strerror(r));
         goto err;
     }
 

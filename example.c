@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 
     if(r)
     {
-        printf("spng_set_png_buffer() returned %d\n", r);
+        printf("spng_set_png_buffer() error: %s\n", spng_strerror(r));
         return 1;
     }
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 
     if(r)
     {
-        printf("spng_get_ihdr() returned %d\n", r);
+        printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
         return 1;
     }
 
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
     if(r)
     {
-        printf("spng_decode_image() returned %d\n", r);
+        printf("spng_decode_image() error: %s\n", spng_strerror(r));
         return 1;
     }
 
