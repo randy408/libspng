@@ -206,6 +206,7 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
     struct spng_ihdr ihdr;
     size_t img_spng_size;
     unsigned char *img_spng =  NULL;
+
     img_spng = getimage_libspng(pngbuf, siz_pngbuf, &img_spng_size, fmt, flags, &ihdr);
     if(img_spng==NULL)
     {
@@ -222,6 +223,7 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
 
     size_t img_png_size;
     unsigned char *img_png = NULL;
+
     img_png = getimage_libpng(pngbuf, siz_pngbuf, &img_png_size, fmt, flags);
     if(img_png==NULL)
     {
@@ -239,23 +241,20 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
         return 1;
     }
 
+    int ret = 0;
     int ret_memcmp = memcmp(img_spng, img_png, img_spng_size);
 
-    int ret = compare_images(&ihdr, fmt, flags, img_spng, img_png);
+    if(!ret_memcmp) goto identical;
 
-    if(!(flags & SPNG_DECODE_USE_GAMA))
-    {
-        /* in case compare_images() has some edge case */
-        if(!ret && ret_memcmp)
-        {
-            printf("compare_images() returned 0 but images are not identical\n");
-            ret = 1;
-        }
-        else if(ret && !ret_memcmp)
-        {
-            printf("compare_images() returned non-zero but images are identical\n");
-        }
+    ret = compare_images(&ihdr, fmt, flags, img_spng, img_png);
+
+    if( !(flags & SPNG_DECODE_USE_GAMA) && !ret)
+    {/* in case compare_images() has some edge case */
+        printf("compare_images() returned 0 but images are not identical\n");
+        ret = 1;
     }
+
+identical:
 
     free(img_spng);
     free(img_png);
