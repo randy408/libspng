@@ -14,10 +14,9 @@ static const int32_t png_s32min = -2147483647;
 
 struct spng_ctx * spng_ctx_new(int flags)
 {
-    struct spng_ctx *ctx = malloc(sizeof(struct spng_ctx));
+    struct spng_ctx *ctx = calloc(1, sizeof(struct spng_ctx));
     if(ctx == NULL) return NULL;
 
-    memset(ctx, 0, sizeof(struct spng_ctx));
     ctx->valid_state = 1;
 
     return ctx;
@@ -27,10 +26,7 @@ void spng_ctx_free(struct spng_ctx *ctx)
 {
     if(ctx == NULL) return;
 
-    if(ctx->streaming)
-    {
-        if(ctx->data != NULL) free(ctx->data);
-    }
+    if(ctx->streaming && ctx->data != NULL) free(ctx->data);
 
     if(ctx->exif.data != NULL && !ctx->user_exif) free(ctx->exif.data);
 
