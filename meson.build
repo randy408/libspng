@@ -1,4 +1,4 @@
-project('libspng', 'c', version : '0.3.0', default_options : ['c_std=c99'])
+project('libspng', 'c', version : '0.3.1', default_options : ['c_std=c99'])
 
 zlib_dep = dependency('zlib')
 
@@ -18,7 +18,7 @@ if(dev_build)
     pkg = import('pkgconfig')
     pkg.generate(name : 'libspng',
 		         libraries : lib,
-		         version : '0.2.0',
+		         version : meson.project_version(),
 		         description : 'PNG decoding and encoding library',
 		         libraries_private : [ '-lm', '-lz' ])
 
