@@ -2,7 +2,7 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    struct spng_ctx *ctx = spng_ctx_new();
+    spng_ctx *ctx = spng_ctx_new(0);
     if(ctx == NULL) return 0;
 
     if(spng_set_png_buffer(ctx, (void*)data, size)) return 0;

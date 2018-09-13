@@ -41,7 +41,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    struct spng_ctx *ctx = spng_ctx_new(0);
+    spng_ctx *ctx = spng_ctx_new(0);
     if(ctx == NULL)
     {
         printf("spng_ctx_new() failed\n");

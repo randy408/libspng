@@ -31,4 +31,4 @@ by default they're ignored.
     spng_ctx_free(ctx);
 
 
-See `example.c <https://gitlab.com/randy408/libspng/blob/master/example.c>`_.
+See `example.c <https://gitlab.com/randy408/libspng/blob/v0.3.1/example.c>`_.
