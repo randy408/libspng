@@ -9,6 +9,80 @@
 #define SPNG_FILTER_TYPE_AVERAGE 3
 #define SPNG_FILTER_TYPE_PAETH 4
 
+struct spng_ctx
+{
+    size_t data_size;
+    unsigned char *data;
+
+    spng_read_fn *read_fn;
+    void *read_user_ptr;
+
+    unsigned valid_state: 1;
+    unsigned streaming: 1;
+
+    unsigned have_ihdr: 1;
+    unsigned have_plte: 1;
+    unsigned have_chrm: 1;
+    unsigned have_iccp: 1;
+    unsigned user_iccp: 1;
+    unsigned have_gama: 1;
+    unsigned have_sbit: 1;
+    unsigned have_srgb: 1;
+    unsigned have_text: 1;
+    unsigned user_text: 1;
+    unsigned have_bkgd: 1;
+    unsigned have_hist: 1;
+    unsigned have_trns: 1;
+    unsigned have_phys: 1;
+    unsigned have_splt: 1;
+    unsigned user_splt: 1;
+    unsigned have_time: 1;
+    unsigned user_time: 1;
+    unsigned file_time: 1;
+    unsigned have_offs: 1;
+    unsigned have_exif: 1;
+    unsigned file_exif: 1;
+    unsigned user_exif: 1;
+
+    unsigned have_first_idat: 1;
+    unsigned have_last_idat: 1;
+
+    struct spng_chunk first_idat, last_idat;
+
+    uint32_t max_width, max_height;
+    struct spng_ihdr ihdr;
+
+    size_t plte_offset;
+    struct spng_plte plte;
+
+    struct spng_chrm chrm;
+    struct spng_iccp iccp;
+
+    uint32_t gama;
+    uint32_t lut_entries;
+    uint16_t *gamma_lut;
+
+    struct spng_sbit sbit;
+
+    uint8_t srgb_rendering_intent;
+
+    uint32_t n_text;
+    struct spng_text *text_list;
+
+    struct spng_bkgd bkgd;
+    struct spng_hist hist;
+    struct spng_trns trns;
+    struct spng_phys phys;
+
+    uint32_t n_splt;
+    struct spng_splt *splt_list;
+
+    struct spng_time time;
+    struct spng_offs offs;
+    struct spng_exif exif;
+};
+
+
 struct spng_subimage
 {
     uint32_t width;
