@@ -1,30 +1,39 @@
 project('libspng', 'c', version : '0.3.1', default_options : ['c_std=c99'])
 
-zlib_dep = dependency('zlib')
-
 cc = meson.get_compiler('c')
+
+include = include_directories('.')
+
+zlib_dep = dependency('zlib')
 m_dep = cc.find_library('m', required : false)
 
-lib = library('spng', 'decode.c', 'common.c',
-	      dependencies : [ zlib_dep, m_dep ], install : true)
+lib = library('spng', [ 'decode.c', 'common.c' ],
+	          dependencies : [ zlib_dep, m_dep ],
+	          install : true)
 
-example = executable('example', 'example.c', link_with : lib, dependencies : zlib_dep)
+example = executable('example', 'example.c',
+                     link_with : lib,
+                     dependencies : zlib_dep)
 
 install_headers('spng.h')
+
+pkg = import('pkgconfig')
+pkg.generate(name : 'libspng',
+	         libraries : lib,
+	         version : meson.project_version(),
+	         description : 'PNG decoding and encoding library',
+	         libraries_private : [ '-lm', '-lz' ])
 
 dev_build = get_option('dev_build')
 
 if(dev_build)
-    pkg = import('pkgconfig')
-    pkg.generate(name : 'libspng',
-		         libraries : lib,
-		         version : meson.project_version(),
-		         description : 'PNG decoding and encoding library',
-		         libraries_private : [ '-lm', '-lz' ])
+    png_dep = dependency('libpng', version : '>=1.6.0')
 
-    png_dep = dependency('libpng16')
-    bench = executable('bench', 'tests/benchmark.c', link_with: lib,
-	               dependencies : [ zlib_dep, png_dep ], override_options : ['c_std=c11'])
+    bench = executable('bench', 'tests/benchmark.c',
+                       link_with: lib,
+	                   dependencies : [ zlib_dep, png_dep ],
+	                   override_options : [ 'c_std=c11' ])
+
     benchmark('benchmark', bench, args: ['../benchmark_images/large_rgb8.png'])
     benchmark('benchmark', bench, args: ['../benchmark_images/large_rgba8.png'])
     benchmark('benchmark', bench, args: ['../benchmark_images/medium_rgb8.png'])
@@ -32,7 +41,10 @@ if(dev_build)
     benchmark('benchmark', bench, args: ['../benchmark_images/small_rgb8.png'])
     benchmark('benchmark', bench, args: ['../benchmark_images/small_rgba8.png'])
 
-    test_exe = executable('testsuite', 'tests/testsuite.c', link_with : lib, dependencies : png_dep)
+    test_exe = executable('testsuite',
+                          'tests/testsuite.c',
+                          link_with : lib,
+                          dependencies : png_dep)
 
     test('basi0g01', test_exe, args: ['../tests/images/basi0g01.png'])
     test('basi0g02', test_exe, args: ['../tests/images/basi0g02.png'])
