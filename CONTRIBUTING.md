@@ -32,7 +32,9 @@ meson configure -Db_sanitize=address,undefined
 
 * Use C99 standard code.
 
-* Code should be free of undefined behavior, follow the [CERT C Coding Standard](https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard) where it makes sense.
+* Code must be free of undefined behavior
+
+* Code must conform to the rules of the [CERT C Coding Standard](https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard).
 
 
 # Test
