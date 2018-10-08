@@ -30,30 +30,41 @@ Online documentation is available at https://libspng.org/doc.
 
 ## Building from source
 
-Building requires meson and ninja, the library only depends on zlib.
+Meson is the primary build system but CMake is also supported, the library only depends on zlib.
+
+### CMake build
+
+```
+mkdir -p cbuild
+cd cbuild
+cmake ..
+make
+make install
+```
+
+### Meson build
 
 ```
 meson build
 cd build
 ninja
+ninja install
 ```
 
 ## Running the testsuite
 
-The testsuite requires libpng.
+Only with Meson builds, the testsuite requires libpng.
 
 ```
-#run in build directory
+# Run in build directory
 meson configure -Ddev_build=true
 ninja test
 ```
 
 ## Benchmarking
 
-Since v0.3.0 there is experimental patch to optimize defiltering.
-
 ```
-#run in source directory
+# Run in source directory
 git checkout tags/v0.3.1
 wget https://gitlab.com/randy408/libspng/snippets/1739147/raw?inline=false -O v030_opt.patch
 git apply v030_opt.patch
