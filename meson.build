@@ -7,9 +7,16 @@ include = include_directories('.')
 zlib_dep = dependency('zlib')
 m_dep = cc.find_library('m', required : false)
 
+spng_deps = [ zlib_dep, m_dep ]
+
 lib = library('spng', [ 'decode.c', 'common.c' ],
-	          dependencies : [ zlib_dep, m_dep ],
+	          dependencies : spng_deps,
 	          install : true)
+
+spng_dep = declare_dependency(link_with : lib,
+                              dependencies : spng_deps,
+                              include_directories : include,
+                              version : meson.project_version())
 
 example = executable('example', 'example.c',
                      link_with : lib,
