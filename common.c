@@ -148,7 +148,7 @@ int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out)
     return 0;
 }
 
-int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, int channels)
+int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
 {
     if(sub == NULL || ihdr == NULL) return 1;
 
