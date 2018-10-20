@@ -94,17 +94,34 @@ Data types
 
 .. code-block:: c
 
-          struct spng_chrm
-          {
-              uint32_t white_point_x;
-              uint32_t white_point_y;
-              uint32_t red_x;
-              uint32_t red_y;
-              uint32_t green_x;
-              uint32_t green_y;
-              uint32_t blue_x;
-              uint32_t blue_y;
-          };
+        struct spng_chrm
+        {
+            double white_point_x;
+            double white_point_y;
+            double red_x;
+            double red_y;
+            double green_x;
+            double green_y;
+            double blue_x;
+            double blue_y;
+        };
+
+.. c:type:: struct spng_chrm_int
+
+      Image chromacities and white point in PNG's internal representation
+
+        struct spng_chrm_int
+        {
+            uint32_t white_point_x;
+            uint32_t white_point_y;
+            uint32_t red_x;
+            uint32_t red_y;
+            uint32_t green_x;
+            uint32_t green_y;
+            uint32_t blue_x;
+            uint32_t blue_y;
+        };
+
 
 .. c:type::struct spng_iccp
 
@@ -284,7 +301,11 @@ API
 
 .. c:function:: int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
 
-    Get primary chromacities and white point
+    Get primary chromacities and white point as floating point numbers
+
+.. c:function:: int spng_get_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int)
+
+    Get primary chromacities and white point in PNG's internal representation
 
 .. c:function:: int spng_get_gama(struct spng_ctx *ctx, double *gamma)
 
@@ -376,7 +397,11 @@ API
 
 .. c:function:: int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
 
-    Set primary chromacities and white point
+    Set primary chromacities and white point as floating point numbers
+
+.. c:function:: int spng_set_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int)
+
+    Set primary chromacities and white point in PNG's internal representation
 
 .. c:function:: int spng_set_gama(struct spng_ctx *ctx, double gamma)
 
