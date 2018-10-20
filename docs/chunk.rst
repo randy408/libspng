@@ -23,13 +23,13 @@ Data types
 
 .. code-block:: c
 
-      enum spng_colour_type
+      enum spng_color_type
       {
-          SPNG_COLOUR_TYPE_GRAYSCALE = 0,
-          SPNG_COLOUR_TYPE_TRUECOLOR = 2,
-          SPNG_COLOUR_TYPE_INDEXED = 3,
-          SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA = 4,
-          SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA = 6
+          SPNG_COLOR_TYPE_GRAYSCALE = 0,
+          SPNG_COLOR_TYPE_TRUECOLOR = 2,
+          SPNG_COLOR_TYPE_INDEXED = 3,
+          SPNG_COLOR_TYPE_GRAYSCALE_ALPHA = 4,
+          SPNG_COLOR_TYPE_TRUECOLOR_ALPHA = 6
       };
 
       struct spng_ihdr
@@ -37,7 +37,7 @@ Data types
           uint32_t width;
           uint32_t height;
           uint8_t bit_depth;
-          uint8_t colour_type;
+          uint8_t color_type;
           uint8_t compression_method;
           uint8_t filter_method;
           uint8_t interlace_method;
