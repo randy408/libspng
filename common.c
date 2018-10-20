@@ -275,8 +275,8 @@ int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
 
     if(ihdr->color_type == 0)
     {
-        if(sbit->greyscale_bits == 0) return SPNG_ESBIT;
-        if(sbit->greyscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
+        if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
     }
     else if(ihdr->color_type == 2 || ihdr->color_type == 3)
     {
@@ -294,8 +294,8 @@ int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
     }
     else if(ihdr->color_type == 4)
     {
-        if(sbit->greyscale_bits == 0) return SPNG_ESBIT;
-        if(sbit->greyscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
+        if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
     }
     else if(ihdr->color_type == 6)
     {
@@ -735,7 +735,7 @@ int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
 
     if(ctx->ihdr.color_type == 0)
     {
-        trns->type0_grey_sample &= mask;
+        trns->type0_gray_sample &= mask;
     }
     else if(ctx->ihdr.color_type == 2)
     {
@@ -942,7 +942,7 @@ int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
 
     if(ctx->ihdr.color_type == 0 || ctx->ihdr.color_type == 4)
     {
-        bkgd->type0_4_greyscale &= mask;
+        bkgd->type0_4_grayscale &= mask;
     }
     else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
     {

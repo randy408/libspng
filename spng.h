@@ -157,7 +157,7 @@ struct spng_trns
     uint32_t n_type3_entries;
     union
     {
-        uint16_t type0_grey_sample;
+        uint16_t type0_gray_sample;
         struct spng_trns_type2 type2;
         uint8_t type3_alpha[256];
     };
@@ -196,7 +196,7 @@ struct spng_iccp
 
 struct spng_sbit
 {
-    uint8_t greyscale_bits;
+    uint8_t grayscale_bits;
     uint8_t red_bits;
     uint8_t green_bits;
     uint8_t blue_bits;
@@ -228,7 +228,7 @@ struct spng_bkgd
 {
     union
     {
-        uint16_t type0_4_greyscale;
+        uint16_t type0_4_grayscale;
         struct spng_bkgd_type2_6 type2_6;
         uint8_t type3_plte_index;
     };

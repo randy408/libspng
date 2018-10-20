@@ -675,7 +675,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             {
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&ctx->sbit.greyscale_bits, data, 1);
+                memcpy(&ctx->sbit.grayscale_bits, data, 1);
             }
             else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
             {
@@ -689,7 +689,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                memcpy(&ctx->sbit.greyscale_bits, data, 1);
+                memcpy(&ctx->sbit.grayscale_bits, data, 1);
                 memcpy(&ctx->sbit.alpha_bits, data + 1, 1);
             }
             else if(ctx->ihdr.color_type == 6)
@@ -731,7 +731,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                ctx->bkgd.type0_4_greyscale = read_u16(data) & mask;
+                ctx->bkgd.type0_4_grayscale = read_u16(data) & mask;
             }
             else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
             {
@@ -765,7 +765,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                ctx->trns.type0_grey_sample = read_u16(data) & mask;
+                ctx->trns.type0_gray_sample = read_u16(data) & mask;
             }
             else if(ctx->ihdr.color_type == 2)
             {
@@ -1293,13 +1293,13 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
         ctx->lut_entries = lut_entries;
     }
 
-    uint8_t red_sbits, green_sbits, blue_sbits, alpha_sbits, greyscale_sbits;
+    uint8_t red_sbits, green_sbits, blue_sbits, alpha_sbits, grayscale_sbits;
 
     red_sbits = ctx->ihdr.bit_depth;
     green_sbits = ctx->ihdr.bit_depth;
     blue_sbits = ctx->ihdr.bit_depth;
     alpha_sbits = ctx->ihdr.bit_depth;
-    greyscale_sbits = ctx->ihdr.bit_depth;
+    grayscale_sbits = ctx->ihdr.bit_depth;
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
     {
@@ -1315,7 +1315,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
         {
             if(ctx->ihdr.color_type == 0)
             {
-                greyscale_sbits = ctx->sbit.greyscale_bits;
+                grayscale_sbits = ctx->sbit.grayscale_bits;
                 alpha_sbits = ctx->ihdr.bit_depth;
             }
             if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
@@ -1327,7 +1327,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
             }
             else if(ctx->ihdr.color_type == 4)
             {
-                greyscale_sbits = ctx->sbit.greyscale_bits;
+                grayscale_sbits = ctx->sbit.grayscale_bits;
                 alpha_sbits = ctx->sbit.alpha_bits;
             }
             else /* == 6 */
@@ -1524,7 +1524,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
                             if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->trns.type0_grey_sample == gray_16) a_16 = 0;
+                               ctx->trns.type0_gray_sample == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* <= 8 */
@@ -1542,7 +1542,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
                             if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->trns.type0_grey_sample == gray_8) a_8 = 0;
+                               ctx->trns.type0_gray_sample == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1664,7 +1664,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
                 if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
                    ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
                 {
-                    gray = sample_to_target(gray, ctx->ihdr.bit_depth, greyscale_sbits, depth_target);
+                    gray = sample_to_target(gray, ctx->ihdr.bit_depth, grayscale_sbits, depth_target);
                     a = sample_to_target(a, ctx->ihdr.bit_depth, alpha_sbits, depth_target);
                 }
                 else
