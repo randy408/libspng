@@ -685,6 +685,7 @@ int spng_set_plte(struct spng_ctx *ctx, struct spng_plte *plte)
 
     if(!ctx->have_ihdr) return 1;
 
+    if(plte->n_entries == 0) return 1;
     if(plte->n_entries > 256) return 1;
 
     if(ctx->ihdr.colour_type == 3)
