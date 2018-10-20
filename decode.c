@@ -1204,34 +1204,20 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
     if(ctx->ihdr.bit_depth < 8) bytes_per_pixel = 1;
     else bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
 
-    /* Calculate scanline width in bits, round up to a multiple of 8, convert to bytes */
-    size_t scanline_width = ctx->ihdr.width;
-
-    if(scanline_width > SIZE_MAX / channels) return SPNG_EOVERFLOW;
-    scanline_width = scanline_width * channels;
-
-    if(scanline_width > SIZE_MAX / ctx->ihdr.bit_depth) return SPNG_EOVERFLOW;
-    scanline_width = scanline_width * ctx->ihdr.bit_depth;
-
-    scanline_width = scanline_width + 8; /* filter byte */
-    if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-    if(scanline_width % 8 != 0) /* round to up multiple of 8 */
-    {
-        scanline_width = scanline_width + 8;
-        if(scanline_width < 8) return SPNG_EOVERFLOW;
-        scanline_width = scanline_width - (scanline_width % 8);
-    }
-
-    scanline_width = scanline_width / 8;
-
-
     z_stream stream;
     stream.zalloc = Z_NULL;
     stream.zfree = Z_NULL;
     stream.opaque = Z_NULL;
 
     if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
+
+    struct spng_subimage sub[7];
+    memset(sub, 0, sizeof(struct spng_subimage) * 7);
+
+    size_t scanline_width;
+
+    ret = calculate_subimages(sub, &scanline_width, &ctx->ihdr, channels);
+    if(ret) return ret;
 
     unsigned char *scanline_orig, *scanline, *prev_scanline;
 
@@ -1254,32 +1240,16 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
         return SPNG_EMEM;
     }
 
-    struct spng_subimage sub[7];
-    memset(sub, 0, sizeof(struct spng_subimage) * 7);
-
-    if(ctx->ihdr.interlace_method == 1)
+    int i;
+    for(i=0; i < 7; i++)
     {
-        sub[0].width = (ctx->ihdr.width + 7) >> 3;
-        sub[0].height = (ctx->ihdr.height + 7) >> 3;
-        sub[1].width = (ctx->ihdr.width + 3) >> 3;
-        sub[1].height = (ctx->ihdr.height + 7) >> 3;
-        sub[2].width = (ctx->ihdr.width + 3) >> 2;
-        sub[2].height = (ctx->ihdr.height + 3) >> 3;
-        sub[3].width = (ctx->ihdr.width + 1) >> 2;
-        sub[3].height = (ctx->ihdr.height + 3) >> 2;
-        sub[4].width = (ctx->ihdr.width + 1) >> 1;
-        sub[4].height = (ctx->ihdr.height + 1) >> 2;
-        sub[5].width = ctx->ihdr.width >> 1;
-        sub[5].height = (ctx->ihdr.height + 1) >> 1;
-        sub[6].width = ctx->ihdr.width;
-        sub[6].height = ctx->ihdr.height >> 1;
+        /* Skip empty passes */
+        if(sub[i].width != 0 && sub[i].height != 0)
+        {
+            scanline_width = sub[i].scanline_width;
+            break;
+        }
     }
-    else
-    {
-        sub[0].width = ctx->ihdr.width;
-        sub[0].height = ctx->ihdr.height;
-    }
-
 
     if(flags & SPNG_DECODE_USE_GAMA && ctx->have_gama)
     {
@@ -1427,14 +1397,10 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
     uint32_t scanline_idx;
     for(pass=0; pass < 7; pass++)
     {
-        /* Skip empty passes or anything past [0] when interlaced==0 */
+        /* Skip empty passes */
         if(sub[pass].width == 0 || sub[pass].height == 0) continue;
 
-        /* Recalculate scanline_width for every subimage */
-        /* Omitting overflow checks, we already did a worst-case calculation for *buf's size */
-        scanline_width = sub[pass].width * channels * ctx->ihdr.bit_depth + 8;
-        if(scanline_width % 8 != 0) scanline_width = scanline_width + 8 - (scanline_width % 8);
-        scanline_width /= 8;
+        scanline_width = sub[pass].scanline_width;
 
         /* prev_scanline is all zeros for the first scanline */
         memset(prev_scanline, 0, scanline_width);
@@ -1533,6 +1499,8 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
             uint16_t r_16, g_16, b_16, a_16, gray_16;
             uint16_t r, g, b, a, gray;
             unsigned char pixel[8] = {0};
+            size_t pixel_size = 4;
+            size_t pixel_offset;
 
             r=0; g=0; b=0; a=0; gray=0;
             r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
@@ -1728,10 +1696,6 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
                     b = ctx->gamma_lut[b];
                 }
 
-
-                size_t pixel_size = 4;
-                size_t pixel_offset;
-
                 /* only use *_8/16 for memcpy */
                 r_8 = r; g_8 = g; b_8 = b; a_8 = a;
                 r_16 = r; g_16 = g; b_16 = b; a_16 = a;
@@ -1756,7 +1720,6 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
                     memcpy(pixel + 4, &b_16, 2);
                     memcpy(pixel + 6, &a_16, 2);
                 }
-
 
                 if(!ctx->ihdr.interlace_method)
                 {
@@ -1785,8 +1748,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
     }/* for(pass=0; pass < 7; pass++) */
 
-    /* zlib stream ended before an IDAT chunk boundary */
-    if(ctx->streaming && bytes_left)
+    if(ctx->streaming && bytes_left) /* zlib stream ended before an IDAT chunk boundary */
     {/* read the rest of the chunk and check crc */
         while(bytes_left)
         {

@@ -148,6 +148,70 @@ int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out)
     return 0;
 }
 
+int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, int channels)
+{
+    if(sub == NULL || ihdr == NULL) return 1;
+
+    if(ihdr->interlace_method == 1)
+    {
+        sub[0].width = (ihdr->width + 7) >> 3;
+        sub[0].height = (ihdr->height + 7) >> 3;
+        sub[1].width = (ihdr->width + 3) >> 3;
+        sub[1].height = (ihdr->height + 7) >> 3;
+        sub[2].width = (ihdr->width + 3) >> 2;
+        sub[2].height = (ihdr->height + 3) >> 3;
+        sub[3].width = (ihdr->width + 1) >> 2;
+        sub[3].height = (ihdr->height + 3) >> 2;
+        sub[4].width = (ihdr->width + 1) >> 1;
+        sub[4].height = (ihdr->height + 1) >> 2;
+        sub[5].width = ihdr->width >> 1;
+        sub[5].height = (ihdr->height + 1) >> 1;
+        sub[6].width = ihdr->width;
+        sub[6].height = ihdr->height >> 1;
+    }
+    else
+    {
+        sub[0].width = ihdr->width;
+        sub[0].height = ihdr->height;
+    }
+
+    size_t scanline_width, widest = 0;
+
+    int i;
+    for(i=0; i < 7; i++)
+    {/* Calculate scanline width in bits, round up to the nearest byte */
+        if(sub[i].width == 0 || sub[i].height == 0) continue;
+
+        scanline_width = channels * ihdr->bit_depth;
+
+        if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
+        scanline_width = scanline_width * sub[i].width;
+
+        scanline_width += 8; /* Filter byte */
+
+        if(scanline_width < 8) return SPNG_EOVERFLOW;
+
+        /* Round up */
+        if(scanline_width % 8 != 0)
+        {
+            scanline_width = scanline_width + 8;
+            if(scanline_width < 8) return SPNG_EOVERFLOW;
+
+            scanline_width -= (scanline_width % 8);
+        }
+
+        scanline_width /= 8;
+
+        sub[i].scanline_width = scanline_width;
+
+        if(widest < scanline_width) widest = scanline_width;
+    }
+
+    *widest_scanline = widest;
+
+    return 0;
+}
+
 int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
     if(ihdr->width > png_u32max || ihdr->width > max_width) return SPNG_EWIDTH;
