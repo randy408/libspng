@@ -26,7 +26,7 @@ enum spng_errno
     SPNG_EUSER_WIDTH,
     SPNG_EUSER_HEIGHT,
     SPNG_EBIT_DEPTH,
-    SPNG_ECOLOUR_TYPE,
+    SPNG_ECOLOR_TYPE,
     SPNG_ECOMPRESSION_METHOD,
     SPNG_EFILTER_METHOD,
     SPNG_EINTERLACE_METHOD,
@@ -52,7 +52,7 @@ enum spng_errno
     SPNG_EDUP_EXIF,
     SPNG_ECHRM,
     SPNG_EPLTE_IDX,
-    SPNG_ETRNS_COLOUR_TYPE,
+    SPNG_ETRNS_COLOR_TYPE,
     SPNG_ETRNS_NO_PLTE,
     SPNG_EGAMA,
     SPNG_EICCP_NAME,
@@ -99,13 +99,13 @@ enum spng_text_type
     SPNG_ITXT = 3
 };
 
-enum spng_colour_type
+enum spng_color_type
 {
-    SPNG_COLOUR_TYPE_GRAYSCALE = 0,
-    SPNG_COLOUR_TYPE_TRUECOLOR = 2,
-    SPNG_COLOUR_TYPE_INDEXED = 3,
-    SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA = 4,
-    SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA = 6
+    SPNG_COLOR_TYPE_GRAYSCALE = 0,
+    SPNG_COLOR_TYPE_TRUECOLOR = 2,
+    SPNG_COLOR_TYPE_INDEXED = 3,
+    SPNG_COLOR_TYPE_GRAYSCALE_ALPHA = 4,
+    SPNG_COLOR_TYPE_TRUECOLOR_ALPHA = 6
 };
 
 enum spng_format
@@ -126,7 +126,7 @@ struct spng_ihdr
     uint32_t width;
     uint32_t height;
     uint8_t bit_depth;
-    uint8_t colour_type;
+    uint8_t color_type;
     uint8_t compression_method;
     uint8_t filter_method;
     uint8_t interlace_method;

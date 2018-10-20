@@ -217,9 +217,9 @@ int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
     if(ihdr->width > png_u32max || ihdr->width > max_width) return SPNG_EWIDTH;
     if(ihdr->height > png_u32max || ihdr->height > max_height) return SPNG_EHEIGHT;
 
-    switch(ihdr->colour_type)
+    switch(ihdr->color_type)
     {
-        case SPNG_COLOUR_TYPE_GRAYSCALE:
+        case SPNG_COLOR_TYPE_GRAYSCALE:
         {
             if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
                   ihdr->bit_depth == 4 || ihdr->bit_depth == 8 ||
@@ -228,14 +228,14 @@ int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 
             break;
         }
-        case SPNG_COLOUR_TYPE_TRUECOLOR:
+        case SPNG_COLOR_TYPE_TRUECOLOR:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
                 return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case SPNG_COLOUR_TYPE_INDEXED:
+        case SPNG_COLOR_TYPE_INDEXED:
         {
             if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
                   ihdr->bit_depth == 4 || ihdr->bit_depth == 8) )
@@ -243,21 +243,21 @@ int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 
             break;
         }
-        case SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA:
+        case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
                 return SPNG_EBIT_DEPTH;
 
             break;
         }
-        case SPNG_COLOUR_TYPE_TRUECOLOR_ALPHA:
+        case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
                 return SPNG_EBIT_DEPTH;
 
             break;
         }
-    default: return SPNG_ECOLOUR_TYPE;
+    default: return SPNG_ECOLOR_TYPE;
     }
 
     if(ihdr->compression_method || ihdr->filter_method)
@@ -273,31 +273,31 @@ int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
 {
     if(sbit == NULL || ihdr == NULL) return 1;
 
-    if(ihdr->colour_type == 0)
+    if(ihdr->color_type == 0)
     {
         if(sbit->greyscale_bits == 0) return SPNG_ESBIT;
         if(sbit->greyscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
     }
-    else if(ihdr->colour_type == 2 || ihdr->colour_type == 3)
+    else if(ihdr->color_type == 2 || ihdr->color_type == 3)
     {
         if(sbit->red_bits == 0) return SPNG_ESBIT;
         if(sbit->green_bits == 0) return SPNG_ESBIT;
         if(sbit->blue_bits == 0) return SPNG_ESBIT;
 
         uint8_t bit_depth;
-        if(ihdr->colour_type == 3) bit_depth = 8;
+        if(ihdr->color_type == 3) bit_depth = 8;
         else bit_depth = ihdr->bit_depth;
 
         if(sbit->red_bits > bit_depth) return SPNG_ESBIT;
         if(sbit->green_bits > bit_depth) return SPNG_ESBIT;
         if(sbit->blue_bits > bit_depth) return SPNG_ESBIT;
     }
-    else if(ihdr->colour_type == 4)
+    else if(ihdr->color_type == 4)
     {
         if(sbit->greyscale_bits == 0) return SPNG_ESBIT;
         if(sbit->greyscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
     }
-    else if(ihdr->colour_type == 6)
+    else if(ihdr->color_type == 6)
     {
         if(sbit->red_bits == 0) return SPNG_ESBIT;
         if(sbit->green_bits == 0) return SPNG_ESBIT;
@@ -709,7 +709,7 @@ int spng_set_plte(struct spng_ctx *ctx, struct spng_plte *plte)
     if(plte->n_entries == 0) return 1;
     if(plte->n_entries > 256) return 1;
 
-    if(ctx->ihdr.colour_type == 3)
+    if(ctx->ihdr.color_type == 3)
     {
         if(plte->n_entries > (1 << ctx->ihdr.bit_depth)) return 1;
     }
@@ -733,21 +733,21 @@ int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
     uint16_t mask = ~0;
     if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
 
-    if(ctx->ihdr.colour_type == 0)
+    if(ctx->ihdr.color_type == 0)
     {
         trns->type0_grey_sample &= mask;
     }
-    else if(ctx->ihdr.colour_type == 2)
+    else if(ctx->ihdr.color_type == 2)
     {
         trns->type2.red &= mask;
         trns->type2.green &= mask;
         trns->type2.blue &= mask;
     }
-    else if(ctx->ihdr.colour_type == 3)
+    else if(ctx->ihdr.color_type == 3)
     {
         if(!ctx->have_plte) return 1;
     }
-    else return SPNG_ETRNS_COLOUR_TYPE;
+    else return SPNG_ETRNS_COLOR_TYPE;
 
     memcpy(&ctx->trns, trns, sizeof(struct spng_trns));
 
@@ -940,17 +940,17 @@ int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
 
     if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
 
-    if(ctx->ihdr.colour_type == 0 || ctx->ihdr.colour_type == 4)
+    if(ctx->ihdr.color_type == 0 || ctx->ihdr.color_type == 4)
     {
         bkgd->type0_4_greyscale &= mask;
     }
-    else if(ctx->ihdr.colour_type == 2 || ctx->ihdr.colour_type == 6)
+    else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
     {
         bkgd->type2_6.red &= mask;
         bkgd->type2_6.green &= mask;
         bkgd->type2_6.blue &= mask;
     }
-    else if(ctx->ihdr.colour_type == 3)
+    else if(ctx->ihdr.color_type == 3)
     {
         if(!ctx->have_plte) return SPNG_EBKGD_NO_PLTE;
         if(bkgd->type3_plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
@@ -1095,7 +1095,7 @@ const char *spng_strerror(int err)
         case SPNG_EUSER_WIDTH: return "image width exceeds user limit";
         case SPNG_EUSER_HEIGHT: return "image height exceeds user limit";
         case SPNG_EBIT_DEPTH: return "invalid bit depth";
-        case SPNG_ECOLOUR_TYPE: return "invalid colour type";
+        case SPNG_ECOLOR_TYPE: return "invalid color type";
         case SPNG_ECOMPRESSION_METHOD: return "invalid compression method";
         case SPNG_EFILTER_METHOD: return "invalid filter method";
         case SPNG_EINTERLACE_METHOD: return "invalid interlace method";
@@ -1121,7 +1121,7 @@ const char *spng_strerror(int err)
         case SPNG_EDUP_EXIF: return "duplicate eXIf chunk";
         case SPNG_ECHRM: return "invalid cHRM chunk";
         case SPNG_EPLTE_IDX: return "invalid palette (PLTE) index";
-        case SPNG_ETRNS_COLOUR_TYPE: return "tRNS chunk with incompatible colour type";
+        case SPNG_ETRNS_COLOR_TYPE: return "tRNS chunk with incompatible color type";
         case SPNG_ETRNS_NO_PLTE: return "missing palette (PLTE) for tRNS chunk";
         case SPNG_EGAMA: return "invalid gAMA chunk";
         case SPNG_EICCP_NAME: return "invalid iCCP profile name";

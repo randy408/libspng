@@ -67,21 +67,21 @@ int main(int argc, char **argv)
     }
 
     char *clr_type_str;
-    if(ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE)
+    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
         clr_type_str = "grayscale";
-    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_TRUECOLOR)
+    else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
         clr_type_str = "truecolor";
-    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_INDEXED)
-        clr_type_str = "indexed colour";
-    else if(ihdr.colour_type == SPNG_COLOUR_TYPE_GRAYSCALE_ALPHA)
+    else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+        clr_type_str = "indexed color";
+    else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
         clr_type_str = "grayscale with alpha";
     else
         clr_type_str = "truecolor with alpha";
 
     printf("width: %" PRIu32 "\nheight: %" PRIu32 "\n"
-           "bit depth: %" PRIu8 "\ncolour type: %" PRIu8 " - %s\n",
+           "bit depth: %" PRIu8 "\ncolor type: %" PRIu8 " - %s\n",
            ihdr.width, ihdr.height,
-           ihdr.bit_depth, ihdr.colour_type, clr_type_str);
+           ihdr.bit_depth, ihdr.color_type, clr_type_str);
     printf("compression method: %" PRIu8 "\nfilter method: %" PRIu8 "\n"
            "interlace method: %" PRIu8 "\n",
            ihdr.compression_method, ihdr.filter_method,
