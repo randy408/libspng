@@ -1182,6 +1182,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
     if(ctx == NULL) return 1;
     if(out == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
     int ret;
     size_t out_size_required;

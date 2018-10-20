@@ -90,6 +90,7 @@ enum spng_errno
     SPNG_EFMT,
     SPNG_EFLAGS,
     SPNG_ECHUNKAVAIL,
+    SPNG_ENCODE_ONLY,
 };
 
 enum spng_text_type

@@ -20,6 +20,8 @@ struct spng_ctx
     unsigned valid_state: 1;
     unsigned streaming: 1;
 
+    unsigned encode_only: 1;
+
     unsigned have_ihdr: 1;
     unsigned have_plte: 1;
     unsigned have_chrm: 1;

@@ -694,6 +694,8 @@ int spng_set_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
 
     ctx->have_ihdr = 1;
 
+    ctx->encode_only = 1;
+
     return 0;
 }
 
@@ -1159,6 +1161,7 @@ const char *spng_strerror(int err)
         case SPNG_EFMT: return "invalid format";
         case SPNG_EFLAGS: return "invalid flags";
         case SPNG_ECHUNKAVAIL: return "chunk not available";
+        case SPNG_ENCODE_ONLY: return "encode only context";
         default: return "unknown error";
     }
 }
