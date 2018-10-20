@@ -55,7 +55,7 @@ struct spng_ctx
     size_t plte_offset;
     struct spng_plte plte;
 
-    struct spng_chrm chrm;
+    struct spng_chrm_int chrm_int;
     struct spng_iccp iccp;
 
     uint32_t gama;
@@ -97,7 +97,7 @@ int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, st
 
 int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height);
 int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr);
-int check_chrm(struct spng_chrm *chrm);
+int check_chrm_int(struct spng_chrm_int *chrm_int);
 int check_phys(struct spng_phys *phys);
 int check_time(struct spng_time *time);
 int check_offs(struct spng_offs *offs);

@@ -313,18 +313,18 @@ int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
     return 0;
 }
 
-int check_chrm(struct spng_chrm *chrm)
+int check_chrm_int(struct spng_chrm_int *chrm_int)
 {
-    if(chrm == NULL) return 1;
+    if(chrm_int == NULL) return 1;
 
-    if(chrm->white_point_x > png_u32max ||
-       chrm->white_point_y > png_u32max ||
-       chrm->red_x > png_u32max ||
-       chrm->red_y > png_u32max ||
-       chrm->green_x  > png_u32max ||
-       chrm->green_y  > png_u32max ||
-       chrm->blue_x > png_u32max ||
-       chrm->blue_y > png_u32max) return SPNG_ECHRM;
+    if(chrm_int->white_point_x > png_u32max ||
+       chrm_int->white_point_y > png_u32max ||
+       chrm_int->red_x > png_u32max ||
+       chrm_int->red_y > png_u32max ||
+       chrm_int->green_x  > png_u32max ||
+       chrm_int->green_y  > png_u32max ||
+       chrm_int->blue_x > png_u32max ||
+       chrm_int->blue_y > png_u32max) return SPNG_ECHRM;
 
     return 0;
 }
@@ -470,7 +470,28 @@ int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
 
     if(!ctx->have_chrm) return SPNG_ECHUNKAVAIL;
 
-    memcpy(chrm, &ctx->chrm, sizeof(struct spng_chrm));
+    chrm->white_point_x = (double)ctx->chrm_int.white_point_x / 100000.0;
+    chrm->white_point_y = (double)ctx->chrm_int.white_point_y / 100000.0;
+    chrm->red_x = (double)ctx->chrm_int.red_x / 100000.0;
+    chrm->red_y = (double)ctx->chrm_int.red_y / 100000.0;
+    chrm->blue_y = (double)ctx->chrm_int.blue_y / 100000.0;
+    chrm->blue_x = (double)ctx->chrm_int.blue_x / 100000.0;
+    chrm->green_x = (double)ctx->chrm_int.green_x / 100000.0;
+    chrm->green_y = (double)ctx->chrm_int.green_y / 100000.0;
+
+    return 0;
+}
+
+int spng_get_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm)
+{
+    if(ctx == NULL || chrm == NULL) return 1;
+
+    int ret = get_ancillary(ctx);
+    if(ret) return ret;
+
+    if(!ctx->have_chrm) return SPNG_ECHUNKAVAIL;
+
+    memcpy(chrm, &ctx->chrm_int, sizeof(struct spng_chrm_int));
 
     return 0;
 }
@@ -742,9 +763,36 @@ int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
     int ret = get_ancillary2(ctx);
     if(ret) return ret;
 
-    if(check_chrm(chrm)) return SPNG_ECHRM;
+    struct spng_chrm_int chrm_int;
 
-    memcpy(&ctx->chrm, chrm, sizeof(struct spng_chrm));
+    chrm_int.white_point_x = chrm->white_point_x * 100000.0;
+    chrm_int.white_point_y = chrm->white_point_y * 100000.0;
+    chrm_int.red_x = chrm->red_x * 100000.0;
+    chrm_int.red_y = chrm->red_y * 100000.0;
+    chrm_int.green_x = chrm->green_x * 100000.0;
+    chrm_int.green_y = chrm->green_y * 100000.0;
+    chrm_int.blue_x = chrm->blue_x * 100000.0;
+    chrm_int.blue_y = chrm->blue_y * 100000.0;
+
+    if(check_chrm_int(&chrm_int)) return SPNG_ECHRM;
+
+    memcpy(&ctx->chrm_int, &chrm_int, sizeof(struct spng_chrm_int));
+
+    ctx->have_chrm = 1;
+
+    return 0;
+}
+
+int spng_set_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int)
+{
+    if(ctx == NULL || chrm_int == NULL) return 1;
+
+    int ret = get_ancillary2(ctx);
+    if(ret) return ret;
+
+    if(check_chrm_int(chrm_int)) return SPNG_ECHRM;
+
+    memcpy(&ctx->chrm_int, chrm_int, sizeof(struct spng_chrm_int));
 
     ctx->have_chrm = 1;
 

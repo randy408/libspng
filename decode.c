@@ -605,16 +605,16 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
 
             if(chunk.length != 32) return SPNG_ECHUNK_SIZE;
 
-            ctx->chrm.white_point_x = read_u32(data);
-            ctx->chrm.white_point_y = read_u32(data + 4);
-            ctx->chrm.red_x = read_u32(data + 8);
-            ctx->chrm.red_y = read_u32(data + 12);
-            ctx->chrm.green_x = read_u32(data + 16);
-            ctx->chrm.green_y = read_u32(data + 20);
-            ctx->chrm.blue_x = read_u32(data + 24);
-            ctx->chrm.blue_y = read_u32(data + 28);
+            ctx->chrm_int.white_point_x = read_u32(data);
+            ctx->chrm_int.white_point_y = read_u32(data + 4);
+            ctx->chrm_int.red_x = read_u32(data + 8);
+            ctx->chrm_int.red_y = read_u32(data + 12);
+            ctx->chrm_int.green_x = read_u32(data + 16);
+            ctx->chrm_int.green_y = read_u32(data + 20);
+            ctx->chrm_int.blue_x = read_u32(data + 24);
+            ctx->chrm_int.blue_y = read_u32(data + 28);
 
-            if(check_chrm(&ctx->chrm)) return SPNG_ECHRM;
+            if(check_chrm_int(&ctx->chrm_int)) return SPNG_ECHRM;
 
             ctx->have_chrm = 1;
         }

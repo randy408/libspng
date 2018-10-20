@@ -163,7 +163,7 @@ struct spng_trns
     };
 };
 
-struct spng_chrm
+struct spng_chrm_int
 {
     uint32_t white_point_x;
     uint32_t white_point_y;
@@ -173,6 +173,18 @@ struct spng_chrm
     uint32_t green_y;
     uint32_t blue_x;
     uint32_t blue_y;
+};
+
+struct spng_chrm
+{
+    double white_point_x;
+    double white_point_y;
+    double red_x;
+    double red_y;
+    double green_x;
+    double green_y;
+    double blue_x;
+    double blue_y;
 };
 
 struct spng_iccp
@@ -302,7 +314,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte);
 int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns);
-int spng_get_chrm(spng_ctx *ctx, struct spng_chrm *chrm);
+int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm);
+int spng_get_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int);
 int spng_get_gama(spng_ctx *ctx, double *gamma);
 int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp);
 int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit);
@@ -321,7 +334,8 @@ int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif);
 int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte);
 int spng_set_trns(spng_ctx *ctx, struct spng_trns *trns);
-int spng_set_chrm(spng_ctx *ctx, struct spng_chrm *chrm);
+int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm);
+int spng_set_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int);
 int spng_set_gama(spng_ctx *ctx, double gamma);
 int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp);
 int spng_set_sbit(spng_ctx *ctx, struct spng_sbit *sbit);
