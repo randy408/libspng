@@ -227,12 +227,11 @@ struct spng_bkgd_type2_6
 
 struct spng_bkgd
 {
-    union
-    {
-        uint16_t type0_4_grayscale;
-        struct spng_bkgd_type2_6 type2_6;
-        uint8_t type3_plte_index;
-    };
+    uint16_t gray; /* only for gray/gray alpha */
+    uint16_t red;
+    uint16_t green;
+    uint16_t blue;
+    uint16_t plte_index; /* only for indexed color */
 };
 
 struct spng_hist

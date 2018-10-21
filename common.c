@@ -944,18 +944,18 @@ int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
 
     if(ctx->ihdr.color_type == 0 || ctx->ihdr.color_type == 4)
     {
-        bkgd->type0_4_grayscale &= mask;
+        bkgd->gray &= mask;
     }
     else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
     {
-        bkgd->type2_6.red &= mask;
-        bkgd->type2_6.green &= mask;
-        bkgd->type2_6.blue &= mask;
+        bkgd->red &= mask;
+        bkgd->green &= mask;
+        bkgd->blue &= mask;
     }
     else if(ctx->ihdr.color_type == 3)
     {
         if(!ctx->have_plte) return SPNG_EBKGD_NO_PLTE;
-        if(bkgd->type3_plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
+        if(bkgd->plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
     }
 
     memcpy(&ctx->bkgd, bkgd, sizeof(struct spng_bkgd));

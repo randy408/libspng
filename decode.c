@@ -731,23 +731,23 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                ctx->bkgd.type0_4_grayscale = read_u16(data) & mask;
+                ctx->bkgd.gray = read_u16(data) & mask;
             }
             else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                ctx->bkgd.type2_6.red = read_u16(data) & mask;
-                ctx->bkgd.type2_6.green = read_u16(data + 2) & mask;
-                ctx->bkgd.type2_6.blue = read_u16(data + 4) & mask;
+                ctx->bkgd.red = read_u16(data) & mask;
+                ctx->bkgd.green = read_u16(data + 2) & mask;
+                ctx->bkgd.blue = read_u16(data + 4) & mask;
             }
             else if(ctx->ihdr.color_type == 3)
             {
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
                 if(!ctx->have_plte) return SPNG_EBKGD_NO_PLTE;
 
-                memcpy(&ctx->bkgd.type3_plte_index, data, 1);
-                if(ctx->bkgd.type3_plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
+                memcpy(&ctx->bkgd.plte_index, data, 1);
+                if(ctx->bkgd.plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
             }
 
             ctx->have_bkgd = 1;
