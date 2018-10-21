@@ -155,13 +155,14 @@ struct spng_trns_type2
 
 struct spng_trns
 {
+    uint16_t gray;
+
+    uint16_t red;
+    uint16_t green;
+    uint16_t blue;
+
     uint32_t n_type3_entries;
-    union
-    {
-        uint16_t type0_gray_sample;
-        struct spng_trns_type2 type2;
-        uint8_t type3_alpha[256];
-    };
+    uint8_t type3_alpha[256];
 };
 
 struct spng_chrm_int

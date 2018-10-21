@@ -765,15 +765,15 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                ctx->trns.type0_gray_sample = read_u16(data) & mask;
+                ctx->trns.gray = read_u16(data) & mask;
             }
             else if(ctx->ihdr.color_type == 2)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                ctx->trns.type2.red = read_u16(data) & mask;
-                ctx->trns.type2.green = read_u16(data + 2) & mask;
-                ctx->trns.type2.blue = read_u16(data + 4) & mask;
+                ctx->trns.red = read_u16(data) & mask;
+                ctx->trns.green = read_u16(data + 2) & mask;
+                ctx->trns.blue = read_u16(data + 4) & mask;
             }
             else if(ctx->ihdr.color_type == 3)
             {
@@ -1525,7 +1525,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
                             if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->trns.type0_gray_sample == gray_16) a_16 = 0;
+                               ctx->trns.gray == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* <= 8 */
@@ -1543,7 +1543,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
                             if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->trns.type0_gray_sample == gray_8) a_8 = 0;
+                               ctx->trns.gray == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1559,9 +1559,9 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
                             if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->trns.type2.red == r_16 &&
-                               ctx->trns.type2.green == g_16 &&
-                               ctx->trns.type2.blue == b_16) a_16 = 0;
+                               ctx->trns.red == r_16 &&
+                               ctx->trns.green == g_16 &&
+                               ctx->trns.blue == b_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* == 8 */
@@ -1572,9 +1572,9 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
                             if(ctx->have_trns &&
                                flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->trns.type2.red == r_8 &&
-                               ctx->trns.type2.green == g_8 &&
-                               ctx->trns.type2.blue == b_8) a_8 = 0;
+                               ctx->trns.red == r_8 &&
+                               ctx->trns.green == g_8 &&
+                               ctx->trns.blue == b_8) a_8 = 0;
                             else a_8 = 255;
                         }
 

@@ -737,13 +737,13 @@ int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
 
     if(ctx->ihdr.color_type == 0)
     {
-        trns->type0_gray_sample &= mask;
+        trns->gray &= mask;
     }
     else if(ctx->ihdr.color_type == 2)
     {
-        trns->type2.red &= mask;
-        trns->type2.green &= mask;
-        trns->type2.blue &= mask;
+        trns->red &= mask;
+        trns->green &= mask;
+        trns->blue &= mask;
     }
     else if(ctx->ihdr.color_type == 3)
     {
