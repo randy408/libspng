@@ -11,6 +11,8 @@ spng_deps = [ zlib_dep, m_dep ]
 
 lib = library('spng', [ 'decode.c', 'common.c' ],
 	          dependencies : spng_deps,
+	          version : meson.project_version(),
+	          soversion : '0.3.1',
 	          install : true)
 
 spng_dep = declare_dependency(link_with : lib,
