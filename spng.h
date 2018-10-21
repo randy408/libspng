@@ -146,13 +146,6 @@ struct spng_plte
     struct spng_plte_entry entries[256];
 };
 
-struct spng_trns_type2
-{
-    uint16_t red;
-    uint16_t green;
-    uint16_t blue;
-};
-
 struct spng_trns
 {
     uint16_t gray;
@@ -217,13 +210,6 @@ struct spng_text
     uint8_t compression_method; /* iTXt, ztXt only */
     char *language_tag; /* iTXt only */
     char *translated_keyword; /* iTXt only */
-};
-
-struct spng_bkgd_type2_6
-{
-    uint16_t red;
-    uint16_t green;
-    uint16_t blue;
 };
 
 struct spng_bkgd
