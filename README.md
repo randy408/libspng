@@ -21,8 +21,10 @@ are verified to decode to the same output as libpng.
 
 # Safety
 
-libspng does verify input data, it should be free of arithmetic overflow and buffer 
-overflow errors.
+Code is written according to the rules of the 
+[CERT C Coding Standard](https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard),
+all releases are scanned with [Coverity Scan](https://scan.coverity.com/projects/randy408-libspng)
+and Clang Static Analyzer.
 
 # Documentation
 
