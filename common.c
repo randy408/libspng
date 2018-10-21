@@ -747,7 +747,7 @@ int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
     }
     else if(ctx->ihdr.color_type == 3)
     {
-        if(!ctx->have_plte) return 1;
+        if(!ctx->have_plte) return SPNG_ETRNS_NO_PLTE;
     }
     else return SPNG_ETRNS_COLOR_TYPE;
 
