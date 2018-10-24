@@ -1176,26 +1176,20 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
     ret = calculate_subimages(sub, &scanline_width, &ctx->ihdr, channels);
     if(ret) return ret;
 
-    unsigned char *scanline_orig, *scanline, *prev_scanline;
+    unsigned char *scanline_orig = NULL, *scanline = NULL, *prev_scanline = NULL;
 
     scanline_orig = malloc(scanline_width);
-    if(scanline_orig == NULL)
+    prev_scanline = malloc(scanline_width);
+
+    if(scanline_orig == NULL || prev_scanline == NULL)
     {
-        inflateEnd(&stream);
-        return SPNG_EMEM;
+        ret = SPNG_EMEM;
+        goto decode_err;
     }
 
     /* Some of the error-handling goto's might leave scanline incremented,
        leading to a failed free(), this prevents that. */
     scanline = scanline_orig;
-
-    prev_scanline = malloc(scanline_width);
-    if(prev_scanline == NULL)
-    {
-        inflateEnd(&stream);
-        free(scanline_orig);
-        return SPNG_EMEM;
-    }
 
     int i;
     for(i=0; i < 7; i++)
@@ -1305,9 +1299,7 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
     memcpy(&chunk, &ctx->first_idat, sizeof(struct spng_chunk));
 
     uint32_t actual_crc = 0;
-
-    /* chunk data left for current IDAT */
-    uint32_t bytes_left = 0;
+    uint32_t bytes_left = 0; /* chunk data left for current IDAT */
 
     if(!ctx->streaming && ctx->have_last_idat)
     {
