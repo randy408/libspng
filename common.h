@@ -17,6 +17,10 @@ struct spng_ctx
     spng_read_fn *read_fn;
     void *read_user_ptr;
 
+    unsigned char *png_buf;
+    size_t bytes_left;
+    size_t last_read_size;
+
     unsigned valid_state: 1;
     unsigned streaming: 1;
 

@@ -72,17 +72,6 @@ static inline int32_t read_s32(const void *_data)
     return ret;
 }
 
-/* Used to check if a chunk actually fits in ctx->data */
-static int require_bytes(size_t offset, size_t bytes, size_t data_size)
-{
-    size_t required = offset + bytes;
-    if(required < bytes) return SPNG_EOVERFLOW;
-
-    if(required > data_size) return SPNG_EOF; /* buffer too small */
-
-    return 0;
-}
-
 /* Read and validate the next chunk header */
 static int next_header(struct spng_ctx *ctx, const struct spng_chunk *current,
                        struct spng_chunk *next)
@@ -95,25 +84,15 @@ static int next_header(struct spng_ctx *ctx, const struct spng_chunk *current,
     bytes_required = current->length + 20; /* current header, current crc, next header */
     if(bytes_required < current->length) return SPNG_EOVERFLOW;
 
-    if(ctx->streaming) ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, 8);
-    else ret = require_bytes(current->offset, bytes_required, ctx->data_size);
-
+    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, 8);
     if(ret) return ret;
 
     bytes_required -= 8;
     next->offset = current->offset + bytes_required;
     if(next->offset < current->offset) return SPNG_EOVERFLOW;
 
-    if(ctx->streaming)
-    {
-        next->length = read_u32(ctx->data);
-        memcpy(&next->type, ctx->data + 4, 4);
-    }
-    else
-    {
-        next->length = read_u32(ctx->data + next->offset);
-        memcpy(&next->type, ctx->data + next->offset + 4, 4);
-    }
+    next->length = read_u32(ctx->data);
+    memcpy(&next->type, ctx->data + 4, 4);
 
     if(next->length > png_u32max)
     {
@@ -132,45 +111,27 @@ static int get_chunk_data(struct spng_ctx *ctx, struct spng_chunk *chunk)
     int ret;
     size_t bytes_required;
 
-    if(ctx->streaming)
+    bytes_required = chunk->length + 4;
+    if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
+
+    if(ctx->streaming && (bytes_required > ctx->data_size) )
     {
-        bytes_required = chunk->length + 4;
-        if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
+        void *buf = realloc(ctx->data, bytes_required);
+        if(buf == NULL) return SPNG_EMEM;
 
-        if(bytes_required > ctx->data_size)
-        {
-            void *buf = realloc(ctx->data, bytes_required);
-            if(buf == NULL) return SPNG_EMEM;
-
-            ctx->data = buf;
-            ctx->data_size = bytes_required;
-        }
-
-        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, bytes_required);
+        ctx->data = buf;
+        ctx->data_size = bytes_required;
     }
-    else
-    {
-        bytes_required = chunk->length + 12; /* header, crc */
-        if(bytes_required < chunk->length) return SPNG_EOVERFLOW;
 
-        ret = require_bytes(chunk->offset, bytes_required, ctx->data_size);
-    }
+    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, bytes_required);
 
     if(ret) return ret;
 
     uint32_t actual_crc = crc32(0, Z_NULL, 0);
     actual_crc = crc32(actual_crc, chunk->type, 4);
+    actual_crc = crc32(actual_crc, ctx->data, chunk->length);
 
-    if(ctx->streaming)
-    {
-        actual_crc = crc32(actual_crc, ctx->data, chunk->length);
-        chunk->crc = read_u32(ctx->data + chunk->length);
-    }
-    else
-    {
-        actual_crc = crc32(actual_crc, ctx->data + chunk->offset + 8, chunk->length);
-        chunk->crc = read_u32(ctx->data + chunk->offset + 8 + chunk->length);
-    }
+    chunk->crc = read_u32(ctx->data + chunk->length);
 
     if(actual_crc != chunk->crc) return SPNG_ECHUNK_CRC;
 
@@ -508,11 +469,8 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
     chunk.length = 13;
     size_t sizeof_sig_ihdr = 33;
 
-    if(ctx->streaming)
-    {
-        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, sizeof_sig_ihdr);
-        if(ret) return ret;
-    }
+    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, sizeof_sig_ihdr);
+    if(ret) return ret;
 
     data = ctx->data;
 
@@ -559,8 +517,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
         ret = get_chunk_data(ctx, &chunk);
         if(ret) return ret;
 
-        if(ctx->streaming) data = ctx->data;
-        else data = ctx->data + chunk.offset + 8;
+        data = ctx->data;
 
         /* Reserved bit must be zero */
         if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
@@ -1009,8 +966,7 @@ static int validate_past_idat(struct spng_ctx *ctx)
         ret = get_chunk_data(ctx, &chunk);
         if(ret) return ret;
 
-        if(ctx->streaming) data = ctx->data;
-        else data = ctx->data + chunk.offset + 8;
+        data = ctx->data;
 
         /* Reserved bit must be zero */
         if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
@@ -1350,49 +1306,46 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
 
     uint32_t actual_crc = 0;
 
-    /* chunk data left for current IDAT, only used when streaming */
+    /* chunk data left for current IDAT */
     uint32_t bytes_left = 0;
 
-    if(ctx->streaming)
+    if(!ctx->streaming && ctx->have_last_idat)
     {
-        bytes_left = chunk.length;
-        uint32_t len = 8192;
-        if(bytes_left < len) len = bytes_left;
+        ctx->data = ctx->png_buf + ctx->first_idat.offset;
+        ctx->bytes_left = ctx->data_size - ctx->first_idat.offset;
+        ctx->last_read_size = 8;
+    }
 
-        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
+    bytes_left = chunk.length;
+    uint32_t len = 8192;
+    if(bytes_left < len) len = bytes_left;
+
+    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
+    if(ret) goto decode_err;
+
+    bytes_left -= len;
+    actual_crc = crc32(0, NULL, 0);
+    actual_crc = crc32(actual_crc, chunk.type, 4);
+    actual_crc = crc32(actual_crc, ctx->data, len);
+
+    if(!bytes_left)
+    {
+        unsigned char crc[4];
+        ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
         if(ret) goto decode_err;
 
-        bytes_left -= len;
-        actual_crc = crc32(0, NULL, 0);
-        actual_crc = crc32(actual_crc, chunk.type, 4);
-        actual_crc = crc32(actual_crc, ctx->data, len);
+        chunk.crc = read_u32(crc);
 
-        if(!bytes_left)
+        if(actual_crc != chunk.crc)
         {
-            unsigned char crc[4];
-            ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
-            if(ret) goto decode_err;
-
-            chunk.crc = read_u32(crc);
-
-            if(actual_crc != chunk.crc)
-            {
-                ret = SPNG_ECHUNK_CRC;
-                goto decode_err;
-            }
+            ret = SPNG_ECHUNK_CRC;
+            goto decode_err;
         }
-
-        stream.avail_in = len;
-        stream.next_in = ctx->data;
     }
-    else
-    {
-        ret = get_chunk_data(ctx, &chunk);
-        if(ret) goto decode_err;
 
-        stream.avail_in = chunk.length;
-        stream.next_in = ctx->data + chunk.offset + 8;
-    }
+    stream.avail_in = len;
+    stream.next_in = ctx->data;
+
 
     int pass;
     uint32_t scanline_idx;
@@ -1447,47 +1400,36 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
                         goto decode_err;
                     }
 
-                    if(ctx->streaming)
-                    {
-                        bytes_left = chunk.length;
-                        uint32_t len = 8192;
-                        if(bytes_left < len) len = bytes_left;
+                    bytes_left = chunk.length;
+                    len = 8192;
+                    if(bytes_left < len) len = bytes_left;
 
-                        ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
+                    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);
+                    if(ret) goto decode_err;
+
+                    bytes_left -= len;
+
+                    actual_crc = crc32(0, NULL, 0);
+                    actual_crc = crc32(actual_crc, chunk.type, 4);
+                    actual_crc = crc32(actual_crc, ctx->data, len);
+
+                    if(!bytes_left)
+                    {
+                        unsigned char crc[4];
+                        ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
                         if(ret) goto decode_err;
 
-                        bytes_left -= len;
+                        chunk.crc = read_u32(crc);
 
-                        actual_crc = crc32(0, NULL, 0);
-                        actual_crc = crc32(actual_crc, chunk.type, 4);
-                        actual_crc = crc32(actual_crc, ctx->data, len);
-
-                        if(!bytes_left)
+                        if(actual_crc != chunk.crc)
                         {
-                            unsigned char crc[4];
-                            ret = ctx->read_fn(ctx, ctx->read_user_ptr, crc, sizeof(crc));
-                            if(ret) goto decode_err;
-
-                            chunk.crc = read_u32(crc);
-
-                            if(actual_crc != chunk.crc)
-                            {
-                                ret = SPNG_ECHUNK_CRC;
-                                goto decode_err;
-                            }
+                            ret = SPNG_ECHUNK_CRC;
+                            goto decode_err;
                         }
-
-                        stream.avail_in = len;
-                        stream.next_in = ctx->data;
                     }
-                    else
-                    {
-                        ret = get_chunk_data(ctx, &chunk);
-                        if(ret) goto decode_err;
 
-                        stream.avail_in = chunk.length;
-                        stream.next_in = ctx->data + chunk.offset + 8;
-                    }
+                    stream.avail_in = len;
+                    stream.next_in = ctx->data;
                 }
 
             }while(stream.avail_out != 0);
@@ -1749,11 +1691,11 @@ int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt,
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
     }/* for(pass=0; pass < 7; pass++) */
 
-    if(ctx->streaming && bytes_left) /* zlib stream ended before an IDAT chunk boundary */
+    if(bytes_left) /* zlib stream ended before an IDAT chunk boundary */
     {/* read the rest of the chunk and check crc */
         while(bytes_left)
         {
-            uint32_t len = 8192;
+            len = 8192;
             if(bytes_left < len) len = bytes_left;
 
             ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, len);

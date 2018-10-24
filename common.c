@@ -61,6 +61,18 @@ void spng_ctx_free(struct spng_ctx *ctx)
     free(ctx);
 }
 
+static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
+{
+    if(n > ctx->bytes_left) return SPNG_IO_EOF;
+
+    ctx->data = ctx->data + ctx->last_read_size;
+
+    ctx->last_read_size = n;
+    ctx->bytes_left -= n;
+
+    return 0;
+}
+
 int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size)
 {
     if(ctx == NULL || buf == NULL) return 1;
@@ -69,7 +81,11 @@ int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size)
     if(ctx->data != NULL) return SPNG_EBUF_SET;
 
     ctx->data = buf;
+    ctx->png_buf = buf;
     ctx->data_size = size;
+    ctx->bytes_left = size;
+
+    ctx->read_fn = buffer_read_fn;
 
     return 0;
 }
