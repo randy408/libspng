@@ -54,6 +54,8 @@ Data types
               uint8_t red;
               uint8_t green;
               uint8_t blue;
+
+              uint8_t alpha; /* reserved for internal use */
           };
 
           struct spng_plte
@@ -68,22 +70,16 @@ Data types
 
 .. code-block:: c
 
-          struct spng_trns_type2
+          struct spng_trns
           {
+              uint16_t gray;
+
               uint16_t red;
               uint16_t green;
               uint16_t blue;
-          };
 
-          struct spng_trns
-          {
               uint32_t n_type3_entries;
-              union
-              {
-                  uint16_t type0_gray_sample;
-                  struct spng_trns_type2 type2;
-                  uint8_t type3_alpha[256];
-              };
+              uint8_t type3_alpha[256];
           };
 
 
@@ -178,21 +174,15 @@ Data types
 
 .. code-block:: c
 
-        struct spng_bkgd_type2_6
+        struct spng_bkgd
         {
+            uint16_t gray; /* only for gray/gray alpha */
+
             uint16_t red;
             uint16_t green;
             uint16_t blue;
-        };
 
-        struct spng_bkgd
-        {
-            union
-            {
-                uint16_t type0_4_grayscale;
-                struct spng_bkgd_type2_6 type2_6;
-                uint8_t type3_plte_index;
-            };
+            uint16_t plte_index; /* only for indexed color */
         };
 
 .. c:type:: struct spng_hist
