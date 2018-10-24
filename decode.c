@@ -73,7 +73,7 @@ static inline int32_t read_s32(const void *_data)
 }
 
 /* Read and validate the next chunk header */
-static int next_header(struct spng_ctx *ctx, const struct spng_chunk *current,
+static int next_header(spng_ctx *ctx, const struct spng_chunk *current,
                        struct spng_chunk *next)
 {
     if(ctx == NULL || current == NULL || next == NULL) return 1;
@@ -104,7 +104,7 @@ static int next_header(struct spng_ctx *ctx, const struct spng_chunk *current,
 }
 
 /* Read chunk data when streaming and check crc */
-static int get_chunk_data(struct spng_ctx *ctx, struct spng_chunk *chunk)
+static int get_chunk_data(spng_ctx *ctx, struct spng_chunk *chunk)
 {
     if(ctx == NULL || chunk == NULL) return 1;
 
@@ -290,7 +290,7 @@ static int decompress_zstream(struct spng_decomp *params)
 }
 
 /* Read and validate tEXt, zTXt, iTXt chunks */
-static int get_text(struct spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk)
+static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk)
 {
     if(ctx == NULL || data == NULL || chunk == NULL) return 1;
 
@@ -455,7 +455,7 @@ static int get_text(struct spng_ctx *ctx, unsigned char *data, struct spng_chunk
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
     Returns zero and sets ctx->first_idat on success
 */
-static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
+static int get_ancillary_data_first_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
@@ -948,7 +948,7 @@ static int get_ancillary_data_first_idat(struct spng_ctx *ctx)
     return ret;
 }
 
-static int validate_past_idat(struct spng_ctx *ctx)
+static int validate_past_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
 
@@ -1091,7 +1091,7 @@ static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbi
     return sample;
 }
 
-int get_ancillary(struct spng_ctx *ctx)
+int get_ancillary(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
@@ -1112,7 +1112,7 @@ int get_ancillary(struct spng_ctx *ctx)
 }
 
 /* Same as above except it returns 0 if no buffer is set */
-int get_ancillary2(struct spng_ctx *ctx)
+int get_ancillary2(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
@@ -1133,7 +1133,7 @@ int get_ancillary2(struct spng_ctx *ctx)
     return 0;
 }
 
-int spng_decode_image(struct spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags)
+int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
     if(out == NULL) return 1;

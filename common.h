@@ -96,8 +96,8 @@ struct spng_subimage
     size_t scanline_width;
 };
 
-int get_ancillary(struct spng_ctx *ctx);
-int get_ancillary2(struct spng_ctx *ctx);
+int get_ancillary(spng_ctx *ctx);
+int get_ancillary2(spng_ctx *ctx);
 
 int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels);
 

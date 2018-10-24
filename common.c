@@ -12,9 +12,9 @@
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
-struct spng_ctx * spng_ctx_new(int flags)
+spng_ctx * spng_ctx_new(int flags)
 {
-    struct spng_ctx *ctx = calloc(1, sizeof(struct spng_ctx));
+    spng_ctx *ctx = calloc(1, sizeof(spng_ctx));
     if(ctx == NULL) return NULL;
 
     ctx->valid_state = 1;
@@ -22,7 +22,7 @@ struct spng_ctx * spng_ctx_new(int flags)
     return ctx;
 }
 
-void spng_ctx_free(struct spng_ctx *ctx)
+void spng_ctx_free(spng_ctx *ctx)
 {
     if(ctx == NULL) return;
 
@@ -56,7 +56,7 @@ void spng_ctx_free(struct spng_ctx *ctx)
         free(ctx->text_list);
     }
 
-    memset(ctx, 0, sizeof(struct spng_ctx));
+    memset(ctx, 0, sizeof(spng_ctx));
 
     free(ctx);
 }
@@ -73,7 +73,7 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
     return 0;
 }
 
-int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size)
+int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size)
 {
     if(ctx == NULL || buf == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
@@ -90,7 +90,7 @@ int spng_set_png_buffer(struct spng_ctx *ctx, void *buf, size_t size)
     return 0;
 }
 
-int spng_set_png_stream(struct spng_ctx *ctx, spng_read_fn read_func, void *user)
+int spng_set_png_stream(spng_ctx *ctx, spng_read_fn read_func, void *user)
 {
     if(ctx == NULL || read_func == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
@@ -109,7 +109,7 @@ int spng_set_png_stream(struct spng_ctx *ctx, spng_read_fn read_func, void *user
     return 0;
 }
 
-int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height)
+int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height)
 {
     if(ctx == NULL) return 1;
 
@@ -121,7 +121,7 @@ int spng_set_image_limits(struct spng_ctx *ctx, uint32_t width, uint32_t height)
     return 0;
 }
 
-int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *height)
+int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
 {
     if(ctx == NULL || width == NULL || height == NULL) return 1;
 
@@ -131,7 +131,7 @@ int spng_get_image_limits(struct spng_ctx *ctx, uint32_t *width, uint32_t *heigh
     return 0;
 }
 
-int spng_decoded_image_size(struct spng_ctx *ctx, int fmt, size_t *out)
+int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
 {
     if(ctx == NULL || out == NULL) return 1;
 
@@ -437,7 +437,7 @@ int check_png_text(const char *str, size_t len)
     return 0;
 }
 
-int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
+int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
     if(ctx == NULL || ihdr == NULL) return 1;
 
@@ -449,7 +449,7 @@ int spng_get_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
     return 0;
 }
 
-int spng_get_plte(struct spng_ctx *ctx, struct spng_plte *plte)
+int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte)
 {
     if(ctx == NULL || plte == NULL) return 1;
 
@@ -463,7 +463,7 @@ int spng_get_plte(struct spng_ctx *ctx, struct spng_plte *plte)
     return 0;
 }
 
-int spng_get_trns(struct spng_ctx *ctx, struct spng_trns *trns)
+int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
     if(ctx == NULL || trns == NULL) return 1;
 
@@ -477,7 +477,7 @@ int spng_get_trns(struct spng_ctx *ctx, struct spng_trns *trns)
     return 0;
 }
 
-int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
+int spng_get_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 {
     if(ctx == NULL || chrm == NULL) return 1;
 
@@ -498,7 +498,7 @@ int spng_get_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
     return 0;
 }
 
-int spng_get_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm)
+int spng_get_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm)
 {
     if(ctx == NULL || chrm == NULL) return 1;
 
@@ -512,7 +512,7 @@ int spng_get_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm)
     return 0;
 }
 
-int spng_get_gama(struct spng_ctx *ctx, double *gamma)
+int spng_get_gama(spng_ctx *ctx, double *gamma)
 {
     if(ctx == NULL || gamma == NULL) return 1;
 
@@ -526,7 +526,7 @@ int spng_get_gama(struct spng_ctx *ctx, double *gamma)
     return 0;
 }
 
-int spng_get_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
+int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
     if(ctx == NULL || iccp == NULL) return 1;
 
@@ -540,7 +540,7 @@ int spng_get_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
     return 0;
 }
 
-int spng_get_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit)
+int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 {
     if(ctx == NULL || sbit == NULL) return 1;
 
@@ -554,7 +554,7 @@ int spng_get_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit)
     return 0;
 }
 
-int spng_get_srgb(struct spng_ctx *ctx, uint8_t *rendering_intent)
+int spng_get_srgb(spng_ctx *ctx, uint8_t *rendering_intent)
 {
     if(ctx == NULL || rendering_intent == NULL) return 1;
 
@@ -568,7 +568,7 @@ int spng_get_srgb(struct spng_ctx *ctx, uint8_t *rendering_intent)
     return 0;
 }
 
-int spng_get_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
+int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 {
     if(ctx == NULL || n_text == NULL) return 1;
 
@@ -589,7 +589,7 @@ int spng_get_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t *n_text
     return ret;
 }
 
-int spng_get_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
+int spng_get_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
     if(ctx == NULL || bkgd == NULL) return 1;
 
@@ -603,7 +603,7 @@ int spng_get_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
     return 0;
 }
 
-int spng_get_hist(struct spng_ctx *ctx, struct spng_hist *hist)
+int spng_get_hist(spng_ctx *ctx, struct spng_hist *hist)
 {
     if(ctx == NULL || hist == NULL) return 1;
 
@@ -617,7 +617,7 @@ int spng_get_hist(struct spng_ctx *ctx, struct spng_hist *hist)
     return 0;
 }
 
-int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys)
+int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys)
 {
     if(ctx == NULL || phys == NULL) return 1;
 
@@ -631,7 +631,7 @@ int spng_get_phys(struct spng_ctx *ctx, struct spng_phys *phys)
     return 0;
 }
 
-int spng_get_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
+int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 {
     if(ctx == NULL || n_splt == NULL) return 1;
 
@@ -652,7 +652,7 @@ int spng_get_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt
     return 0;
 }
 
-int spng_get_time(struct spng_ctx *ctx, struct spng_time *time)
+int spng_get_time(spng_ctx *ctx, struct spng_time *time)
 {
     if(ctx == NULL || time == NULL) return 1;
 
@@ -666,7 +666,7 @@ int spng_get_time(struct spng_ctx *ctx, struct spng_time *time)
     return 0;
 }
 
-int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs)
+int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
     if(ctx == NULL || offs == NULL) return 1;
 
@@ -680,7 +680,7 @@ int spng_get_offs(struct spng_ctx *ctx, struct spng_offs *offs)
     return 0;
 }
 
-int spng_get_exif(struct spng_ctx *ctx, struct spng_exif *exif)
+int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif)
 {
     if(ctx == NULL || exif == NULL) return 1;
 
@@ -694,7 +694,7 @@ int spng_get_exif(struct spng_ctx *ctx, struct spng_exif *exif)
     return 0;
 }
 
-int spng_set_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
+int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
     if(ctx == NULL || ihdr == NULL) return 1;
 
@@ -715,7 +715,7 @@ int spng_set_ihdr(struct spng_ctx *ctx, struct spng_ihdr *ihdr)
     return 0;
 }
 
-int spng_set_plte(struct spng_ctx *ctx, struct spng_plte *plte)
+int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte)
 {
     if(ctx == NULL || plte == NULL) return 1;
 
@@ -739,7 +739,7 @@ int spng_set_plte(struct spng_ctx *ctx, struct spng_plte *plte)
     return 0;
 }
 
-int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
+int spng_set_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
     if(ctx == NULL || trns == NULL) return 1;
 
@@ -774,7 +774,7 @@ int spng_set_trns(struct spng_ctx *ctx, struct spng_trns *trns)
     return 0;
 }
 
-int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
+int spng_set_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 {
     if(ctx == NULL || chrm == NULL) return 1;
 
@@ -801,7 +801,7 @@ int spng_set_chrm(struct spng_ctx *ctx, struct spng_chrm *chrm)
     return 0;
 }
 
-int spng_set_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int)
+int spng_set_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm_int)
 {
     if(ctx == NULL || chrm_int == NULL) return 1;
 
@@ -817,7 +817,7 @@ int spng_set_chrm_int(struct spng_ctx *ctx, struct spng_chrm_int *chrm_int)
     return 0;
 }
 
-int spng_set_gama(struct spng_ctx *ctx, double gamma)
+int spng_set_gama(spng_ctx *ctx, double gamma)
 {
     if(ctx == NULL) return 1;
 
@@ -835,7 +835,7 @@ int spng_set_gama(struct spng_ctx *ctx, double gamma)
     return 0;
 }
 
-int spng_set_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
+int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
     if(ctx == NULL || iccp == NULL) return 1;
 
@@ -855,7 +855,7 @@ int spng_set_iccp(struct spng_ctx *ctx, struct spng_iccp *iccp)
     return 0;
 }
 
-int spng_set_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit)
+int spng_set_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 {
     if(ctx == NULL || sbit == NULL) return 1;
 
@@ -872,7 +872,7 @@ int spng_set_sbit(struct spng_ctx *ctx, struct spng_sbit *sbit)
     return 0;
 }
 
-int spng_set_srgb(struct spng_ctx *ctx, uint8_t rendering_intent)
+int spng_set_srgb(spng_ctx *ctx, uint8_t rendering_intent)
 {
     if(ctx == NULL) return 1;
 
@@ -888,7 +888,7 @@ int spng_set_srgb(struct spng_ctx *ctx, uint8_t rendering_intent)
     return 0;
 }
 
-int spng_set_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
+int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
 {
     if(ctx == NULL || text == NULL || !n_text) return 1;
 
@@ -945,7 +945,7 @@ int spng_set_text(struct spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     return 0;
 }
 
-int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
+int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
     if(ctx == NULL || bkgd == NULL) return 1;
 
@@ -981,7 +981,7 @@ int spng_set_bkgd(struct spng_ctx *ctx, struct spng_bkgd *bkgd)
     return 0;
 }
 
-int spng_set_hist(struct spng_ctx *ctx, struct spng_hist *hist)
+int spng_set_hist(spng_ctx *ctx, struct spng_hist *hist)
 {
     if(ctx == NULL || hist == NULL) return 1;
 
@@ -997,7 +997,7 @@ int spng_set_hist(struct spng_ctx *ctx, struct spng_hist *hist)
     return 0;
 }
 
-int spng_set_phys(struct spng_ctx *ctx, struct spng_phys *phys)
+int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys)
 {
     if(ctx == NULL || phys == NULL) return 1;
 
@@ -1013,7 +1013,7 @@ int spng_set_phys(struct spng_ctx *ctx, struct spng_phys *phys)
     return 0;
 }
 
-int spng_set_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
+int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
 {
     if(ctx == NULL || splt == NULL || !n_splt) return 1;
 
@@ -1045,7 +1045,7 @@ int spng_set_splt(struct spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
     return 0;
 }
 
-int spng_set_time(struct spng_ctx *ctx, struct spng_time *time)
+int spng_set_time(spng_ctx *ctx, struct spng_time *time)
 {
     if(ctx == NULL || time == NULL) return 1;
 
@@ -1062,7 +1062,7 @@ int spng_set_time(struct spng_ctx *ctx, struct spng_time *time)
     return 0;
 }
 
-int spng_set_offs(struct spng_ctx *ctx, struct spng_offs *offs)
+int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
     if(ctx == NULL || offs == NULL) return 1;
 
@@ -1078,7 +1078,7 @@ int spng_set_offs(struct spng_ctx *ctx, struct spng_offs *offs)
     return 0;
 }
 
-int spng_set_exif(struct spng_ctx *ctx, struct spng_exif *exif)
+int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
 {
     if(ctx == NULL || exif == NULL) return 1;
 
