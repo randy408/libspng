@@ -13,7 +13,7 @@ by default they're ignored.
 .. code-block:: c
 
     /* Create a context */
-    struct spng_ctx *ctx = spng_ctx_new(0);
+    spng_ctx *ctx = spng_ctx_new(0);
 
     /* Set an input buffer */
     spng_set_png_buffer(ctx, buf, buf_size);
@@ -31,4 +31,4 @@ by default they're ignored.
     spng_ctx_free(ctx);
 
 
-See `example.c <https://gitlab.com/randy408/libspng/blob/v0.3.1/example.c>`_.
+For a complete example see `example.c <https://gitlab.com/randy408/libspng/blob/v0.3.1/example.c>`_.
