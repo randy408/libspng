@@ -8,11 +8,16 @@ not compatible.
 
 # Versioning
 
-Releases follow the [semantic versioning](https://semver.org/) scheme, new releases until 1.0.0 may introduce breaking changes.
+Releases follow the [semantic versioning](https://semver.org/) scheme.
+
+API/ABI changes can be tracked [here](https://abi-laboratory.pro/index.php?view=timeline&l=libspng).
 
 # Licensing
 
 Code is licensed under the BSD 2-clause "Simplified" License.
+
+The [PngSuite](http://www.schaik.com/pngsuite/) and other images from libpng are 
+used for regression testing.
 
 # Testing
 
