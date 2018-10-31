@@ -8,13 +8,20 @@ Data types
 
 .. c:type:: spng_ctx
 
-Context handle.
+   Context handle.
 
+.. note:: The context handle has no public members.
 
-Public members
-^^^^^^^^^^^^^^
+.. c:type:: spng_crc_action
 
-The context handle has no public members.
+.. code-block:: c
+
+      enum spng_crc_action
+      {
+          SPNG_CRC_ERROR = 0, /* Default */
+          SPNG_CRC_DISCARD = 1, /* Discard chunk, invalid for critical chunks */
+          SPNG_CRC_USE = 2 /* Ignore and don't calculate checksum */
+      };
 
 
 API
@@ -37,3 +44,7 @@ API
     Get image width and height limits.
 
     ``*width`` and ``*height`` must be non-NULL.
+
+.. c:function:: int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
+
+    Set how chunk CRC errors should be handled for critical and ancillary chunks.
