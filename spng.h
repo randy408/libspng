@@ -283,8 +283,6 @@ struct spng_chunk
 
 typedef struct spng_ctx spng_ctx;
 
-/* A read callback function should copy "n" bytes to *data and return 0 or
-   SPNG_IO_EOF/SPNG_IO_ERROR on error. */
 typedef int spng_read_fn(spng_ctx *ctx, void *user, void *data, size_t n);
 
 spng_ctx *spng_ctx_new(int flags);
