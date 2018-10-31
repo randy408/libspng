@@ -39,6 +39,16 @@ struct spng_ctx
     unsigned streaming: 1;
 
     unsigned encode_only: 1;
+    unsigned reserved1: 1;
+    unsigned reserved2: 1;
+    unsigned reserved3: 1;
+    unsigned reserved4: 1;
+    unsigned reserved5: 1;
+    unsigned reserved6: 1;
+    unsigned reserved7: 1;
+    unsigned reserved8: 1;
+    unsigned reserved9: 1;
+    unsigned reserved10: 1;
 
     unsigned have_ihdr: 1;
     unsigned have_plte: 1;
