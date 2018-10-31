@@ -1,11 +1,5 @@
 #include "common.h"
 
-#include <limits.h>
-#include <string.h>
-#include <math.h>
-
-#include <zlib.h>
-
 struct spng_decomp
 {
     unsigned char *buf; /* input buffer */

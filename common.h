@@ -3,6 +3,12 @@
 
 #include "spng.h"
 
+#include <limits.h>
+#include <string.h>
+#include <math.h>
+
+#include <zlib.h>
+
 #define SPNG_FILTER_TYPE_NONE 0
 #define SPNG_FILTER_TYPE_SUB 1
 #define SPNG_FILTER_TYPE_UP 2
