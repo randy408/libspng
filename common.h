@@ -12,14 +12,22 @@
 struct spng_ctx
 {
     size_t data_size;
+    size_t bytes_read;
     unsigned char *data;
 
+    /* User-defined pointers for streaming */
     spng_read_fn *read_fn;
     void *read_user_ptr;
 
-    unsigned char *png_buf;
+    /* Used for buffer reads */
+    unsigned char *png_buf; /* base pointer for the buffer */
     size_t bytes_left;
     size_t last_read_size;
+
+    /* These are updated by read_header()/read_chunk_bytes() */
+    struct spng_chunk current_chunk;
+    uint32_t cur_chunk_bytes_left;
+    uint32_t cur_actual_crc;
 
     unsigned valid_state: 1;
     unsigned streaming: 1;
