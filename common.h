@@ -80,6 +80,9 @@ struct spng_ctx
     struct spng_chunk first_idat, last_idat;
 
     uint32_t max_width, max_height;
+    int crc_action_critical;
+    int crc_action_ancillary;
+
     struct spng_ihdr ihdr;
 
     size_t plte_offset;

@@ -131,6 +131,21 @@ int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
     return 0;
 }
 
+int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
+{
+    if(ctx == NULL) return 1;
+
+    if(critical > 2 || critical < 0) return 1;
+    if(ancillary > 2 || critical < 0) return 1;
+
+    if(critical == SPNG_CRC_DISCARD) return 1;
+
+    ctx->crc_action_critical = critical;
+    ctx->crc_action_ancillary = ancillary;
+
+    return 0;
+}
+
 int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
 {
     if(ctx == NULL || out == NULL) return 1;

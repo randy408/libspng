@@ -122,6 +122,13 @@ enum spng_decode_flags
     SPNG_DECODE_USE_SBIT = 8 /* Rescale samples using sBIT values */
 };
 
+enum spng_crc_action
+{
+    SPNG_CRC_ERROR = 0, /* Default */
+    SPNG_CRC_DISCARD = 1, /* Discard chunk, invalid for critical chunks */
+    SPNG_CRC_USE = 2 /* Ignore and don't calculate checksum */
+};
+
 struct spng_ihdr
 {
     uint32_t width;
@@ -293,6 +300,8 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user);
 
 int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height);
 int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height);
+
+int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary);
 
 int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out);
 

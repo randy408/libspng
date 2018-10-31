@@ -66,6 +66,14 @@ static inline int32_t read_s32(const void *_data)
     return ret;
 }
 
+int is_critical_chunk(struct spng_chunk *chunk)
+{
+    if(chunk == NULL) return 0;
+    if((chunk->type[0] & (1 << 5)) == 0) return 1;
+
+    return 0;
+}
+
 static inline int read_data(spng_ctx *ctx, size_t bytes)
 {
     if(ctx == NULL) return 1;
@@ -95,17 +103,18 @@ static inline int read_and_check_crc(spng_ctx *ctx)
     if(ctx == NULL) return 1;
 
     int ret;
-
     ret = read_data(ctx, 4);
     if(ret) return ret;
 
     ctx->current_chunk.crc = read_u32(ctx->data);
 
-    if(ctx->cur_actual_crc != ctx->current_chunk.crc)
-    {
-        if(!memcmp(ctx->current_chunk.type, type_ihdr, 4)) return 0;
-        else return SPNG_ECHUNK_CRC;
-    }
+    if(is_critical_chunk(&ctx->current_chunk) &&
+       ctx->crc_action_critical == SPNG_CRC_USE) goto skip_crc;
+    else if(ctx->crc_action_ancillary == SPNG_CRC_USE) goto skip_crc;
+
+    if(ctx->cur_actual_crc != ctx->current_chunk.crc) return SPNG_ECHUNK_CRC;
+
+skip_crc:
 
     return 0;
 }
@@ -154,7 +163,13 @@ static int read_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
     ret = read_data(ctx, bytes);
     if(ret) return ret;
 
+    if(is_critical_chunk(&ctx->current_chunk) &&
+       ctx->crc_action_critical == SPNG_CRC_USE) goto skip_crc;
+    else if(ctx->crc_action_ancillary == SPNG_CRC_USE) goto skip_crc;
+
     ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, ctx->data, bytes);
+    
+skip_crc:
     ctx->cur_chunk_bytes_left -= bytes;
 
     return ret;
@@ -604,7 +619,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
         /* Ignore private chunks */
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
-        if( (chunk.type[0] & (1 << 5)) == 0) /* Critical chunk */
+        if(is_critical_chunk(&chunk)) /* Critical chunk */
         {
             if(!memcmp(chunk.type, type_plte, 4))
             {
@@ -1054,7 +1069,7 @@ static int validate_past_idat(spng_ctx *ctx)
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
         /* Critical chunk */
-        if( (chunk.type[0] & (1 << 5)) == 0)
+        if(is_critical_chunk(&chunk))
         {
             if(!memcmp(chunk.type, type_iend, 4)) return 0;
             else if(!memcmp(chunk.type, type_idat, 4) && prev_was_idat) continue; /* ignore extra IDATs */
