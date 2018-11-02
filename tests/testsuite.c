@@ -5,7 +5,7 @@
 
 #include "test_spng.h"
 #include "test_png.h"
-#include "../common.h"
+#include "common.h"
 
 struct spng_test_case
 {

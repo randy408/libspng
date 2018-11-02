@@ -2,7 +2,7 @@
 #define TEST_PNG_H
 
 #include <png.h>
-#include "../spng.h"
+#include "spng.h"
 
 #include <stdlib.h>
 #include <stdio.h>

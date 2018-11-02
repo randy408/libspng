@@ -2,14 +2,17 @@ project('libspng', 'c', version : '0.3.1', default_options : ['c_std=c99'])
 
 cc = meson.get_compiler('c')
 
-include = include_directories('.')
+include = include_directories('src')
 
 zlib_dep = dependency('zlib')
 m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
 
-lib = library('spng', [ 'decode.c', 'common.c' ],
+lib_src = files(['src/decode.c',
+                 'src/common.c'])
+
+lib = library('spng', lib_src,
 	          dependencies : spng_deps,
 	          version : meson.project_version(),
 	          soversion : '0.3.1',
@@ -20,11 +23,12 @@ spng_dep = declare_dependency(link_with : lib,
                               include_directories : include,
                               version : meson.project_version())
 
-example = executable('example', 'example.c',
+example = executable('example', 'examples/example.c',
                      link_with : lib,
+                     include_directories : include,
                      dependencies : zlib_dep)
 
-install_headers('spng.h')
+install_headers('src/spng.h')
 
 pkg = import('pkgconfig')
 pkg.generate(name : 'libspng',
@@ -38,3 +42,4 @@ dev_build = get_option('dev_build')
 if(dev_build)
     subdir('tests')
 endif
+
