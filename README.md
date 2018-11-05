@@ -35,6 +35,10 @@ and Clang Static Analyzer.
 
 Online documentation is available at https://libspng.org/doc.
 
+# Known Issues
+
+* `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
+
 ## Building from source
 
 Meson is the primary build system but CMake is also supported, the library only depends on zlib.

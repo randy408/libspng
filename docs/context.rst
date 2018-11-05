@@ -48,3 +48,5 @@ API
 .. c:function:: int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
 
     Set how chunk CRC errors should be handled for critical and ancillary chunks.
+
+.. note:: Partially implemented, ``SPNG_CRC_DISCARD`` has no effect.
