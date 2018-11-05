@@ -14,11 +14,11 @@ find_package(ZLIB REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIR})
 
 IF(SPNG_SHARED)
-	add_library(spng SHARED common.c decode.c)
+	add_library(spng SHARED src/common.c src/decode.c)
 endif()
 
 if(SPNG_STATIC)
-	add_library(spng_static STATIC common.c decode.c)
+	add_library(spng_static STATIC src/common.c src/decode.c)
 endif()
 
 target_link_libraries(spng ${ZLIB_LIBRARIES})
