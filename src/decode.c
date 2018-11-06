@@ -391,6 +391,8 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 {
     if(ctx == NULL || data == NULL || chunk == NULL) return 1;
 
+    if(!chunk->length) return SPNG_ECHUNK_SIZE;
+
     if(!ctx->have_text)
     {
         ctx->n_text = 1;
@@ -687,6 +689,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
         {
             if(ctx->have_plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
             if(ctx->have_iccp) return SPNG_EDUP_ICCP;
+            if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
             size_t name_len = chunk.length > 80 ? 80 : chunk.length;
             char *name_nul = memchr(data, '\0', name_len);
@@ -876,6 +879,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_splt, 4))
         {
             if(ctx->user_splt) continue; /* XXX: should check profile names for uniqueness */
+            if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
             if(!ctx->have_splt)
             {
