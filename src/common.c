@@ -103,9 +103,9 @@ void spng_ctx_free(spng_ctx *ctx)
         spng__free(ctx, ctx->text_list);
     }
 
-    memset(ctx, 0, sizeof(spng_ctx));
-
     spng_free_fn *free_func = ctx->alloc.free_fn;
+
+    memset(ctx, 0, sizeof(spng_ctx));
 
     free_func(ctx);
 }

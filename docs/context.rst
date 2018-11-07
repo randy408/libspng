@@ -31,6 +31,10 @@ API
 
     Creates a new context.
 
+.. c:function:: spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
+
+    Creates a new context with a custom memory allocator, ``aloc`` must be non-NULL.
+
 .. c:function:: void spng_ctx_free(spng_ctx *ctx)
 
     Releases context resources.
