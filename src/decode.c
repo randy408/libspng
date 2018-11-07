@@ -81,7 +81,7 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
 
     if(ctx->streaming && (bytes > ctx->data_size))
     {
-        void *buf = realloc(ctx->data, bytes);
+        void *buf = spng__realloc(ctx, ctx->data, bytes);
         if(buf == NULL) return SPNG_EMEM;
 
         ctx->data = buf;
@@ -313,14 +313,14 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 /* Decompress a zlib stream from params->buf to params->out,
    params->out is allocated by the function,
    params->size and initial_size should be non-zero. */
-static int decompress_zstream(struct spng_decomp *params)
+static int decompress_zstream(spng_ctx *ctx, struct spng_decomp *params)
 {
     if(params == NULL) return 1;
     if(params->buf == NULL || params->size == 0) return 1;
     if(params->initial_size == 0) return 1;
 
     params->decomp_alloc_size = params->initial_size;
-    params->out = malloc(params->decomp_alloc_size);
+    params->out = spng__malloc(ctx, params->decomp_alloc_size);
     if(params->out == NULL) return 1;
 
     int ret;
@@ -331,7 +331,7 @@ static int decompress_zstream(struct spng_decomp *params)
 
     if(inflateInit(&stream) != Z_OK)
     {
-        free(params->out);
+        spng__free(ctx, params->out);
         return SPNG_EZLIB;
     }
 
@@ -348,7 +348,7 @@ static int decompress_zstream(struct spng_decomp *params)
         if(ret != Z_OK && ret != Z_STREAM_END && ret != Z_BUF_ERROR)
         {
             inflateEnd(&stream);
-            free(params->out);
+            spng__free(ctx, params->out);
             return SPNG_EZLIB;
         }
 
@@ -357,17 +357,17 @@ static int decompress_zstream(struct spng_decomp *params)
             if(2 > SIZE_MAX / params->decomp_alloc_size)
             {
                 inflateEnd(&stream);
-                free(params->out);
+                spng__free(ctx, params->out);
                 return SPNG_EOVERFLOW;
             }
 
             params->decomp_alloc_size *= 2;
-            void *temp = realloc(params->out, params->decomp_alloc_size);
+            void *temp = spng__realloc(ctx, params->out, params->decomp_alloc_size);
 
             if(temp == NULL)
             {
                 inflateEnd(&stream);
-                free(params->out);
+                spng__free(ctx, params->out);
                 return SPNG_EMEM;
             }
 
@@ -396,7 +396,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
     if(!ctx->have_text)
     {
         ctx->n_text = 1;
-        ctx->text_list = calloc(1, sizeof(struct spng_text));
+        ctx->text_list = spng__calloc(ctx, 1, sizeof(struct spng_text));
         if(ctx->text_list == NULL) return SPNG_EMEM;
     }
     else
@@ -405,7 +405,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
         if(ctx->n_text < 1) return SPNG_EOVERFLOW;
         if(sizeof(struct spng_text) > SIZE_MAX / ctx->n_text) return SPNG_EOVERFLOW;
 
-        void *buf = realloc(ctx->text_list, ctx->n_text * sizeof(struct spng_text));
+        void *buf = spng__realloc(ctx, ctx->text_list, ctx->n_text * sizeof(struct spng_text));
         if(buf == NULL) return SPNG_EMEM;
         ctx->text_list = buf;
     }
@@ -433,7 +433,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
         if(text.length == 0) return SPNG_ETEXT;
 
         /* one byte extra for nul, text is not terminated */
-        text.text = malloc(text.length + 1);
+        text.text = spng__malloc(ctx, text.length + 1);
         if(text.text == NULL) return SPNG_EMEM;
 
         memcpy(text.text, data + keyword_len + 1, text.length);
@@ -458,7 +458,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
         params.size = chunk->length - keyword_len - 2;
         params.initial_size = 1024;
 
-        int ret = decompress_zstream(&params);
+        int ret = decompress_zstream(ctx, &params);
         if(ret) return ret;
 
         text.text = params.out;
@@ -485,7 +485,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
         lang_tag_len = strlen((char*)data + keyword_len + 3);
 
-        text.language_tag = malloc(lang_tag_len + 1);
+        text.language_tag = spng__malloc(ctx, lang_tag_len + 1);
         if(text.language_tag == NULL) return SPNG_EMEM;
 
         max_len -= lang_tag_len - 1;
@@ -496,7 +496,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
         translated_key_len = strlen((char*)data + keyword_len + 3 + lang_tag_len + 1);
 
-        text.translated_keyword = malloc(translated_key_len + 1);
+        text.translated_keyword = spng__malloc(ctx, translated_key_len + 1);
         if(text.translated_keyword == NULL) return SPNG_EMEM;
 
         max_len -= translated_key_len - 1;
@@ -508,14 +508,14 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
             params.size = chunk->length - keyword_len - 2;
             params.initial_size = 1024;
 
-            int ret = decompress_zstream(&params);
+            int ret = decompress_zstream(ctx, &params);
             if(ret) return ret;
 
             text.text = params.out;
         }
         else
         {
-            text.text = malloc(text_len);
+            text.text = spng__malloc(ctx, text_len);
             if(text.text == NULL) return SPNG_EMEM;
 
             memcpy(text.text, data + keyword_len + 3 + lang_tag_len + translated_key_len + 2, text_len);
@@ -533,7 +533,7 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
         if(params.decomp_alloc_size == params.decomp_size - 1)
         {
-            void *temp = realloc(text.text, params.decomp_size);
+            void *temp = spng__realloc(ctx, text.text, params.decomp_size);
             if(temp == NULL) return SPNG_EMEM;
             text.text = temp;
         }
@@ -713,7 +713,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             params.size = chunk.length - name_len - 2;
             params.initial_size = 1024;
 
-            ret = decompress_zstream(&params);
+            ret = decompress_zstream(ctx, &params);
             if(ret) return ret;
 
             ctx->iccp.profile = params.out;
@@ -884,7 +884,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             if(!ctx->have_splt)
             {
                 ctx->n_splt = 1;
-                ctx->splt_list = malloc(sizeof(struct spng_splt));
+                ctx->splt_list = spng__malloc(ctx, sizeof(struct spng_splt));
                 if(ctx->splt_list == NULL) return SPNG_EMEM;
             }
             else
@@ -893,7 +893,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
                 if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
                 if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
 
-                void *buf = realloc(ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
+                void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
                 if(buf == NULL) return SPNG_EMEM;
                 ctx->splt_list = buf;
             }
@@ -938,7 +938,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             if(ctx->splt_list[i].n_entries == 0) return SPNG_ECHUNK_SIZE;
             if(sizeof(struct spng_splt_entry) > SIZE_MAX / ctx->splt_list[i].n_entries) return SPNG_EOVERFLOW;
 
-            ctx->splt_list[i].entries = malloc(sizeof(struct spng_splt_entry) * ctx->splt_list[i].n_entries);
+            ctx->splt_list[i].entries = spng__malloc(ctx, sizeof(struct spng_splt_entry) * ctx->splt_list[i].n_entries);
             if(ctx->splt_list[i].entries == NULL) return SPNG_EMEM;
 
             const unsigned char *splt = data + keyword_len + 2;
@@ -1027,7 +1027,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
 
             struct spng_exif exif;
 
-            exif.data = malloc(chunk.length);
+            exif.data = spng__malloc(ctx, chunk.length);
             if(exif.data == NULL) return SPNG_EMEM;
 
             memcpy(exif.data, data, chunk.length);
@@ -1038,7 +1038,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             ctx->file_exif = 1;
 
             if(!ctx->user_exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-            else free(exif.data);
+            else spng__free(ctx, exif.data);
 
             ctx->have_exif = 1;
         }
@@ -1122,7 +1122,7 @@ static int validate_past_idat(spng_ctx *ctx)
 
             struct spng_exif exif;
 
-            exif.data = malloc(chunk.length);
+            exif.data = spng__malloc(ctx, chunk.length);
             if(exif.data == NULL) return SPNG_EMEM;
 
             memcpy(exif.data, data, chunk.length);
@@ -1133,7 +1133,7 @@ static int validate_past_idat(spng_ctx *ctx)
             ctx->file_exif = 1;
 
             if(!ctx->user_exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-            else free(exif.data);
+            else spng__free(ctx, exif.data);
 
             ctx->have_exif = 1;
         }
@@ -1277,8 +1277,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
     unsigned char *scanline_orig = NULL, *scanline = NULL, *prev_scanline = NULL;
 
-    scanline_orig = malloc(scanline_width);
-    prev_scanline = malloc(scanline_width);
+    scanline_orig = spng__malloc(ctx, scanline_width);
+    prev_scanline = spng__malloc(ctx, scanline_width);
 
     if(scanline_orig == NULL || prev_scanline == NULL)
     {
@@ -1321,9 +1321,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
         if(ctx->lut_entries != lut_entries)
         {
-            if(ctx->gamma_lut != NULL) free(ctx->gamma_lut);
+            if(ctx->gamma_lut != NULL) spng__free(ctx, ctx->gamma_lut);
 
-            ctx->gamma_lut = malloc(lut_entries * sizeof(uint16_t));
+            ctx->gamma_lut = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
             if(ctx->gamma_lut == NULL)
             {
                 ret = SPNG_EMEM;
@@ -1725,8 +1725,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 decode_err:
 
     inflateEnd(&stream);
-    free(scanline_orig);
-    free(prev_scanline);
+    spng__free(ctx, scanline_orig);
+    spng__free(ctx, prev_scanline);
 
     if(ret)
     {

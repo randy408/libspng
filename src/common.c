@@ -12,10 +12,57 @@
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
+inline void *spng__malloc(spng_ctx *ctx,  size_t size)
+{
+    return ctx->alloc.malloc_fn(size);
+}
+
+inline void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size)
+{
+    return ctx->alloc.calloc_fn(nmemb, size);
+}
+
+inline void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size)
+{
+    return ctx->alloc.realloc_fn(ptr, size);
+}
+
+inline void spng__free(spng_ctx *ctx, void *ptr)
+{
+    ctx->alloc.free_fn(ptr);
+}
+
+
 spng_ctx * spng_ctx_new(int flags)
 {
+    if(flags) return NULL;
     spng_ctx *ctx = calloc(1, sizeof(spng_ctx));
     if(ctx == NULL) return NULL;
+
+    ctx->alloc.malloc_fn = malloc;
+    ctx->alloc.realloc_fn = realloc;
+    ctx->alloc.calloc_fn = calloc;
+    ctx->alloc.free_fn = free;
+
+    ctx->valid_state = 1;
+
+    return ctx;
+}
+
+spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
+{
+    if(alloc == NULL) return NULL;
+    if(flags) return NULL;
+
+    if(alloc->malloc_fn == NULL) return NULL;
+    if(alloc->realloc_fn == NULL) return NULL;
+    if(alloc->calloc_fn == NULL) return NULL;
+    if(alloc->free_fn == NULL) return NULL;
+
+    spng_ctx *ctx = alloc->calloc_fn(1, sizeof(spng_ctx));
+    if(ctx == NULL) return NULL;
+    
+    memcpy(&ctx->alloc, alloc, sizeof(struct spng_alloc));
 
     ctx->valid_state = 1;
 
@@ -26,22 +73,22 @@ void spng_ctx_free(spng_ctx *ctx)
 {
     if(ctx == NULL) return;
 
-    if(ctx->streaming && ctx->data != NULL) free(ctx->data);
+    if(ctx->streaming && ctx->data != NULL) spng__free(ctx, ctx->data);
 
-    if(ctx->exif.data != NULL && !ctx->user_exif) free(ctx->exif.data);
+    if(ctx->exif.data != NULL && !ctx->user_exif) spng__free(ctx, ctx->exif.data);
 
-    if(ctx->iccp.profile != NULL && !ctx->user_iccp) free(ctx->iccp.profile);
+    if(ctx->iccp.profile != NULL && !ctx->user_iccp) spng__free(ctx, ctx->iccp.profile);
 
-    if(ctx->gamma_lut != NULL) free(ctx->gamma_lut);
+    if(ctx->gamma_lut != NULL) spng__free(ctx, ctx->gamma_lut);
 
     if(ctx->splt_list != NULL && !ctx->user_splt)
     {
         uint32_t i;
         for(i=0; i < ctx->n_splt; i++)
         {
-            if(ctx->splt_list[i].entries != NULL) free(ctx->splt_list[i].entries);
+            if(ctx->splt_list[i].entries != NULL) spng__free(ctx, ctx->splt_list[i].entries);
         }
-        free(ctx->splt_list);
+        spng__free(ctx, ctx->splt_list);
     }
 
     if(ctx->text_list != NULL && !ctx->user_text)
@@ -49,16 +96,18 @@ void spng_ctx_free(spng_ctx *ctx)
         uint32_t i;
         for(i=0; i< ctx->n_text; i++)
         {
-            if(ctx->text_list[i].text != NULL) free(ctx->text_list[i].text);
-            if(ctx->text_list[i].language_tag != NULL) free(ctx->text_list[i].language_tag);
-            if(ctx->text_list[i].translated_keyword != NULL) free(ctx->text_list[i].translated_keyword);
+            if(ctx->text_list[i].text != NULL) spng__free(ctx, ctx->text_list[i].text);
+            if(ctx->text_list[i].language_tag != NULL) spng__free(ctx, ctx->text_list[i].language_tag);
+            if(ctx->text_list[i].translated_keyword != NULL) spng__free(ctx, ctx->text_list[i].translated_keyword);
         }
-        free(ctx->text_list);
+        spng__free(ctx, ctx->text_list);
     }
 
     memset(ctx, 0, sizeof(spng_ctx));
 
-    free(ctx);
+    spng_free_fn *free_func = ctx->alloc.free_fn;
+
+    free_func(ctx);
 }
 
 static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
@@ -97,7 +146,7 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn read_func, void *user)
 
     if(ctx->data != NULL) return SPNG_EBUF_SET;
 
-    ctx->data = malloc(8192);
+    ctx->data = spng__malloc(ctx, 8192);
     if(ctx->data == NULL) return SPNG_EMEM;
     ctx->data_size = 8192;
 
@@ -860,7 +909,7 @@ int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
     if(check_png_keyword(iccp->profile_name)) return SPNG_EICCP_NAME;
     if(!iccp->profile_len) return 1;
 
-    if(ctx->iccp.profile && !ctx->user_iccp) free(ctx->iccp.profile);
+    if(ctx->iccp.profile && !ctx->user_iccp) spng__free(ctx, ctx->iccp.profile);
 
     memcpy(&ctx->iccp, iccp, sizeof(struct spng_iccp));
 
@@ -944,11 +993,11 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     {
         for(i=0; i< ctx->n_text; i++)
         {
-            if(ctx->text_list[i].text != NULL) free(ctx->text_list[i].text);
-            if(ctx->text_list[i].language_tag != NULL) free(ctx->text_list[i].language_tag);
-            if(ctx->text_list[i].translated_keyword != NULL) free(ctx->text_list[i].translated_keyword);
+            if(ctx->text_list[i].text != NULL) spng__free(ctx, ctx->text_list[i].text);
+            if(ctx->text_list[i].language_tag != NULL) spng__free(ctx, ctx->text_list[i].language_tag);
+            if(ctx->text_list[i].translated_keyword != NULL) spng__free(ctx, ctx->text_list[i].translated_keyword);
         }
-        free(ctx->text_list);
+        spng__free(ctx, ctx->text_list);
     }
 
     ctx->text_list = text;
@@ -1046,9 +1095,9 @@ int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
     {
         for(i=0; i < ctx->n_splt; i++)
         {
-            if(ctx->splt_list[i].entries != NULL) free(ctx->splt_list[i].entries);
+            if(ctx->splt_list[i].entries != NULL) spng__free(ctx, ctx->splt_list[i].entries);
         }
-        free(ctx->splt_list);
+        spng__free(ctx, ctx->splt_list);
     }
 
     ctx->splt_list = splt;
@@ -1102,7 +1151,7 @@ int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
 
     if(check_exif(exif)) return SPNG_EEXIF;
 
-    if(ctx->exif.data != NULL && !ctx->user_exif) free(ctx->exif.data);
+    if(ctx->exif.data != NULL && !ctx->user_exif) spng__free(ctx, ctx->exif.data);
 
     memcpy(&ctx->exif, exif, sizeof(struct spng_exif));
 

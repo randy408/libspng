@@ -288,11 +288,25 @@ struct spng_chunk
     uint32_t crc;
 };
 
+typedef void* spng_malloc_fn(size_t size);
+typedef void* spng_realloc_fn(void* ptr, size_t size);
+typedef void* spng_calloc_fn(size_t count, size_t size);
+typedef void spng_free_fn(void* ptr);
+
+struct spng_alloc
+{
+    spng_malloc_fn *malloc_fn;
+    spng_realloc_fn *realloc_fn;
+    spng_calloc_fn *calloc_fn;
+    spng_free_fn *free_fn;
+};
+
 typedef struct spng_ctx spng_ctx;
 
 typedef int spng_read_fn(spng_ctx *ctx, void *user, void *data, size_t n);
 
 spng_ctx *spng_ctx_new(int flags);
+spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags);
 void spng_ctx_free(spng_ctx *ctx);
 
 int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size);

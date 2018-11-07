@@ -35,6 +35,8 @@ struct spng_ctx
     uint32_t cur_chunk_bytes_left;
     uint32_t cur_actual_crc;
 
+    struct spng_alloc alloc;
+
     unsigned valid_state: 1;
     unsigned streaming: 1;
 
@@ -122,6 +124,11 @@ struct spng_subimage
     uint32_t height;
     size_t scanline_width;
 };
+
+void *spng__malloc(spng_ctx *ctx,  size_t size);
+void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size);
+void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size);
+void spng__free(spng_ctx *ctx, void *ptr);
 
 int get_ancillary(spng_ctx *ctx);
 int get_ancillary2(spng_ctx *ctx);
