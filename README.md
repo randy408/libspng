@@ -79,12 +79,12 @@ ninja test
 
 ```
 # Run in source directory
-git checkout tags/v0.3.1
-wget https://gitlab.com/randy408/libspng/snippets/1739147/raw?inline=false -O v030_opt.patch
-git apply v030_opt.patch
+git checkout tags/v0.4.0
+wget https://gitlab.com/randy408/libspng/snippets/1775292/raw?inline=false -O v040_opt.patch
+git apply v040_opt.patch
 git clone https://gitlab.com/randy408/benchmark_images.git
 cd benchmark_images;
-git checkout tags/v0.3.1
+git checkout tags/v0.4.0
 cd ../build
 meson configure -Dbuildtype=release -Db_pgo=generate
 ninja benchmark

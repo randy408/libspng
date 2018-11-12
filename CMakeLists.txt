@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.0)
 project(libspng C)
 
 set(SPNG_MAJOR 0)
-set(SPNG_MINOR 3)
-set(SPNG_REVISION 1)
+set(SPNG_MINOR 4)
+set(SPNG_REVISION 0)
 set(SPNG_VERSION ${SPNG_MAJOR}.${SPNG_MINOR}.${SPNG_REVISION})
 
 option(SPNG_SHARED "Build shared lib" ON)
