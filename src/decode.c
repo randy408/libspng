@@ -1368,7 +1368,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 grayscale_sbits = ctx->sbit.grayscale_bits;
                 alpha_sbits = ctx->ihdr.bit_depth;
             }
-            if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
+            else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
             {
                 red_sbits = ctx->sbit.red_bits;
                 green_sbits = ctx->sbit.green_bits;
