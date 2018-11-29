@@ -41,7 +41,7 @@ API
 
 .. c:function:: int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height)
 
-    Set image width and height limits, these may not be larger than 2^31-1.
+    Set image width and height limits, these may not be larger than 2\ :sup:`31`\-1.
 
 .. c:function:: int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
 
