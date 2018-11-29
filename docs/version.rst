@@ -3,9 +3,12 @@
 Versioning
 ==========
 
-libspng uses `semantic versioning <https://semver.org/>`_. All releases until
-1.0.0 may introduce breaking changes.
+Releases follow the semantic versioning scheme with a few exceptions:
 
+* Releases from 0.4.0 to 0.8.x are stable
+* 0.8.x will be maintained as a separate release branch from 1.0.0
+
+API/ABI changes can be tracked `here <https://abi-laboratory.pro/index.php?view=timeline&l=libspng>`_.
 
 Macros
 ------
