@@ -46,7 +46,7 @@ API
 
     Set PNG stream, this can only be called once per context.
 
-.. note:: Streams are read up to the file end marker, PNG files with stray data past the end marker only result in an error when set as a buffer.
+.. note:: PNG's are read up to the file end marker, this is identical behavior to libpng.
 
 .. c:function:: int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
 
