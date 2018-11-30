@@ -24,4 +24,4 @@ endif()
 target_link_libraries(spng ${ZLIB_LIBRARIES})
 
 install(TARGETS spng DESTINATION lib)
-install(FILES spng.h DESTINATION include)
+install(FILES src/spng.h DESTINATION include)
