@@ -12,32 +12,6 @@ struct spng_decomp
     size_t initial_size; /* initial value for decomp_size */
 };
 
-static const uint32_t png_u32max = 2147483647;
-
-static const uint8_t type_ihdr[4] = { 73, 72, 68, 82 };
-static const uint8_t type_plte[4] = { 80, 76, 84, 69 };
-static const uint8_t type_idat[4] = { 73, 68, 65, 84 };
-static const uint8_t type_iend[4] = { 73, 69, 78, 68 };
-
-static const uint8_t type_trns[4] = { 116, 82, 78, 83 };
-static const uint8_t type_chrm[4] = { 99,  72, 82, 77 };
-static const uint8_t type_gama[4] = { 103, 65, 77, 65 };
-static const uint8_t type_iccp[4] = { 105, 67, 67, 80 };
-static const uint8_t type_sbit[4] = { 115, 66, 73, 84 };
-static const uint8_t type_srgb[4] = { 115, 82, 71, 66 };
-static const uint8_t type_text[4] = { 116, 69, 88, 116 };
-static const uint8_t type_ztxt[4] = { 122, 84, 88, 116 };
-static const uint8_t type_itxt[4] = { 105, 84, 88, 116 };
-static const uint8_t type_bkgd[4] = { 98,  75, 71, 68 };
-static const uint8_t type_hist[4] = { 104, 73, 83, 84 };
-static const uint8_t type_phys[4] = { 112, 72, 89, 115 };
-static const uint8_t type_splt[4] = { 115, 80, 76, 84 };
-static const uint8_t type_time[4] = { 116, 73, 77, 69 };
-
-static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
-static const uint8_t type_exif[4] = { 101, 88, 73, 102 };
-
-
 static inline uint16_t read_u16(const void *_data)
 {
     const unsigned char *data = _data;

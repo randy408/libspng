@@ -15,6 +15,30 @@
 #define SPNG_FILTER_TYPE_AVERAGE 3
 #define SPNG_FILTER_TYPE_PAETH 4
 
+const uint32_t png_u32max;
+const int32_t png_s32min;
+
+const uint8_t type_ihdr[4];
+const uint8_t type_plte[4];
+const uint8_t type_idat[4];
+const uint8_t type_iend[4];
+const uint8_t type_trns[4];
+const uint8_t type_chrm[4];
+const uint8_t type_gama[4];
+const uint8_t type_iccp[4];
+const uint8_t type_sbit[4];
+const uint8_t type_srgb[4];
+const uint8_t type_text[4]; 
+const uint8_t type_ztxt[4]; 
+const uint8_t type_itxt[4]; 
+const uint8_t type_bkgd[4];
+const uint8_t type_hist[4];
+const uint8_t type_phys[4]; 
+const uint8_t type_splt[4];
+const uint8_t type_time[4];
+const uint8_t type_offs[4]; 
+const uint8_t type_exif[4]; 
+
 struct spng_ctx
 {
     size_t data_size;

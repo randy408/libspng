@@ -9,8 +9,32 @@
                             SPNG_STR(SPNG_VERSION_MINOR) "." \
                             SPNG_STR(SPNG_VERSION_PATCH)
 
-static const uint32_t png_u32max = 2147483647;
-static const int32_t png_s32min = -2147483647;
+const uint32_t png_u32max = 2147483647;
+const int32_t png_s32min = -2147483647;
+
+const uint8_t type_ihdr[4] = { 73, 72, 68, 82 };
+const uint8_t type_plte[4] = { 80, 76, 84, 69 };
+const uint8_t type_idat[4] = { 73, 68, 65, 84 };
+const uint8_t type_iend[4] = { 73, 69, 78, 68 };
+
+const uint8_t type_trns[4] = { 116, 82, 78, 83 };
+const uint8_t type_chrm[4] = { 99,  72, 82, 77 };
+const uint8_t type_gama[4] = { 103, 65, 77, 65 };
+const uint8_t type_iccp[4] = { 105, 67, 67, 80 };
+const uint8_t type_sbit[4] = { 115, 66, 73, 84 };
+const uint8_t type_srgb[4] = { 115, 82, 71, 66 };
+const uint8_t type_text[4] = { 116, 69, 88, 116 };
+const uint8_t type_ztxt[4] = { 122, 84, 88, 116 };
+const uint8_t type_itxt[4] = { 105, 84, 88, 116 };
+const uint8_t type_bkgd[4] = { 98,  75, 71, 68 };
+const uint8_t type_hist[4] = { 104, 73, 83, 84 };
+const uint8_t type_phys[4] = { 112, 72, 89, 115 };
+const uint8_t type_splt[4] = { 115, 80, 76, 84 };
+const uint8_t type_time[4] = { 116, 73, 77, 69 };
+
+const uint8_t type_offs[4] = { 111, 70, 70, 115 };
+const uint8_t type_exif[4] = { 101, 88, 73, 102 };
+
 
 inline void *spng__malloc(spng_ctx *ctx,  size_t size)
 {
