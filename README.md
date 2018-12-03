@@ -91,14 +91,14 @@ ninja test
 
 ```
 # Run in source directory
-git checkout tags/v0.4.0
-wget https://gitlab.com/randy408/libspng/snippets/1775292/raw?inline=false -O v040_opt.patch
-git apply v040_opt.patch
+git checkout tags/v0.4.1
+wget https://gitlab.com/randy408/libspng/snippets/1786557/raw -O v041_opt.patch
+git apply v041_opt.patch
 git clone https://gitlab.com/randy408/benchmark_images.git
 cd benchmark_images;
 git checkout tags/v0.4.0
 cd ../build
-meson configure -Dbuildtype=release -Db_pgo=generate
+meson configure -Ddev_build=true -Dbuildtype=release -Db_pgo=generate
 ninja benchmark
 meson configure -Db_pgo=use
 ninja benchmark
