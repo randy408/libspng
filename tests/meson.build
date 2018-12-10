@@ -1,18 +1,5 @@
 png_dep = dependency('libpng', version : '>=1.6.0')
 
-bench = executable('bench', 'benchmark.c',
-                   link_with: lib,
-                   include_directories : include,
-                   dependencies : [ zlib_dep, png_dep ],
-                   override_options : [ 'c_std=c11' ])
-
-benchmark('benchmark', bench, args: ['../benchmark_images/large_rgb8.png'])
-benchmark('benchmark', bench, args: ['../benchmark_images/large_rgba8.png'])
-benchmark('benchmark', bench, args: ['../benchmark_images/medium_rgb8.png'])
-benchmark('benchmark', bench, args: ['../benchmark_images/medium_rgba8.png'])
-benchmark('benchmark', bench, args: ['../benchmark_images/small_rgb8.png'])
-benchmark('benchmark', bench, args: ['../benchmark_images/small_rgba8.png'])
-
 test_exe = executable('testsuite',
                       'testsuite.c',
                       link_with : lib,

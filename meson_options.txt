@@ -1,1 +1,1 @@
-option('dev_build', type : 'boolean', value : false, description : 'Enable benchmarks and tests, requires libpng')
+option('dev_build', type : 'boolean', value : false, description : 'Enable the testsuite, requires libpng')

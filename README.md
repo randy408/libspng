@@ -89,18 +89,13 @@ ninja test
 
 ## Benchmarking
 
+Benchmarking is done with [png_bench](https://gitlab.com/randy408/png_bench).
+
 ```
-# Run in source directory
-git checkout tags/v0.4.1
-wget https://gitlab.com/randy408/libspng/snippets/1786557/raw -O v041_opt.patch
-git apply v041_opt.patch
-git clone https://gitlab.com/randy408/benchmark_images.git
-cd benchmark_images;
-git checkout tags/v0.4.0
-cd ../build
-meson configure -Ddev_build=true -Dbuildtype=release -Db_pgo=generate
-ninja benchmark
-meson configure -Db_pgo=use
+git clone https://gitlab.com/randy408/png_bench.git
+cd png_bench
+meson -Dbuildtype=release build
+cd build
 ninja benchmark
 cat meson-logs/benchmarklog.txt
 ```
