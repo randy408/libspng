@@ -31,7 +31,7 @@ example = executable('example', 'examples/example.c',
 install_headers('src/spng.h')
 
 pkg = import('pkgconfig')
-pkg.generate(name : 'libspng',
+pkg.generate(name : 'spng',
 	         libraries : lib,
 	         version : meson.project_version(),
 	         description : 'PNG decoding and encoding library',
