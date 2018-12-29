@@ -227,13 +227,41 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 {
     if(prev_scanline == NULL || scanline == NULL || scanline_width <= 1) return 1;
 
+    size_t i;
     uint8_t filter = 0;
     memcpy(&filter, scanline, 1);
 
     if(filter > 4) return SPNG_EFILTER;
     if(filter == 0) return 0;
 
-    size_t i;
+#if defined(SPNG_OPTIMIZE_DEFILTER)
+    if(filter == SPNG_FILTER_TYPE_UP) goto no_opt;
+
+    if(bytes_per_pixel == 4)
+    {
+        if(filter == SPNG_FILTER_TYPE_SUB)
+            png_read_filter_row_sub4(scanline_width - 1, scanline + 1);
+        else if(filter == SPNG_FILTER_TYPE_AVERAGE)
+            png_read_filter_row_avg4(scanline_width - 1, scanline + 1, prev_scanline + 1);
+        else if(filter == SPNG_FILTER_TYPE_PAETH)
+            png_read_filter_row_paeth4(scanline_width - 1, scanline + 1, prev_scanline + 1);
+
+        return 0;
+    }
+    else if(bytes_per_pixel == 3)
+    {
+        if(filter == SPNG_FILTER_TYPE_SUB)
+            png_read_filter_row_sub3(scanline_width - 1, scanline + 1);
+        else if(filter == SPNG_FILTER_TYPE_AVERAGE)
+            png_read_filter_row_avg3(scanline_width - 1, scanline + 1, prev_scanline + 1);
+        else if(filter == SPNG_FILTER_TYPE_PAETH)
+            png_read_filter_row_paeth3(scanline_width - 1, scanline + 1, prev_scanline + 1);
+
+        return 0;
+    }
+no_opt:
+#endif
+
     for(i=1; i < scanline_width; i++)
     {
         uint8_t x, a, b, c;

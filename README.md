@@ -27,8 +27,8 @@ API/ABI changes can be tracked [here](https://abi-laboratory.pro/index.php?view=
 
 Code is licensed under the BSD 2-clause "Simplified" License.
 
-The [PngSuite](http://www.schaik.com/pngsuite/) and other images from libpng are 
-used for regression testing.
+The project contains optimizations and test images from libpng, these are licensed under the
+[PNG Reference Library License version 2](http://www.libpng.org/pub/png/src/libpng-LICENSE.txt).
 
 # Testing
 
