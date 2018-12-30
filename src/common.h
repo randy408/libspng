@@ -80,40 +80,60 @@ struct spng_ctx
     unsigned streaming: 1;
 
     unsigned encode_only: 1;
-    unsigned reserved1: 1;
-    unsigned reserved2: 1;
-    unsigned reserved3: 1;
-    unsigned reserved4: 1;
-    unsigned reserved5: 1;
-    unsigned reserved6: 1;
-    unsigned reserved7: 1;
-    unsigned reserved8: 1;
-    unsigned reserved9: 1;
-    unsigned reserved10: 1;
 
-    unsigned have_ihdr: 1;
-    unsigned have_plte: 1;
-    unsigned have_chrm: 1;
-    unsigned have_iccp: 1;
-    unsigned user_iccp: 1;
-    unsigned have_gama: 1;
-    unsigned have_sbit: 1;
-    unsigned have_srgb: 1;
-    unsigned have_text: 1;
-    unsigned user_text: 1;
-    unsigned have_bkgd: 1;
-    unsigned have_hist: 1;
-    unsigned have_trns: 1;
-    unsigned have_phys: 1;
-    unsigned have_splt: 1;
-    unsigned user_splt: 1;
-    unsigned have_time: 1;
-    unsigned user_time: 1;
+/* input file contains this chunk */
+    unsigned file_ihdr: 1;
+    unsigned file_plte: 1;
+    unsigned file_chrm: 1;
+    unsigned file_iccp: 1;
+    unsigned file_gama: 1;
+    unsigned file_sbit: 1;
+    unsigned file_srgb: 1;
+    unsigned file_text: 1;
+    unsigned file_bkgd: 1;
+    unsigned file_hist: 1;
+    unsigned file_trns: 1;
+    unsigned file_phys: 1;
+    unsigned file_splt: 1;
     unsigned file_time: 1;
-    unsigned have_offs: 1;
-    unsigned have_exif: 1;
+    unsigned file_offs: 1;
     unsigned file_exif: 1;
+
+/* chunk was stored with spng_set_*() */
+    unsigned user_ihdr: 1;
+    unsigned user_plte: 1;
+    unsigned user_chrm: 1;
+    unsigned user_iccp: 1;
+    unsigned user_gama: 1;
+    unsigned user_sbit: 1;
+    unsigned user_srgb: 1;
+    unsigned user_text: 1;
+    unsigned user_bkgd: 1;
+    unsigned user_hist: 1;
+    unsigned user_trns: 1;
+    unsigned user_phys: 1;
+    unsigned user_splt: 1;
+    unsigned user_time: 1;
+    unsigned user_offs: 1;
     unsigned user_exif: 1;
+
+/* chunk was stored by reading or with spng_set_*() */
+    unsigned stored_ihdr: 1;
+    unsigned stored_plte: 1;
+    unsigned stored_chrm: 1;
+    unsigned stored_iccp: 1;
+    unsigned stored_gama: 1;
+    unsigned stored_sbit: 1;
+    unsigned stored_srgb: 1;
+    unsigned stored_text: 1;
+    unsigned stored_bkgd: 1;
+    unsigned stored_hist: 1;
+    unsigned stored_trns: 1;
+    unsigned stored_phys: 1;
+    unsigned stored_splt: 1;
+    unsigned stored_time: 1;
+    unsigned stored_offs: 1;
+    unsigned stored_exif: 1;
 
     unsigned have_first_idat: 1;
     unsigned have_last_idat: 1;
