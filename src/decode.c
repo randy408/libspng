@@ -82,9 +82,10 @@ static inline int read_and_check_crc(spng_ctx *ctx)
 
     ctx->current_chunk.crc = read_u32(ctx->data);
 
-    if(is_critical_chunk(&ctx->current_chunk) &&
-       ctx->crc_action_critical == SPNG_CRC_USE) goto skip_crc;
-    else if(ctx->crc_action_ancillary == SPNG_CRC_USE) goto skip_crc;
+    if(is_critical_chunk(&ctx->current_chunk) && ctx->crc_action_critical == SPNG_CRC_USE)
+        goto skip_crc;
+    else if(ctx->crc_action_ancillary == SPNG_CRC_USE)
+        goto skip_crc;
 
     if(ctx->cur_actual_crc != ctx->current_chunk.crc) return SPNG_ECHUNK_CRC;
 
@@ -1512,8 +1513,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                         {
                             gray_16 = read_u16(scanline + (k * 2));
 
-                            if(ctx->stored_trns &&
-                               flags & SPNG_DECODE_USE_TRNS &&
+                            if(flags & SPNG_DECODE_USE_TRNS && ctx->stored_trns &&
                                ctx->trns.gray == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
@@ -1530,8 +1530,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             gray_8 = gray_8 & (mask << shift_amount);
                             gray_8 = gray_8 >> shift_amount;
 
-                            if(ctx->stored_trns &&
-                               flags & SPNG_DECODE_USE_TRNS &&
+                            if(flags & SPNG_DECODE_USE_TRNS && ctx->stored_trns &&
                                ctx->trns.gray == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
@@ -1546,8 +1545,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             g_16 = read_u16(scanline + (k * 6) + 2);
                             b_16 = read_u16(scanline + (k * 6) + 4);
 
-                            if(ctx->stored_trns &&
-                               flags & SPNG_DECODE_USE_TRNS &&
+                            if(flags & SPNG_DECODE_USE_TRNS && ctx->stored_trns &&
                                ctx->trns.red == r_16 &&
                                ctx->trns.green == g_16 &&
                                ctx->trns.blue == b_16) a_16 = 0;
@@ -1559,8 +1557,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             memcpy(&g_8, scanline + (k * 3) + 1, 1);
                             memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
-                            if(ctx->stored_trns &&
-                               flags & SPNG_DECODE_USE_TRNS &&
+                            if(flags & SPNG_DECODE_USE_TRNS && ctx->stored_trns &&
                                ctx->trns.red == r_8 &&
                                ctx->trns.green == g_8 &&
                                ctx->trns.blue == b_8) a_8 = 0;
@@ -1595,8 +1592,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             goto decode_err;
                         }
 
-                        if(ctx->stored_trns &&
-                           flags & SPNG_DECODE_USE_TRNS &&
+                        if(flags & SPNG_DECODE_USE_TRNS && ctx->stored_trns &&
                            (entry < ctx->trns.n_type3_entries)) a_8 = ctx->trns.type3_alpha[entry];
                         else a_8 = 255;
 
