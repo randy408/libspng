@@ -81,9 +81,6 @@ void png_read_filter_row_sub3(size_t rowbytes, png_bytep row)
       a = d; d = load3(row);
       d = _mm_add_epi8(d, a);
       store3(row, d);
-
-      row += 3;
-      rb  -= 3;
    }
 }
 
@@ -153,10 +150,6 @@ void png_read_filter_row_avg3(size_t rowbytes, png_bytep row,
 
       d = _mm_add_epi8(d, avg);
       store3(row, d);
-
-      prev += 3;
-      row  += 3;
-      rb   -= 3;
    }
 }
 
@@ -311,10 +304,6 @@ void png_read_filter_row_paeth3(size_t rowbytes, png_bytep row,
       /* Note `_epi8`: we need addition to wrap modulo 255. */
       d = _mm_add_epi8(d, nearest);
       store3(row, _mm_packus_epi16(d,d));
-
-      prev += 3;
-      row  += 3;
-      rb   -= 3;
    }
 }
 
