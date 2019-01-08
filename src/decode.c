@@ -897,7 +897,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             if(!ctx->stored_splt)
             {
                 ctx->n_splt = 1;
-                ctx->splt_list = spng__malloc(ctx, sizeof(struct spng_splt));
+                ctx->splt_list = spng__calloc(ctx, 1, sizeof(struct spng_splt));
                 if(ctx->splt_list == NULL) return SPNG_EMEM;
             }
             else
@@ -909,6 +909,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
                 void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
                 if(buf == NULL) return SPNG_EMEM;
                 ctx->splt_list = buf;
+                memset(&ctx->splt_list[ctx->n_splt - 1], 0, sizeof(struct spng_splt));
             }
 
             uint32_t i = ctx->n_splt - 1;
