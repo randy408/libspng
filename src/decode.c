@@ -413,49 +413,50 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
         ctx->text_list = buf;
     }
 
-    struct spng_text text = { 0 };
-    struct spng_decomp params ={ 0 };
+    struct spng_text *text;
+    struct spng_decomp params = { 0 };
     uint32_t i = ctx->n_text - 1;
 
     memset(&ctx->text_list[i], 0, sizeof(struct spng_text));
+    text = &ctx->text_list[i];
 
     size_t keyword_len = chunk->length > 80 ? 80 : chunk->length;
     char *keyword_nul = memchr(data, '\0', keyword_len);
     if(keyword_nul == NULL) return SPNG_ETEXT_KEYWORD;
 
-    memcpy(&text.keyword, data, keyword_len);
+    memcpy(&text->keyword, data, keyword_len);
 
-    if(check_png_keyword(text.keyword)) return SPNG_ETEXT_KEYWORD;
+    if(check_png_keyword(text->keyword)) return SPNG_ETEXT_KEYWORD;
 
-    keyword_len = strlen(text.keyword);
+    keyword_len = strlen(text->keyword);
 
     if(!memcmp(chunk->type, type_text, 4))
     {
-        text.type = SPNG_TEXT;
-        text.length = chunk->length - keyword_len - 1;
-        if(text.length == 0) return SPNG_ETEXT;
+        text->type = SPNG_TEXT;
+        text->length = chunk->length - keyword_len - 1;
+        if(text->length == 0) return SPNG_ETEXT;
 
         /* one byte extra for nul, text is not terminated */
-        text.text = spng__malloc(ctx, text.length + 1);
-        if(text.text == NULL) return SPNG_EMEM;
+        text->text = spng__malloc(ctx, text->length + 1);
+        if(text->text == NULL) return SPNG_EMEM;
 
-        memcpy(text.text, data + keyword_len + 1, text.length);
-        text.text[text.length] = 0;
+        memcpy(text->text, data + keyword_len + 1, text->length);
+        text->text[text->length] = 0;
 
         /* text could end up being nul-terminated twice,
            make sure we have the right size */
-        text.length = strlen(text.text);
+        text->length = strlen(text->text);
 
-        if(check_png_text(text.text, text.length)) return SPNG_ETEXT;
+        if(check_png_text(text->text, text->length)) return SPNG_ETEXT;
     }
     else if(!memcmp(chunk->type, type_ztxt, 4))
     {
-        text.type = SPNG_ZTXT;
+        text->type = SPNG_ZTXT;
         if((chunk->length - keyword_len) < 2) return SPNG_EZTXT;
 
-        memcpy(&text.compression_method, data + keyword_len + 1, 1);
+        memcpy(&text->compression_method, data + keyword_len + 1, 1);
 
-        if(text.compression_method) return SPNG_EZTXT_COMPRESSION_METHOD;
+        if(text->compression_method) return SPNG_EZTXT_COMPRESSION_METHOD;
 
         params.buf = data + keyword_len + 2;
         params.size = chunk->length - keyword_len - 2;
@@ -464,18 +465,18 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
         int ret = decompress_zstream(ctx, &params);
         if(ret) return ret;
 
-        text.text = params.out;
-        text.length = params.decomp_size;
+        text->text = params.out;
+        text->length = params.decomp_size;
 
-        if(check_png_text(text.text, text.length)) return SPNG_EZTXT;
+        if(check_png_text(text->text, text->length)) return SPNG_EZTXT;
     }
     else if(!memcmp(chunk->type, type_itxt, 4))
     {
-        text.type = SPNG_ITXT;
+        text->type = SPNG_ITXT;
         if((chunk->length - keyword_len) < 3) return SPNG_EITXT;
 
         uint8_t compression_method;
-        memcpy(&text.compression_flag, data + keyword_len + 1, 1);
+        memcpy(&text->compression_flag, data + keyword_len + 1, 1);
         memcpy(&compression_method, data + keyword_len + 2, 1);
 
         if(compression_method) return SPNG_EITXT_COMPRESSION_METHOD;
@@ -488,8 +489,8 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
         lang_tag_len = strlen((char*)data + keyword_len + 3);
 
-        text.language_tag = spng__malloc(ctx, lang_tag_len + 1);
-        if(text.language_tag == NULL) return SPNG_EMEM;
+        text->language_tag = spng__malloc(ctx, lang_tag_len + 1);
+        if(text->language_tag == NULL) return SPNG_EMEM;
 
         max_len -= lang_tag_len - 1;
         size_t translated_key_len = max_len;
@@ -499,13 +500,13 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
         translated_key_len = strlen((char*)data + keyword_len + 3 + lang_tag_len + 1);
 
-        text.translated_keyword = spng__malloc(ctx, translated_key_len + 1);
-        if(text.translated_keyword == NULL) return SPNG_EMEM;
+        text->translated_keyword = spng__malloc(ctx, translated_key_len + 1);
+        if(text->translated_keyword == NULL) return SPNG_EMEM;
 
         max_len -= translated_key_len - 1;
         size_t text_len = max_len;
 
-        if(text.compression_flag)
+        if(text->compression_flag)
         {
             params.buf = data + keyword_len + 2;
             params.size = chunk->length - keyword_len - 2;
@@ -514,21 +515,21 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
             int ret = decompress_zstream(ctx, &params);
             if(ret) return ret;
 
-            text.text = params.out;
+            text->text = params.out;
         }
         else
         {
-            text.text = spng__malloc(ctx, text_len);
-            if(text.text == NULL) return SPNG_EMEM;
+            text->text = spng__malloc(ctx, text_len);
+            if(text->text == NULL) return SPNG_EMEM;
 
-            memcpy(text.text, data + keyword_len + 3 + lang_tag_len + translated_key_len + 2, text_len);
+            memcpy(text->text, data + keyword_len + 3 + lang_tag_len + translated_key_len + 2, text_len);
         }
 
     }
     else return 1;
 
 
-    if(!memcmp(chunk->type, type_ztxt, 4) || ( !memcmp(chunk->type, type_itxt, 4) && text.compression_flag) )
+    if(!memcmp(chunk->type, type_ztxt, 4) || ( !memcmp(chunk->type, type_itxt, 4) && text->compression_flag) )
     {
         /* nul-terminate */
         params.decomp_size++;
@@ -536,17 +537,15 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
         if(params.decomp_alloc_size == params.decomp_size - 1)
         {
-            void *temp = spng__realloc(ctx, text.text, params.decomp_size);
+            void *temp = spng__realloc(ctx, text->text, params.decomp_size);
             if(temp == NULL) return SPNG_EMEM;
-            text.text = temp;
+            text->text = temp;
         }
 
-        text.text[params.decomp_size - 1] = '\0';
+        text->text[params.decomp_size - 1] = '\0';
 
-        text.length = strlen(text.text);
+        text->length = strlen(text->text);
     }
-
-    memcpy(&ctx->text_list[i], &text, sizeof(struct spng_text));
 
     return 0;
 }
