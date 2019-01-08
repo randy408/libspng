@@ -694,6 +694,8 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             if(ctx->file_iccp) return SPNG_EDUP_ICCP;
             if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
+            continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
+
             size_t name_len = chunk.length > 80 ? 80 : chunk.length;
             char *name_nul = memchr(data, '\0', name_len);
             if(name_nul == NULL) return SPNG_EICCP_NAME;
@@ -1014,6 +1016,8 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
         {
             ctx->file_text = 1;
 
+            continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
+
             if(ctx->user_text) continue;
 
             int ret = get_text(ctx, data, &chunk);
@@ -1157,6 +1161,8 @@ static int validate_past_idat(spng_ctx *ctx)
                 !memcmp(chunk.type, type_itxt, 4))
         {
             ctx->file_text = 1;
+
+            continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
 
             if(ctx->user_text) continue;
 
