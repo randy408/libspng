@@ -1145,6 +1145,8 @@ static int validate_past_idat(spng_ctx *ctx)
         {
             if(ctx->file_exif) return SPNG_EDUP_EXIF;
 
+            ctx->file_exif = 1;
+
             struct spng_exif exif;
 
             exif.data = spng__malloc(ctx, chunk.length);
@@ -1153,9 +1155,11 @@ static int validate_past_idat(spng_ctx *ctx)
             memcpy(exif.data, data, chunk.length);
             exif.length = chunk.length;
 
-            if(check_exif(&exif)) return SPNG_EEXIF;
-
-            ctx->file_exif = 1;
+            if(check_exif(&exif))
+            {
+                spng__free(ctx, exif.data);
+                return SPNG_EEXIF;
+            }
 
             if(!ctx->user_exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
             else spng__free(ctx, exif.data);
