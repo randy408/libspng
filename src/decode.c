@@ -892,6 +892,8 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             if(ctx->user_splt) continue; /* XXX: should check profile names for uniqueness */
             if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
+            ctx->file_splt = 1;
+
             if(!ctx->stored_splt)
             {
                 ctx->n_splt = 1;
@@ -984,7 +986,6 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
                 }
             }
 
-            ctx->file_splt = 1;
             ctx->stored_splt = 1;
         }
         else if(!memcmp(chunk.type, type_time, 4))
