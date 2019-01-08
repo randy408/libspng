@@ -548,8 +548,6 @@ static int get_text(spng_ctx *ctx, unsigned char *data, struct spng_chunk *chunk
 
     memcpy(&ctx->text_list[i], &text, sizeof(struct spng_text));
 
-    ctx->user_text = 1; /* XXX: and stored? */
-
     return 0;
 }
 
