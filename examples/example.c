@@ -5,20 +5,23 @@
 
 int main(int argc, char **argv)
 {
+    int r = 0;
+    FILE *png;
+    char *pngbuf = NULL;
+    spng_ctx *ctx = NULL;
+    unsigned char *out = NULL;
+
     if(argc < 2)
     {
         printf("no input file\n");
-        return 1;
+        goto err;
     }
 
-    FILE *png;
-    char *pngbuf;
     png = fopen(argv[1], "r");
-
     if(png==NULL)
     {
         printf("error opening input file %s\n", argv[1]);
-        return 1;
+        goto err;
     }
 
     fseek(png, 0, SEEK_END);
@@ -26,35 +29,34 @@ int main(int argc, char **argv)
     long siz_pngbuf = ftell(png);
     rewind(png);
 
-    if(siz_pngbuf < 1) return 1;
+    if(siz_pngbuf < 1) goto err;
 
     pngbuf = malloc(siz_pngbuf);
     if(pngbuf==NULL)
     {
         printf("malloc() failed\n");
-        return 1;
+        goto err;
     }
 
     if(fread(pngbuf, siz_pngbuf, 1, png) != 1)
     {
         printf("fread() failed\n");
-        return 1;
+        goto err;
     }
 
-    spng_ctx *ctx = spng_ctx_new(0);
+    ctx = spng_ctx_new(0);
     if(ctx == NULL)
     {
         printf("spng_ctx_new() failed\n");
-        return 1;
+        goto err;
     }
 
-    int r;
     r = spng_set_png_buffer(ctx, pngbuf, siz_pngbuf);
 
     if(r)
     {
         printf("spng_set_png_buffer() error: %s\n", spng_strerror(r));
-        return 1;
+        goto err;
     }
 
     struct spng_ihdr ihdr;
@@ -63,7 +65,7 @@ int main(int argc, char **argv)
     if(r)
     {
         printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
-        return 1;
+        goto err;
     }
 
     char *clr_type_str;
@@ -91,33 +93,24 @@ int main(int argc, char **argv)
 
     r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
 
-    if(r) return 1;
+    if(r) goto err;
 
-    unsigned char *out = malloc(out_size);
-    if(out==NULL) return 1;
+    out = malloc(out_size);
+    if(out == NULL) goto err;
 
     r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 
     if(r)
     {
         printf("spng_decode_image() error: %s\n", spng_strerror(r));
-        return 1;
+        goto err;
     }
 
+err:
     spng_ctx_free(ctx);
-
-    /* write raw pixels to file */
-    char *out_name = "image.data";
-    FILE *raw = fopen(out_name, "wb");
-
-    if(raw==NULL) printf("error opening output file %s\n", out_name);
-
-    fwrite(out, out_size, 1, raw);
-
-    fclose(raw);
-
+    
     free(out);
     free(pngbuf);
 
-    return 0;
+    return r;
 }
