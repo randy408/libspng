@@ -14,7 +14,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'libspng'
-copyright = u'2018, Randy'
+copyright = u'2018-2019, Randy'
 author = u'Randy'
 
 # The version info for the project you're documenting, acts as replacement for
