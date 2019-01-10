@@ -34,7 +34,8 @@ The project contains optimizations and test images from libpng, these are licens
 
 libspng comes with an extensive test suite. There are over 700 test cases, 
 175 [test images](http://www.schaik.com/pngsuite/) are decoded with all possible 
-output format and flag combinations and compared against libpng's output. 
+output format and flag combinations and compared against libpng's output.
+
 The testsuite also includes regression tests from libpng and is compiled with 
 AddressSanitizer and UndefinedBehaviorSanitizer.
 
@@ -42,8 +43,10 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
 
 Code is written according to the rules of the 
 [CERT C Coding Standard](https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard).
-All integer arithmetic is checked for overflow and all error conditions are handled gracefully. 
-Releases are scanned with Clang Static Analyzer and [Coverity Scan](https://scan.coverity.com/projects/randy408-libspng) 
+All integer arithmetic is checked for overflow and all error conditions are handled gracefully.
+
+The library is continously fuzzed by [OSS-Fuzz](https://github.com/google/oss-fuzz), 
+releases are scanned with Clang Static Analyzer and [Coverity Scan](https://scan.coverity.com/projects/randy408-libspng) 
 and have a Defect Density of 0.00.
 
 # Documentation
