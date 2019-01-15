@@ -318,8 +318,8 @@ int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, st
 
 int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
-    if(ihdr->width > png_u32max || ihdr->width > max_width) return SPNG_EWIDTH;
-    if(ihdr->height > png_u32max || ihdr->height > max_height) return SPNG_EHEIGHT;
+    if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
+    if(ihdr->height > png_u32max || ihdr->height > max_height || !ihdr->height) return SPNG_EHEIGHT;
 
     switch(ihdr->color_type)
     {
