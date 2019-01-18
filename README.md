@@ -55,6 +55,7 @@ Online documentation is available at https://libspng.org/doc.
 
 # Known Issues
 
+* Text and iCCP chunks are not read, see issue [#31](https://gitlab.com/randy408/libspng/issues/31).
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
 
 ## Building from source
@@ -88,17 +89,4 @@ Only with Meson builds, the testsuite requires libpng.
 # Run in build directory
 meson configure -Ddev_build=true
 ninja test
-```
-
-## Benchmarking
-
-Benchmarking is done with [png_bench](https://gitlab.com/randy408/png_bench).
-
-```
-git clone https://gitlab.com/randy408/png_bench.git
-cd png_bench
-meson -Dbuildtype=release build
-cd build
-ninja benchmark
-cat meson-logs/benchmarklog.txt
 ```

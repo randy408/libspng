@@ -1,4 +1,4 @@
-project('libspng', 'c', version : '0.4.1', license : 'bsd', default_options : ['c_std=c99'])
+project('libspng', 'c', version : '0.4.2', license : 'bsd', default_options : ['c_std=c99'])
 
 cc = meson.get_compiler('c')
 
@@ -22,10 +22,10 @@ if optimize_defilter == true
 endif
 
 lib = library('spng', lib_src,
-	          dependencies : spng_deps,
-	          version : meson.project_version(),
-	          soversion : '0.4.1',
-	          install : true)
+              dependencies : spng_deps,
+              version : meson.project_version(),
+              soversion : '0.4.2',
+              install : true)
 
 spng_dep = declare_dependency(link_with : lib,
                               dependencies : spng_deps,
@@ -41,10 +41,10 @@ install_headers('src/spng.h')
 
 pkg = import('pkgconfig')
 pkg.generate(name : 'spng',
-	         libraries : lib,
-	         version : meson.project_version(),
-	         description : 'PNG decoding and encoding library',
-	         libraries_private : [ '-lm', '-lz' ])
+             libraries : lib,
+             version : meson.project_version(),
+             description : 'PNG decoding and encoding library',
+             libraries_private : [ '-lm', '-lz' ])
 
 dev_build = get_option('dev_build')
 
