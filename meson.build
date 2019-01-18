@@ -1,4 +1,4 @@
-project('libspng', 'c', version : '0.4.1', default_options : ['c_std=c99'])
+project('libspng', 'c', version : '0.4.1', license : 'bsd', default_options : ['c_std=c99'])
 
 cc = meson.get_compiler('c')
 
