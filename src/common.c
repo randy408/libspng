@@ -57,20 +57,18 @@ inline void spng__free(spng_ctx *ctx, void *ptr)
 }
 
 
-spng_ctx * spng_ctx_new(int flags)
+spng_ctx *spng_ctx_new(int flags)
 {
     if(flags) return NULL;
-    spng_ctx *ctx = calloc(1, sizeof(spng_ctx));
-    if(ctx == NULL) return NULL;
 
-    ctx->alloc.malloc_fn = malloc;
-    ctx->alloc.realloc_fn = realloc;
-    ctx->alloc.calloc_fn = calloc;
-    ctx->alloc.free_fn = free;
+    struct spng_alloc alloc = {0};
 
-    ctx->valid_state = 1;
+    alloc.malloc_fn = malloc;
+    alloc.realloc_fn = realloc;
+    alloc.calloc_fn = calloc;
+    alloc.free_fn = free;
 
-    return ctx;
+    return spng_ctx_new2(&alloc, flags);
 }
 
 spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
