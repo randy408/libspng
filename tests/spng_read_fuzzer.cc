@@ -16,6 +16,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     size_t out_size;
     if(spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size)) goto err;
 
+    if(out_size > 80000000) goto err;
+
     out = (unsigned char*)malloc(out_size);
     if(out == NULL) goto err;
 
