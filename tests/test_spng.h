@@ -59,6 +59,14 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
         goto err;
     }
 
+    r = spng_set_image_limits(ctx, 16000, 16000);
+
+    if(r)
+    {
+        printf("spng_set_image_limits() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
 
 /*    r = spng_set_png_buffer(dec, buf, size);
 
