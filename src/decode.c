@@ -1354,18 +1354,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             max = 65535.0f;
         }
 
-        if(ctx->lut_entries != lut_entries)
+        ctx->gamma_lut = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
+        if(ctx->gamma_lut == NULL)
         {
-            if(ctx->gamma_lut != NULL) spng__free(ctx, ctx->gamma_lut);
-
-            ctx->gamma_lut = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
-            if(ctx->gamma_lut == NULL)
-            {
-                ret = SPNG_EMEM;
-                goto decode_err;
-            }
+            ret = SPNG_EMEM;
+            goto decode_err;
         }
-
+        
         for(i=0; i < lut_entries; i++)
         {
             float screen_gamma = 2.2f;
@@ -1427,13 +1422,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
     uint8_t depth_target = 8; /* FMT_RGBA8 */
     if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
-
-    if(!ctx->streaming && ctx->have_last_idat)
-    {
-        ctx->data = ctx->png_buf + ctx->first_idat.offset;
-        ctx->bytes_left = ctx->data_size - ctx->first_idat.offset;
-        ctx->last_read_size = 8;
-    }
 
     uint32_t bytes_read;
 

@@ -65,5 +65,6 @@ API
 
     Interlaced images are written deinterlaced to ``*out``.
 
+    This function can only be called once per context.
 
 .. note:: Common errors in PNG files such as oversized IDAT streams are ignored.
