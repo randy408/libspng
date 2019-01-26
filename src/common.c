@@ -516,7 +516,7 @@ int check_png_text(const char *str, size_t len)
     {
         memcpy(&c, str + i, 1);
 
-        if( (c >= 32 && c <= 126) || (c >= 161 && c <= 255) || c == 10) i++;
+        if( (c >= 32 && c <= 126) || (c >= 161) || c == 10) i++;
         else return 1; /* invalid character */
     }
 
