@@ -498,7 +498,7 @@ int check_png_keyword(const char str[80])
     {
         memcpy(&c, str, 1);
 
-        if( (c >= 32 && c <= 126) || (c >= 161 && c <= 255) ) str++;
+        if( (c >= 32 && c <= 126) || (c >= 161) ) str++;
         else return 1; /* invalid character */
     }
 
