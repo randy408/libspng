@@ -6,6 +6,26 @@ test_exe = executable('testsuite',
                       include_directories : include,
                       dependencies : png_dep)
 
+add_languages('cpp')
+cpp = meson.get_compiler('cpp')
+
+fuzzlib = cpp.find_library('FuzzingEngine', required : false)
+
+if fuzzlib.found() == false
+    fuzzlib = cpp.find_library('Fuzzer', required : false)
+endif
+
+if(fuzzlib.found())
+    threads = dependency('threads')
+
+    fuzz_exe = executable('spng_read_fuzzer',
+                          'spng_read_fuzzer.cc',
+                           link_with : lib,
+                           dependencies : [ fuzzlib, threads ])
+else
+    warning('fuzz target will not be built')
+endif
+
 imgdir = join_paths(meson.current_source_dir(), 'images')
 crashdir = join_paths(meson.current_source_dir(), 'crashers')
 
