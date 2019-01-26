@@ -1,17 +1,12 @@
-png_dep = dependency('libpng', version : '>=1.6.0')
-
-test_exe = executable('testsuite',
-                      'testsuite.c',
-                      link_with : lib,
-                      include_directories : include,
-                      dependencies : png_dep)
-
 add_languages('cpp')
 cpp = meson.get_compiler('cpp')
 
 fuzzlib = cpp.find_library('FuzzingEngine', required : false)
 
-if fuzzlib.found() == false
+if fuzzlib.found()
+    oss_fuzz = true
+else
+    oss_fuzz = false
     fuzzlib = cpp.find_library('Fuzzer', required : false)
 endif
 
@@ -25,6 +20,16 @@ if(fuzzlib.found())
 else
     warning('fuzz target will not be built')
 endif
+
+if(oss_fuzz == false)
+
+png_dep = dependency('libpng', version : '>=1.6.0')
+
+test_exe = executable('testsuite',
+                      'testsuite.c',
+                      link_with : lib,
+                      include_directories : include,
+                      dependencies : png_dep)
 
 imgdir = join_paths(meson.current_source_dir(), 'images')
 crashdir = join_paths(meson.current_source_dir(), 'crashers')
@@ -228,3 +233,5 @@ test('huge_ster', test_exe, workdir : crashdir, args : ['huge_sTER_chunk.png'], 
 test('huge_text', test_exe, workdir : crashdir, args : ['huge_tEXt_chunk.png'], should_fail : true)
 test('huge_time', test_exe, workdir : crashdir, args : ['huge_tIME_chunk.png'], should_fail : true)
 test('huge_ztxt', test_exe, workdir : crashdir, args : ['huge_zTXt_chunk.png'], should_fail : true)
+
+endif # oss_fuzz == false
