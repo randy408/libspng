@@ -1055,6 +1055,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         }
     }
 
+    uint16_t *gamma_lut = NULL;
+    uint16_t gamma_lut8[256];
+
     if(flags & SPNG_DECODE_USE_GAMA && ctx->stored_gama)
     {
         float file_gamma = (float)ctx->gama / 100000.0f;
@@ -1066,18 +1069,21 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         {
             lut_entries = 256;
             max = 255.0f;
+            
+            gamma_lut = gamma_lut8;
         }
         else /* SPNG_FMT_RGBA16 */
         {
             lut_entries = 65536;
             max = 65535.0f;
-        }
 
-        ctx->gamma_lut = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
-        if(ctx->gamma_lut == NULL)
-        {
-            ret = SPNG_EMEM;
-            goto decode_err;
+            ctx->gamma_lut = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
+            if(ctx->gamma_lut == NULL)
+            {
+                ret = SPNG_EMEM;
+                goto decode_err;
+            }
+            gamma_lut = ctx->gamma_lut;
         }
         
         for(i=0; i < lut_entries; i++)
@@ -1086,10 +1092,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             float exp = 1.0f / (file_gamma * screen_gamma);
             float c = pow((float)i / max, exp) * max;
 
-            ctx->gamma_lut[i] = c;
+            gamma_lut[i] = c;
         }
-
-        ctx->lut_entries = lut_entries;
     }
 
     uint8_t red_sbits, green_sbits, blue_sbits, alpha_sbits, grayscale_sbits;
@@ -1397,9 +1401,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
                 if(flags & SPNG_DECODE_USE_GAMA && ctx->stored_gama)
                 {
-                    r = ctx->gamma_lut[r];
-                    g = ctx->gamma_lut[g];
-                    b = ctx->gamma_lut[b];
+                    r = gamma_lut[r];
+                    g = gamma_lut[g];
+                    b = gamma_lut[b];
                 }
 
                 /* only use *_8/16 for memcpy */

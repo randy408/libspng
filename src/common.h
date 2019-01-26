@@ -153,7 +153,6 @@ struct spng_ctx
     struct spng_iccp iccp;
 
     uint32_t gama;
-    uint32_t lut_entries;
     uint16_t *gamma_lut;
 
     struct spng_sbit sbit;
