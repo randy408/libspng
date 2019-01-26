@@ -11,9 +11,9 @@ stages:
 
 before_script:
   - apt update
-  - apt install -y -t stretch-backports build-essential meson clang-tools-6.0 zlib1g-dev libpng-dev python3-pkgconfig gcovr wget tar curl
+  - apt install -y -t stretch-backports build-essential meson clang-tools-6.0 libfuzzer-6.0-dev libubsan0 zlib1g-dev libpng-dev python3-pkgconfig gcovr wget tar curl
   - mkdir -p build
-  - meson -Ddev_build=true -Db_sanitize=undefined -Db_coverage=true --buildtype=debug build
+  - CC=clang-6.0 CXX=clang++-6.0 meson -Ddev_build=true -Db_sanitize=undefined -Db_lundef=false -Db_coverage=true --buildtype=debug build
 
 test:
   stage: test
