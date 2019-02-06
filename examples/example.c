@@ -51,6 +51,14 @@ int main(int argc, char **argv)
         goto err;
     }
 
+    r = spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+
+    if(r)
+    {
+        printf("spng_set_crc_action() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
     r = spng_set_png_buffer(ctx, pngbuf, siz_pngbuf);
 
     if(r)
