@@ -917,6 +917,7 @@ int spng_set_gama(spng_ctx *ctx, double gamma)
 
     uint32_t gama = gamma * 100000.0;
 
+    if(!gama) return 1;
     if(gama > png_u32max) return 1;
 
     ctx->gama = gama;

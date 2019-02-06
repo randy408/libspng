@@ -446,6 +446,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
 
             ctx->gama = read_u32(data);
 
+            if(!ctx->gama) return SPNG_EGAMA;
             if(ctx->gama > png_u32max) return SPNG_EGAMA;
 
             ctx->file_gama = 1;
@@ -1086,11 +1087,21 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             gamma_lut = ctx->gamma_lut;
         }
         
+        float screen_gamma = 2.2f;
+        float exponent = file_gamma * screen_gamma;
+
+        if(FP_ZERO == fpclassify(exponent))
+        {
+            ret = SPNG_EGAMA;
+            goto decode_err;
+        }
+
+        exponent = 1.0f / exponent;
+        
         for(i=0; i < lut_entries; i++)
         {
-            float screen_gamma = 2.2f;
-            float exp = 1.0f / (file_gamma * screen_gamma);
-            float c = pow((float)i / max, exp) * max;
+            float c = pow((float)i / max, exponent) * max;
+            c = fmin(c, max);
 
             gamma_lut[i] = c;
         }
