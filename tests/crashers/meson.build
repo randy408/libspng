@@ -21,3 +21,7 @@ test('huge_ster', test_exe, args : files('huge_sTER_chunk.png'), should_fail : t
 test('huge_text', test_exe, args : files('huge_tEXt_chunk.png'), should_fail : true)
 test('huge_time', test_exe, args : files('huge_tIME_chunk.png'), should_fail : true)
 test('huge_ztxt', test_exe, args : files('huge_zTXt_chunk.png'), should_fail : true)
+
+# These are minimized testcases created by OSS-Fuzz with fixed CRC's
+test('zero_width', test_exe, args : files('zero_width.png'), should_fail : true)
+test('zero_gama', test_exe, args : files('zero_gama.png'), should_fail : true)
