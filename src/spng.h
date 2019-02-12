@@ -10,7 +10,7 @@ extern "C" {
 
 #define SPNG_VERSION_MAJOR 0
 #define SPNG_VERSION_MINOR 4
-#define SPNG_VERSION_PATCH 2
+#define SPNG_VERSION_PATCH 3
 
 enum spng_errno
 {

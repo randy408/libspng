@@ -1,4 +1,4 @@
-project('libspng', 'c', version : '0.4.2', license : 'bsd', default_options : ['c_std=c99'])
+project('libspng', 'c', version : '0.4.3', license : 'bsd', default_options : ['c_std=c99'])
 
 cc = meson.get_compiler('c')
 
@@ -24,7 +24,7 @@ endif
 lib = library('spng', lib_src,
               dependencies : spng_deps,
               version : meson.project_version(),
-              soversion : '0.4.2',
+              soversion : '0.4.3',
               install : true)
 
 spng_dep = declare_dependency(link_with : lib,
