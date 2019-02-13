@@ -1165,9 +1165,19 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     stream.avail_in = bytes_read;
     stream.next_in = ctx->data;
 
-
     int pass;
     uint32_t scanline_idx;
+
+    uint32_t k;
+    uint8_t r_8, g_8, b_8, a_8, gray_8;
+    uint16_t r_16, g_16, b_16, a_16, gray_16;
+    uint16_t r, g, b, a, gray;
+    unsigned char pixel[8] = {0};
+    size_t pixel_offset = 0;
+    size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
+                
+    if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+
     for(pass=0; pass < 7; pass++)
     {
         /* Skip empty passes */
@@ -1219,14 +1229,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
             ret = defilter_scanline(prev_scanline, scanline, scanline_width, bytes_per_pixel);
             if(ret) goto decode_err;
-
-            uint32_t k;
-            uint8_t r_8, g_8, b_8, a_8, gray_8;
-            uint16_t r_16, g_16, b_16, a_16, gray_16;
-            uint16_t r, g, b, a, gray;
-            unsigned char pixel[8] = {0};
-            size_t pixel_size = 4;
-            size_t pixel_offset;
 
             r=0; g=0; b=0; a=0; gray=0;
             r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
@@ -1425,8 +1427,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
                 if(fmt == SPNG_FMT_RGBA8)
                 {
-                    pixel_size = 4;
-
                     memcpy(pixel, &r_8, 1);
                     memcpy(pixel + 1, &g_8, 1);
                     memcpy(pixel + 2, &b_8, 1);
@@ -1434,8 +1434,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 }
                 else if(fmt == SPNG_FMT_RGBA16)
                 {
-                    pixel_size = 8;
-
                     memcpy(pixel, &r_16, 2);
                     memcpy(pixel + 2, &g_16, 2);
                     memcpy(pixel + 4, &b_16, 2);
@@ -1444,7 +1442,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
                 if(!ctx->ihdr.interlace_method)
                 {
-                    pixel_offset = (k + (scanline_idx * ctx->ihdr.width)) * pixel_size;
+                    memcpy((char*)out + pixel_offset, pixel, pixel_size);
+
+                    pixel_offset = pixel_offset + pixel_size;
                 }
                 else
                 {
@@ -1455,10 +1455,10 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
                     pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
                                      ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
+
+                    memcpy((char*)out + pixel_offset, pixel, pixel_size);
                 }
-
-                memcpy((char*)out + pixel_offset, pixel, pixel_size);
-
+                
             }/* for(k=0; k < sub[pass].width; k++) */
 
             scanline--; /* point to filter byte */
