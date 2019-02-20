@@ -1,9 +1,6 @@
 image: debian:stretch-backports
 
-# NOTES:
-# ASan doesn't work on Gitlab runners so each commit has to be checked locally.
-# Both stages are triggered manually in case someone submits code that leaks the
-# Coverity Scan token.
+# NOTE: ASan doesn't work on Gitlab runners so each commit has to be checked locally.
 
 stages:
   - test
@@ -17,7 +14,6 @@ before_script:
 
 test:
   stage: test
-  when: manual
   script:
     - cd build
     - ninja scan-build
