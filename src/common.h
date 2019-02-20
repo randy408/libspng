@@ -9,19 +9,13 @@
 
 #include <zlib.h>
 
-#if defined(SPNG_OPTIMIZE_DEFILTER)
-
+#if defined(SPNG_OPTIMIZE_FILTER)
 void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
 void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
 void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
 void png_read_filter_row_avg4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
 void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
 void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-
-#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64) 
-    #define SPNG_OPTIMIZE_DEFILTER_X86
-#endif
-
 #endif
 
 #define SPNG_FILTER_TYPE_NONE 0

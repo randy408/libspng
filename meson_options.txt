@@ -1,2 +1,2 @@
 option('dev_build', type : 'boolean', value : false, description : 'Enable the testsuite, requires libpng')
-option('optimize_defilter', type : 'boolean', value : true, description : 'Optimize defiltering, requires SSSE3 on x86')
+option('optimize_filter', type : 'boolean', value : true, description : 'Optimize (de)filtering, requires SSSE3 on x86')

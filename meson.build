@@ -9,17 +9,13 @@ m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
 
-lib_src = files(['src/decode.c',
-                 'src/common.c'])
-
-optimize_defilter = get_option('optimize_defilter')
-
-if optimize_defilter == true
-    if host_machine.cpu_family() == 'x86' or host_machine.cpu_family() == 'x86_64'
-        lib_src += files('src/filter_sse2_intrinsics.c')
-        add_project_arguments('-DSPNG_OPTIMIZE_DEFILTER', '-msse2', '-mssse3',  language : 'c')
-    endif
+if get_option('optimize_filter') == true
+    add_project_arguments('-DSPNG_OPTIMIZE_FILTER', language : 'c')
 endif
+
+lib_src = files(['src/decode.c',
+                 'src/common.c',
+                 'src/filter_sse2_intrinsics.c'])
 
 lib = library('spng', lib_src,
               dependencies : spng_deps,
@@ -51,4 +47,3 @@ dev_build = get_option('dev_build')
 if(dev_build)
     subdir('tests')
 endif
-

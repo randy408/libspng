@@ -11,17 +11,21 @@
  */
 
 
-#include "common.h"
+#if defined(SPNG_OPTIMIZE_FILTER) && ( defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64) )
 
-#if defined(SPNG_OPTIMIZE_DEFILTER_X86)
+#if defined(__GNUC__) || defined(__clang__)
+   #pragma GCC target("sse2")
+   #pragma GCC target("ssse3")
+#endif
 
-#define PNG_INTEL_SSE_IMPLEMENTATION 3
 
 #define _mm_blendv_epi8__SSSE3__ 1
 
 #include <immintrin.h>
 #include <inttypes.h>
 #include <string.h>
+
+#define PNG_INTEL_SSE_IMPLEMENTATION 3
 
 typedef unsigned char png_byte;
 typedef uint16_t png_uint_16;
@@ -367,4 +371,4 @@ void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row,
    }
 }
 
-#endif /* SPNG_OPTIMIZE_DEFILTER_X86 */
+#endif /* SPNG_OPTIMIZE_FILTER && x86 */

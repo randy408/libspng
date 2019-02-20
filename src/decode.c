@@ -235,7 +235,7 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     if(filter > 4) return SPNG_EFILTER;
     if(filter == 0) return 0;
 
-#if defined(SPNG_OPTIMIZE_DEFILTER)
+#if defined(SPNG_OPTIMIZE_FILTER)
     if(filter == SPNG_FILTER_TYPE_UP) goto no_opt;
 
     if(bytes_per_pixel == 4)

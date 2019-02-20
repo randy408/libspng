@@ -13,13 +13,10 @@ option(SPNG_STATIC "Build static lib" ON)
 find_package(ZLIB REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIR})
 
-set(spng_SOURCES src/common.c src/decode.c)
+set(spng_SOURCES src/common.c src/decode.c src/filter_sse2_intrinsics.c)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
     add_definitions( -DSPNG_OPTIMIZE_DEFILTER=1 )
-    set(CMAKE_C_FLAGS "-msse2")
-    set(CMAKE_C_FLAGS "-mssse3")
-    set(spng_SOURCES ${spng_SOURCES} src/filter_sse2_intrinsics.c)
 endif()
 
 if(SPNG_SHARED)
