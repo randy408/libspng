@@ -10,14 +10,14 @@
  * and license in png.h
  */
 
+#include "common.h"
 
-#if defined(SPNG_OPTIMIZE_FILTER) && ( defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64) )
+#if defined(SPNG_OPTIMIZE_FILTER) && defined(SPNG_X86)
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) && !defined(__clang__)
    #pragma GCC target("sse2")
    #pragma GCC target("ssse3")
 #endif
-
 
 #define _mm_blendv_epi8__SSSE3__ 1
 
@@ -192,7 +192,7 @@ void png_read_filter_row_avg4(size_t rowbytes, png_bytep row,
 }
 
 /* Returns |x| for 16-bit lanes. */
-static __m128i abs_i16(__m128i x) {
+static __attribute__((target("ssse3"))) __m128i abs_i16(__m128i x) {
 #if PNG_INTEL_SSE_IMPLEMENTATION >= 2
    return _mm_abs_epi16(x);
 #else
@@ -371,4 +371,4 @@ void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row,
    }
 }
 
-#endif /* SPNG_OPTIMIZE_FILTER && x86 */
+#endif /* SPNG_OPTIMIZE_FILTER && SPNG_X86 */

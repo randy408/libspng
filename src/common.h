@@ -10,6 +10,13 @@
 #include <zlib.h>
 
 #if defined(SPNG_OPTIMIZE_FILTER)
+
+#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
+    #define SPNG_X86
+#else
+    #undef SPNG_OPTIMIZE_FILTER
+#endif
+
 void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
 void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
 void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
@@ -135,6 +142,11 @@ struct spng_ctx
     struct spng_chunk first_idat, last_idat;
 
     uint32_t max_width, max_height;
+
+    uint32_t max_chunk_size;
+    size_t chunk_cache_limit;
+    size_t chunk_cache_usage;
+
     int crc_action_critical;
     int crc_action_ancillary;
 
