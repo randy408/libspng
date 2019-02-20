@@ -40,6 +40,6 @@ coverity:
     - ninja -C gcc_build clean
     - ./cov-analysis-linux64-2017.07/bin/cov-build --dir cov-int ninja -C gcc_build
     - tar czvf spng.tgz cov-int
-    - curl --form token=$COVERITY_TOKEN --form email=randy408@protonmail.com --form file=@spng.tgz --form version="master" --form description="alpha" https://scan.coverity.com/builds?project=randy408%2Flibspng
+    - curl --form token=$COVERITY_TOKEN --form email=randy408@protonmail.com --form file=@spng.tgz --form version="master" --form description="libspng" https://scan.coverity.com/builds?project=randy408%2Flibspng
     - rm spng.tgz
     - rm -r cov-int
