@@ -9,14 +9,15 @@ stages:
 before_script:
   - apt update
   - apt install -y -t stretch-backports build-essential meson clang-tools-6.0 libfuzzer-6.0-dev libubsan0 zlib1g-dev libpng-dev python3-pkgconfig gcovr wget tar curl
-  - mkdir -p build
 
 test:
   stage: test
   script:
-    - CC=clang-6.0 CXX=clang++-6.0 meson -Ddev_build=true -Db_sanitize=undefined -Db_lundef=false -Db_coverage=true --buildtype=debug build
-    - cd build
-    - ninja scan-build
+    - CC=clang-6.0 CXX=clang++-6.0 meson -Ddev_build=true -Db_sanitize=undefined -Db_lundef=false clang_build
+    - ninja -C clang_build scan-build
+    - ninja -C clang_build
+    - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=undefined -Db_coverage=true gcc_build
+    - cd gcc_build
     - ninja
     - ./tests/testsuite info
     - echo "Skipping a few tests, see https://gitlab.com/randy408/libspng/issues/5"
@@ -27,17 +28,17 @@ test:
     - bash <(curl -s https://codecov.io/bash)
   artifacts:
     paths:
-      - build/
+      - clang_build/
+      - gcc_build/
 
 coverity:
   stage: coverity
   when: manual
   script:
-    - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=undefined --buildtype=debug build
     - wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_TOKEN&project=randy408%2Flibspng" -O coverity_tool.tgz
     - tar -xvzf coverity_tool.tgz
-    - ninja -C build clean
-    - ./cov-analysis-linux64-2017.07/bin/cov-build --dir cov-int ninja -C build
+    - ninja -C gcc_build clean
+    - ./cov-analysis-linux64-2017.07/bin/cov-build --dir cov-int ninja -C gcc_build
     - tar czvf spng.tgz cov-int
     - curl --form token=$COVERITY_TOKEN --form email=randy408@protonmail.com --form file=@spng.tgz --form version="master" --form description="alpha" https://scan.coverity.com/builds?project=randy408%2Flibspng
     - rm spng.tgz
