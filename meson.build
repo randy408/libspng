@@ -42,8 +42,6 @@ pkg.generate(name : 'spng',
              description : 'PNG decoding and encoding library',
              libraries_private : [ '-lm', '-lz' ])
 
-dev_build = get_option('dev_build')
-
-if(dev_build)
+if get_option('dev_build') == true
     subdir('tests')
 endif

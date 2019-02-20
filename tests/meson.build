@@ -21,5 +21,6 @@ test_exe = executable('testsuite',
                       link_with : lib,
                       include_directories : include,
                       dependencies : png_dep)
+
 subdir('images')
 subdir('crashers')
