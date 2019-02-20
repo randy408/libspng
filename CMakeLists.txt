@@ -7,6 +7,7 @@ set(SPNG_MINOR 4)
 set(SPNG_REVISION 3)
 set(SPNG_VERSION ${SPNG_MAJOR}.${SPNG_MINOR}.${SPNG_REVISION})
 
+option(OPTIMIZE_FILTER "Optimize (de)filtering, requires SSSE3 on x86" ON)
 option(SPNG_SHARED "Build shared lib" ON)
 option(SPNG_STATIC "Build static lib" ON)
 
@@ -15,8 +16,8 @@ include_directories(${ZLIB_INCLUDE_DIR})
 
 set(spng_SOURCES src/common.c src/decode.c src/filter_sse2_intrinsics.c)
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    add_definitions( -DSPNG_OPTIMIZE_DEFILTER=1 )
+if(OPTIMIZE_FILTER)
+    add_definitions( -DSPNG_OPTIMIZE_FILTER=1 )
 endif()
 
 if(SPNG_SHARED)
