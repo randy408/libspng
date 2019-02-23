@@ -6,9 +6,10 @@ Usage
 Basic usage
 -----------
 
-libspng can decode images to 8- or 16-bit RGBA formats from any PNG file, whether to use
-ancillary chunk information when decoding is controlled with `SPNG_DECODE_USE_*` flags,
-by default they're ignored.
+libspng can decode images to 8- or 16-bit RGBA formats from any PNG file,
+  whether to use ancillary chunk information when decoding is controlled
+  with `SPNG_DECODE_USE_*` flags,
+  by default they're ignored.
 
 .. code-block:: c
 

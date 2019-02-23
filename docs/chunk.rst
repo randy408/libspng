@@ -7,11 +7,11 @@ Semantics
 ---------
 
 * Chunk data is stored in :c:type:`spng_ctx`.
-* When calling ``spng_get_*()`` or ``spng_set_*()`` functions all ancillary chunks
-  up to the first IDAT are read, validated then stored.
+* When calling ``spng_get_*()`` or ``spng_set_*()`` functions all ancillary
+  chunks up to the first IDAT are read, validated then stored.
 * ``spng_set_*()`` functions replace stored chunk data for that type.
-* Chunk data stored with ``spng_set_*()`` functions are never replaced with input
-  file chunk data i.e. if you set something it will stay that way.
+* Chunk data stored with ``spng_set_*()`` functions are never replaced with
+  input file chunk data i.e. if you set something it will stay that way.
 
 
 Data types
