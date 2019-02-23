@@ -2,7 +2,7 @@ project('libspng', 'c', version : '0.4.3', license : 'bsd', default_options : ['
 
 cc = meson.get_compiler('c')
 
-include = include_directories('src')
+spng_inc = include_directories('src')
 
 zlib_dep = dependency('zlib')
 m_dep = cc.find_library('m', required : false)
@@ -13,31 +13,33 @@ if get_option('optimize_filter') == true
     add_project_arguments('-DSPNG_OPTIMIZE_FILTER', language : 'c')
 endif
 
-lib_src = files(['src/decode.c',
-                 'src/common.c',
-                 'src/filter_sse2_intrinsics.c'])
+install_headers('src/spng.h')
 
-lib = library('spng', lib_src,
-              dependencies : spng_deps,
-              version : meson.project_version(),
-              soversion : '0.4.3',
-              install : true)
+spng_src = files(['src/decode.c',
+                  'src/common.c',
+                  'src/filter_sse2_intrinsics.c'])
 
-spng_dep = declare_dependency(link_with : lib,
+spng_lib = library('spng', spng_src,
+                   dependencies : spng_deps,
+                   version : meson.project_version(),
+                   soversion : '0.4.3',
+                   install : true)
+
+spng_dep = declare_dependency(link_with : spng_lib,
                               dependencies : spng_deps,
-                              include_directories : include,
+                              include_directories : spng_inc,
                               version : meson.project_version())
 
-example = executable('example', 'examples/example.c',
-                     link_with : lib,
-                     include_directories : include,
-                     dependencies : zlib_dep)
+example_src = files('examples/example.c')
 
-install_headers('src/spng.h')
+example_exe = executable('example', example_src,
+                         link_with : spng_lib,
+                         include_directories : spng_inc,
+                         dependencies : zlib_dep)
 
 pkg = import('pkgconfig')
 pkg.generate(name : 'spng',
-             libraries : lib,
+             libraries : spng_lib,
              version : meson.project_version(),
              description : 'PNG decoding and encoding library',
              libraries_private : [ '-lm', '-lz' ])
