@@ -67,6 +67,13 @@ unsigned char *getimage_libspng(unsigned char *buf, size_t size, size_t *out_siz
         goto err;
     }
 
+    r = spng_set_chunk_limits(ctx, 66 * 1000 * 1000, 66 * 1000* 1000);
+
+    if(r)
+    {
+        printf("spng_set_chunk_limits() error: %s\n", spng_strerror(r));
+        goto err;
+    }
 
 /*    r = spng_set_png_buffer(dec, buf, size);
 

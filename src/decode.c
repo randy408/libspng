@@ -313,6 +313,21 @@ no_opt:
     return 0;
 }
 
+static int chunk_fits_in_cache(spng_ctx *ctx, size_t *new_usage)
+{
+    if(ctx == NULL || new_usage == NULL) return 0;
+   
+    size_t usage = ctx->chunk_cache_usage + (size_t)ctx->current_chunk.length;
+
+    if(usage < ctx->chunk_cache_usage) return 0; /* overflow */
+
+    if(usage > ctx->chunk_cache_limit) return 0;
+
+    *new_usage = usage;
+
+    return 1;
+}
+
 /*
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
     Returns zero and sets ctx->first_idat on success
@@ -374,6 +389,8 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
             memcpy(&ctx->first_idat, &chunk, sizeof(struct spng_chunk));
             return 0;
         }
+
+        if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage)) continue;
 
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;

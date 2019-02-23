@@ -86,6 +86,9 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
     
     memcpy(&ctx->alloc, alloc, sizeof(struct spng_alloc));
 
+    ctx->max_chunk_size = png_u32max;
+    ctx->chunk_cache_limit = SIZE_MAX;
+
     ctx->valid_state = 1;
 
     return ctx;
@@ -198,6 +201,28 @@ int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
 
     *width = ctx->max_width;
     *height = ctx->max_height;
+
+    return 0;
+}
+
+int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
+{
+    if(ctx == NULL || chunk_size > png_u32max) return 1;
+
+    ctx->max_chunk_size = chunk_size;
+
+    ctx->chunk_cache_limit = cache_limit;
+
+    return 0;
+}
+
+int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_limit)
+{
+    if(ctx == NULL || chunk_size == NULL) return 1;
+
+    *chunk_size = ctx->max_chunk_size;
+
+    *cache_limit = ctx->chunk_cache_limit;
 
     return 0;
 }
