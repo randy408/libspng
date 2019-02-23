@@ -210,8 +210,4 @@ int check_exif(struct spng_exif *exif);
 int check_png_keyword(const char str[80]);
 int check_png_text(const char *str, size_t len);
 
-/* These functions are only available internally at this time */
-int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_size);
-int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_size);
-
 #endif /* SPNG_COMMON_H */
