@@ -10,6 +10,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if(spng_set_png_buffer(ctx, (void*)data, size)) goto err;
 
     spng_set_image_limits(ctx, 200000, 200000);
+    
+    spng_set_chunk_limits(ctx, 4 * 1000 * 1000, 8 * 1000 * 1000);
 
     spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
 
