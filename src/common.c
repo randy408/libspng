@@ -232,7 +232,7 @@ int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
     if(ctx == NULL) return 1;
 
     if(critical > 2 || critical < 0) return 1;
-    if(ancillary > 2 || critical < 0) return 1;
+    if(ancillary > 2 || ancillary < 0) return 1;
 
     if(critical == SPNG_CRC_DISCARD) return 1;
 
