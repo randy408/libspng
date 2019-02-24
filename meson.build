@@ -4,7 +4,7 @@ cc = meson.get_compiler('c')
 
 spng_inc = include_directories('src')
 
-zlib_dep = dependency('zlib')
+zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'])
 m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
