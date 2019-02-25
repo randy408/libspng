@@ -32,3 +32,17 @@ target_link_libraries(spng ${ZLIB_LIBRARIES})
 
 install(TARGETS spng DESTINATION lib)
 install(FILES src/spng.h DESTINATION include)
+
+include(GNUInstallDirs)
+
+if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
+    set(prefix      ${CMAKE_INSTALL_PREFIX})
+    set(exec_prefix ${CMAKE_INSTALL_PREFIX})
+    set(libdir      ${CMAKE_INSTALL_FULL_LIBDIR})
+    set(includedir  ${CMAKE_INSTALL_FULL_INCLUDEDIR})
+    set(LIBS        "-lz -lm")
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libspng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libspng.pc @ONLY)
+
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libspng.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endif()
