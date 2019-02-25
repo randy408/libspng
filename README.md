@@ -48,8 +48,8 @@ Code is written according to the rules of the
 All integer arithmetic is checked for overflow and all error conditions are handled gracefully.
 
 The library is continously fuzzed by [OSS-Fuzz](https://github.com/google/oss-fuzz), 
-releases are scanned with Clang Static Analyzer and [Coverity Scan](https://scan.coverity.com/projects/randy408-libspng) 
-and have a Defect Density of 0.00.
+releases are scanned with Clang Static Analyzer, PVS-Studio and Coverity Scan
+and have a [Defect Density](https://scan.coverity.com/projects/randy408-libspng) 0.00.
 
 # Documentation
 
