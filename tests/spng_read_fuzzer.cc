@@ -1,7 +1,5 @@
+#define SPNG_UNTESTED
 #include "../src/spng.h"
-
-int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_size);
-int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_size);
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {

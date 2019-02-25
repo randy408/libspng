@@ -315,6 +315,11 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user);
 int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height);
 int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height);
 
+#if defined(SPNG_UNTESTED)
+int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_size);
+int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_size);
+#endif
+
 int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary);
 
 int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out);

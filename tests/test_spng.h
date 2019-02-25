@@ -1,6 +1,8 @@
 #ifndef TEST_SPNG_H
 #define TEST_SPNG_H
 
+#define SPNG_UNTESTED
+
 #include "spng.h"
 
 #include <stdio.h>
