@@ -1,16 +1,6 @@
 #include "common.h"
 
-struct spng_decomp
-{
-    unsigned char *buf; /* input buffer */
-    size_t size; /* input buffer size */
-
-    char *out; /* output buffer */
-    size_t decomp_size; /* decompressed data size */
-    size_t decomp_alloc_size; /* actual buffer size */
-
-    size_t initial_size; /* initial value for decomp_size */
-};
+#define SPNG_READ_SIZE 8192
 
 static inline uint16_t read_u16(const void *_data)
 {
@@ -160,7 +150,7 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
     {
         while(bytes)
         {
-            uint32_t len = 8192;
+            uint32_t len = SPNG_READ_SIZE;
 
             if(len > bytes) len = bytes;
 
@@ -198,7 +188,7 @@ static int get_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
 
     if(ctx->streaming)
     {/* TODO: calculate bytes to read for progressive reads */
-        len = 8192;
+        len = SPNG_READ_SIZE;
         if(len > ctx->current_chunk.length) len = ctx->current_chunk.length;
     }
     else len = ctx->current_chunk.length;
