@@ -3,7 +3,7 @@
 
 #define SPNG_UNTESTED
 
-#include "spng.h"
+#include <spng.h>
 
 #include <stdio.h>
 #include <string.h>

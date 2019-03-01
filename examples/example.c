@@ -1,4 +1,4 @@
-#include "spng.h"
+#include <spng.h>
 
 #include <inttypes.h>
 #include <stdio.h>
