@@ -173,7 +173,7 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 static int get_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
 {
     if(ctx == NULL || bytes_read == NULL) return 1;
-    if(memcmp(ctx->current_chunk.type, type_idat, 4)) return 1;
+    if(memcmp(ctx->current_chunk.type, type_idat, 4)) return SPNG_EIDAT_TOO_SHORT;
 
     int ret;
     uint32_t len;
@@ -213,14 +213,16 @@ static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
     return c;
 }
 
+/* Defilter *scanline in-place.
+   *prev_scanline and *scanline should point to the first pixel,
+   scanline_width is the width of the scanline without the filter byte.
+   */
 static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *scanline,
-                             size_t scanline_width, uint8_t bytes_per_pixel)
+                             size_t scanline_width, unsigned bytes_per_pixel, unsigned filter)
 {
-    if(prev_scanline == NULL || scanline == NULL || scanline_width <= 1) return 1;
+    if(prev_scanline == NULL || scanline == NULL || !scanline_width) return 1;
 
     size_t i;
-    uint8_t filter = 0;
-    memcpy(&filter, scanline, 1);
 
     if(filter > 4) return SPNG_EFILTER;
     if(filter == 0) return 0;
@@ -231,33 +233,33 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     if(bytes_per_pixel == 4)
     {
         if(filter == SPNG_FILTER_TYPE_SUB)
-            png_read_filter_row_sub4(scanline_width - 1, scanline + 1);
+            png_read_filter_row_sub4(scanline_width, scanline);
         else if(filter == SPNG_FILTER_TYPE_AVERAGE)
-            png_read_filter_row_avg4(scanline_width - 1, scanline + 1, prev_scanline + 1);
+            png_read_filter_row_avg4(scanline_width, scanline, prev_scanline);
         else if(filter == SPNG_FILTER_TYPE_PAETH)
-            png_read_filter_row_paeth4(scanline_width - 1, scanline + 1, prev_scanline + 1);
+            png_read_filter_row_paeth4(scanline_width, scanline, prev_scanline);
 
         return 0;
     }
     else if(bytes_per_pixel == 3)
     {
         if(filter == SPNG_FILTER_TYPE_SUB)
-            png_read_filter_row_sub3(scanline_width - 1, scanline + 1);
+            png_read_filter_row_sub3(scanline_width, scanline);
         else if(filter == SPNG_FILTER_TYPE_AVERAGE)
-            png_read_filter_row_avg3(scanline_width - 1, scanline + 1, prev_scanline + 1);
+            png_read_filter_row_avg3(scanline_width, scanline, prev_scanline);
         else if(filter == SPNG_FILTER_TYPE_PAETH)
-            png_read_filter_row_paeth3(scanline_width - 1, scanline + 1, prev_scanline + 1);
+            png_read_filter_row_paeth3(scanline_width, scanline, prev_scanline);
 
         return 0;
     }
 no_opt:
 #endif
 
-    for(i=1; i < scanline_width; i++)
+    for(i=0; i < scanline_width; i++)
     {
         uint8_t x, a, b, c;
 
-        if(i > bytes_per_pixel)
+        if(i >= bytes_per_pixel)
         {
             memcpy(&a, scanline + i - bytes_per_pixel, 1);
             memcpy(&b, prev_scanline + i, 1);
@@ -1173,6 +1175,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     stream.next_in = ctx->data;
 
     int pass;
+    uint8_t filter = 0, next_filter = 0;
     uint32_t scanline_idx;
 
     uint32_t k;
@@ -1195,11 +1198,53 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         /* prev_scanline is all zeros for the first scanline */
         memset(prev_scanline, 0, scanline_width);
 
-        /* Decompress one scanline at a time for each subimage */
+        /* Read the first filter byte, offsetting all reads by 1 byte.
+           The scanlines will be aligned with the start of the array with
+           the next scanline's filter byte at the end,
+           the last scanline will end up being 1 byte "shorter". */
+        stream.avail_out = 1;
+        stream.next_out = &filter;
+
+        do
+        {
+            ret = inflate(&stream, Z_SYNC_FLUSH);
+
+            if(ret != Z_OK)
+            {
+                if(ret == Z_STREAM_END)
+                {
+                    if(stream.avail_out !=0)
+                    {
+                        ret = SPNG_EIDAT_TOO_SHORT;
+                        goto decode_err;
+                    }
+                }
+                else if(ret != Z_BUF_ERROR)
+                {
+                    ret = SPNG_EIDAT_STREAM;
+                    goto decode_err;
+                }
+            }
+
+            if(stream.avail_out != 0 && stream.avail_in == 0)
+            {
+                ret = get_idat_bytes(ctx, &bytes_read);
+                if(ret) goto decode_err;
+
+                stream.avail_in = bytes_read;
+                stream.next_in = ctx->data;
+            }
+
+        }while(stream.avail_out != 0);
+
+
         for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++)
         {
-            stream.avail_out = scanline_width;
             stream.next_out = scanline;
+
+            /* The last scanline is 1 byte "shorter" */
+            if(scanline_idx == (sub[pass].height - 1)) stream.avail_out = scanline_width - 1;
+            else stream.avail_out = scanline_width;
 
             do
             {
@@ -1234,14 +1279,16 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
             }while(stream.avail_out != 0);
 
-            ret = defilter_scanline(prev_scanline, scanline, scanline_width, bytes_per_pixel);
+            memcpy(&next_filter, scanline + scanline_width - 1, 1);
+
+            ret = defilter_scanline(prev_scanline, scanline, scanline_width - 1, bytes_per_pixel, filter);
             if(ret) goto decode_err;
+
+            filter = next_filter;
 
             r=0; g=0; b=0; a=0; gray=0;
             r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
             r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
-
-            scanline++; /* increment past filter byte, keep indexing 0-based */
 
             /* Process a scanline per-pixel and write to *out */
             for(k=0; k < sub[pass].width; k++)
@@ -1467,8 +1514,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 }
                 
             }/* for(k=0; k < sub[pass].width; k++) */
-
-            scanline--; /* point to filter byte */
 
             /* NOTE: prev_scanline is always defiltered */
             memcpy(prev_scanline, scanline, scanline_width);
