@@ -1039,20 +1039,16 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     ret = calculate_subimages(sub, &scanline_width, &ctx->ihdr, channels);
     if(ret) return ret;
 
-    unsigned char *scanline_orig = NULL, *scanline = NULL, *prev_scanline = NULL;
+    unsigned char *scanline = NULL, *prev_scanline = NULL;
 
-    scanline_orig = spng__malloc(ctx, scanline_width);
+    scanline = spng__malloc(ctx, scanline_width);
     prev_scanline = spng__malloc(ctx, scanline_width);
 
-    if(scanline_orig == NULL || prev_scanline == NULL)
+    if(scanline == NULL || prev_scanline == NULL)
     {
         ret = SPNG_EMEM;
         goto decode_err;
     }
-
-    /* Some of the error-handling goto's might leave scanline incremented,
-       leading to a failed free(), this prevents that. */
-    scanline = scanline_orig;
 
     int i;
     for(i=0; i < 7; i++)
@@ -1185,8 +1181,11 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     unsigned char pixel[8] = {0};
     size_t pixel_offset = 0;
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
+    uint8_t processing_depth = ctx->ihdr.bit_depth;
                 
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) processing_depth = 8;
 
     for(pass=0; pass < 7; pass++)
     {
@@ -1446,9 +1445,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 }
                 else
                 {
-                    uint8_t processing_depth = ctx->ihdr.bit_depth;
-                    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) processing_depth = 8;
-
                     r = sample_to_target(r, processing_depth, red_sbits, depth_target);
                     g = sample_to_target(g, processing_depth, green_sbits, depth_target);
                     b = sample_to_target(b, processing_depth, blue_sbits, depth_target);
@@ -1529,7 +1525,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 decode_err:
 
     inflateEnd(&stream);
-    spng__free(ctx, scanline_orig);
+    spng__free(ctx, scanline);
     spng__free(ctx, prev_scanline);
 
     if(ret)
