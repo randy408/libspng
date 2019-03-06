@@ -256,8 +256,6 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
 {
     if(ctx == NULL || out == NULL) return 1;
 
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
-
     int ret = get_ancillary(ctx);
     if(ret) return ret;
 
