@@ -315,6 +315,8 @@ API
 
    Get ICC color profile
 
+   .. note:: ICC profiles are not validated.
+
 .. c:function:: int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 
    Get significant bits
@@ -413,6 +415,8 @@ API
 
    :c:member:`spng_iccp.profile_name` must only contain printable Latin-1 characters and spaces.
    Leading, trailing, and consecutive spaces are not permitted.
+
+   .. note:: ICC profiles are not validated.
 
 .. c:function:: int spng_set_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 
