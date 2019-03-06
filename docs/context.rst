@@ -54,3 +54,15 @@ API
     Set how chunk CRC errors should be handled for critical and ancillary chunks.
 
 .. note:: Partially implemented, ``SPNG_CRC_DISCARD`` has no effect.
+
+.. c:function:: int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
+
+    Set chunk size and chunk cache limits.
+
+.. warning:: Unreleased function, do not use.
+
+.. c:function:: int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_limit)
+
+    Get chunk size and chunk cache limits.
+
+.. warning:: Unreleased function, do not use.
