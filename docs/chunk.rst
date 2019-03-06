@@ -313,7 +313,7 @@ API
 
 .. c:function:: int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 
-   Get ICC color profile
+   Get ICC profile
 
    .. note:: ICC profiles are not validated.
 
@@ -411,7 +411,7 @@ API
 
 .. c:function:: int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 
-   Set ICC color profile
+   Set ICC profile
 
    :c:member:`spng_iccp.profile_name` must only contain printable Latin-1 characters and spaces.
    Leading, trailing, and consecutive spaces are not permitted.
