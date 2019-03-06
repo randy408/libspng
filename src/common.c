@@ -9,6 +9,16 @@
                             SPNG_STR(SPNG_VERSION_MINOR) "." \
                             SPNG_STR(SPNG_VERSION_PATCH)
 
+#define SPNG_GET_CHUNK_BOILERPLATE(chunk) \
+    if(ctx == NULL || chunk == NULL) return 1; \
+    int ret = get_ancillary(ctx); \
+    if(ret) return ret;
+
+#define SPNG_SET_CHUNK_BOILERPLATE(chunk) \
+    if(ctx == NULL || chunk == NULL) return 1; \
+    int ret = get_ancillary2(ctx); \
+    if(ret) return ret;
+
 const uint32_t png_u32max = 2147483647;
 const int32_t png_s32min = -2147483647;
 
@@ -550,10 +560,7 @@ int check_png_text(const char *str, size_t len)
 
 int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
-    if(ctx == NULL || ihdr == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(ihdr);
 
     memcpy(ihdr, &ctx->ihdr, sizeof(struct spng_ihdr));
 
@@ -562,10 +569,7 @@ int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 
 int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte)
 {
-    if(ctx == NULL || plte == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(plte);
 
     if(!ctx->stored_plte) return SPNG_ECHUNKAVAIL;
 
@@ -576,10 +580,7 @@ int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte)
 
 int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
-    if(ctx == NULL || trns == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(trns);
 
     if(!ctx->stored_trns) return SPNG_ECHUNKAVAIL;
 
@@ -590,10 +591,7 @@ int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns)
 
 int spng_get_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 {
-    if(ctx == NULL || chrm == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(chrm);
 
     if(!ctx->stored_chrm) return SPNG_ECHUNKAVAIL;
 
@@ -611,10 +609,7 @@ int spng_get_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 
 int spng_get_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm)
 {
-    if(ctx == NULL || chrm == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(chrm);
 
     if(!ctx->stored_chrm) return SPNG_ECHUNKAVAIL;
 
@@ -625,10 +620,7 @@ int spng_get_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm)
 
 int spng_get_gama(spng_ctx *ctx, double *gamma)
 {
-    if(ctx == NULL || gamma == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(gamma);
 
     if(!ctx->stored_gama) return SPNG_ECHUNKAVAIL;
 
@@ -639,10 +631,7 @@ int spng_get_gama(spng_ctx *ctx, double *gamma)
 
 int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
-    if(ctx == NULL || iccp == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(iccp);
 
     if(!ctx->stored_iccp) return SPNG_ECHUNKAVAIL;
 
@@ -653,10 +642,7 @@ int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 
 int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 {
-    if(ctx == NULL || sbit == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(sbit);
 
     if(!ctx->stored_sbit) return SPNG_ECHUNKAVAIL;
 
@@ -667,10 +653,7 @@ int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 
 int spng_get_srgb(spng_ctx *ctx, uint8_t *rendering_intent)
 {
-    if(ctx == NULL || rendering_intent == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(rendering_intent);
 
     if(!ctx->stored_srgb) return SPNG_ECHUNKAVAIL;
 
@@ -702,10 +685,7 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 
 int spng_get_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
-    if(ctx == NULL || bkgd == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(bkgd);
 
     if(!ctx->stored_bkgd) return SPNG_ECHUNKAVAIL;
 
@@ -716,10 +696,7 @@ int spng_get_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 
 int spng_get_hist(spng_ctx *ctx, struct spng_hist *hist)
 {
-    if(ctx == NULL || hist == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(hist);
 
     if(!ctx->stored_hist) return SPNG_ECHUNKAVAIL;
 
@@ -730,10 +707,7 @@ int spng_get_hist(spng_ctx *ctx, struct spng_hist *hist)
 
 int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys)
 {
-    if(ctx == NULL || phys == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(phys);
 
     if(!ctx->stored_phys) return SPNG_ECHUNKAVAIL;
 
@@ -765,10 +739,7 @@ int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 
 int spng_get_time(spng_ctx *ctx, struct spng_time *time)
 {
-    if(ctx == NULL || time == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(time);
 
     if(!ctx->stored_time) return SPNG_ECHUNKAVAIL;
 
@@ -779,10 +750,7 @@ int spng_get_time(spng_ctx *ctx, struct spng_time *time)
 
 int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
-    if(ctx == NULL || offs == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(offs);
 
     if(!ctx->stored_offs) return SPNG_ECHUNKAVAIL;
 
@@ -793,10 +761,7 @@ int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
 
 int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif)
 {
-    if(ctx == NULL || exif == NULL) return 1;
-
-    int ret = get_ancillary(ctx);
-    if(ret) return ret;
+    SPNG_GET_CHUNK_BOILERPLATE(exif);
 
     if(!ctx->stored_exif) return SPNG_ECHUNKAVAIL;
 
@@ -807,10 +772,7 @@ int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif)
 
 int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
-    if(ctx == NULL || ihdr == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(ihdr);
 
     if(ctx->stored_ihdr) return 1;
 
@@ -829,10 +791,7 @@ int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 
 int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte)
 {
-    if(ctx == NULL || plte == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(plte);
 
     if(!ctx->stored_ihdr) return 1;
 
@@ -854,10 +813,7 @@ int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte)
 
 int spng_set_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
-    if(ctx == NULL || trns == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(trns);
 
     if(!ctx->stored_ihdr) return 1;
 
@@ -890,10 +846,7 @@ int spng_set_trns(spng_ctx *ctx, struct spng_trns *trns)
 
 int spng_set_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 {
-    if(ctx == NULL || chrm == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(chrm);
 
     struct spng_chrm_int chrm_int;
 
@@ -918,10 +871,7 @@ int spng_set_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 
 int spng_set_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm_int)
 {
-    if(ctx == NULL || chrm_int == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(chrm_int);
 
     if(check_chrm_int(chrm_int)) return SPNG_ECHRM;
 
@@ -935,10 +885,7 @@ int spng_set_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm_int)
 
 int spng_set_gama(spng_ctx *ctx, double gamma)
 {
-    if(ctx == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(ctx);
 
     uint32_t gama = gamma * 100000.0;
 
@@ -955,10 +902,7 @@ int spng_set_gama(spng_ctx *ctx, double gamma)
 
 int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
-    if(ctx == NULL || iccp == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(iccp);
 
     if(check_png_keyword(iccp->profile_name)) return SPNG_EICCP_NAME;
     if(!iccp->profile_len) return 1;
@@ -975,10 +919,7 @@ int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 
 int spng_set_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 {
-    if(ctx == NULL || sbit == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(sbit);
 
     if(!ctx->stored_ihdr) return 1;
     if(check_sbit(sbit, &ctx->ihdr)) return 1;
@@ -993,10 +934,7 @@ int spng_set_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 
 int spng_set_srgb(spng_ctx *ctx, uint8_t rendering_intent)
 {
-    if(ctx == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(ctx);
 
     if(rendering_intent > 3) return 1;
 
@@ -1067,10 +1005,7 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
 
 int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
-    if(ctx == NULL || bkgd == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(bkgd);
 
     if(!ctx->stored_ihdr) return 1;
 
@@ -1104,10 +1039,7 @@ int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 
 int spng_set_hist(spng_ctx *ctx, struct spng_hist *hist)
 {
-    if(ctx == NULL || hist == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(hist);
 
     if(!ctx->stored_plte) return SPNG_EHIST_NO_PLTE;
 
@@ -1121,10 +1053,7 @@ int spng_set_hist(spng_ctx *ctx, struct spng_hist *hist)
 
 int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys)
 {
-    if(ctx == NULL || phys == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(phys);
 
     if(check_phys(phys)) return SPNG_EPHYS;
 
@@ -1170,10 +1099,7 @@ int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
 
 int spng_set_time(spng_ctx *ctx, struct spng_time *time)
 {
-    if(ctx == NULL || time == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(time);
 
     if(check_time(time)) return SPNG_ETIME;
 
@@ -1187,10 +1113,7 @@ int spng_set_time(spng_ctx *ctx, struct spng_time *time)
 
 int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
-    if(ctx == NULL || offs == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(offs);
 
     if(check_offs(offs)) return SPNG_EOFFS;
 
@@ -1204,10 +1127,7 @@ int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs)
 
 int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
 {
-    if(ctx == NULL || exif == NULL) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    SPNG_SET_CHUNK_BOILERPLATE(exif);
 
     if(check_exif(exif)) return SPNG_EEXIF;
 
