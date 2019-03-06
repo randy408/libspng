@@ -922,11 +922,8 @@ static int validate_past_idat(spng_ctx *ctx)
    "sbits" must be less than or equal to "bit_depth"
    "target" must be between 1 and 16
 */
-static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbits, uint8_t target)
+static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned sbits, unsigned target)
 {
-    uint16_t sample_bits;
-    int8_t shift_amount;
-
     if(bit_depth == sbits)
     {
         if(target == sbits) return sample; /* no scaling */
@@ -937,8 +934,8 @@ static uint16_t sample_to_target(uint16_t sample, uint8_t bit_depth, uint8_t sbi
     if(target < sbits) return sample >> (sbits - target);
 
     /* upscale using left bit replication */
-    shift_amount = target - sbits;
-    sample_bits = sample;
+    int8_t shift_amount = target - sbits;
+    uint16_t sample_bits = sample;
     sample = 0;
 
     while(shift_amount >= 0)
