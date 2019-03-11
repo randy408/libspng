@@ -32,4 +32,4 @@ libspng can decode images to 8- or 16-bit RGBA formats from any PNG file,
     spng_ctx_free(ctx);
 
 
-For a complete example see `example.c <https://gitlab.com/randy408/libspng/blob/v0.4.3/examples/example.c>`_.
+For a complete example see `example.c <https://gitlab.com/randy408/libspng/blob/v0.4.4/examples/example.c>`_.

@@ -60,7 +60,7 @@ Online documentation is available at [libspng.org/doc](https://libspng.org/doc).
 * Text and iCCP chunks are not read, see issue [#31](https://gitlab.com/randy408/libspng/issues/31).
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
 
-# Building from source
+# [Build from source](https://libspng.org/doc/build)
 
 Download the latest release from [libspng.org/download](https://libspng.org/download).
 
