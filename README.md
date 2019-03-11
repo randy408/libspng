@@ -53,14 +53,16 @@ and have a [Defect Density](https://scan.coverity.com/projects/randy408-libspng)
 
 # Documentation
 
-Online documentation is available at https://libspng.org/doc.
+Online documentation is available at [libspng.org/doc](https://libspng.org/doc).
 
 # Known Issues
 
 * Text and iCCP chunks are not read, see issue [#31](https://gitlab.com/randy408/libspng/issues/31).
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
 
-## Building from source
+# Building from source
+
+Download the latest release from [libspng.org/download](https://libspng.org/download).
 
 Meson is the primary build system but CMake is also supported, the library only depends on zlib.
 
@@ -82,6 +84,11 @@ cd build
 ninja
 ninja install
 ```
+
+### Amalgamation
+
+The amalgamation is a concatenation of source files, you only have to include `spng.c/spng.h` in your project.
+Define `SPNG_OPTIMIZE_DEFILTER` before including `spng.h` to enable optimizations.
 
 ## Running the testsuite
 
