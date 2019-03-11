@@ -15,7 +15,7 @@ Documentation
 .. toctree::
    :maxdepth: 1
 
-   platform
+   build
    api
    usage
 
