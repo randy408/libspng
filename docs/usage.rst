@@ -7,9 +7,8 @@ Basic usage
 -----------
 
 libspng can decode images to 8- or 16-bit RGBA formats from any PNG file,
-  whether to use ancillary chunk information when decoding is controlled
-  with `SPNG_DECODE_USE_*` flags,
-  by default they're ignored.
+whether to use ancillary chunk information when decoding is controlled
+with `SPNG_DECODE_USE_*` flags, by default they're ignored.
 
 .. code-block:: c
 
@@ -24,9 +23,6 @@ libspng can decode images to 8- or 16-bit RGBA formats from any PNG file,
 
     /* Get an 8-bit RGBA image, regardless of PNG format */
     spng_decode_image(ctx, SPNG_FMT_RGBA8, out, out_size, 0);
-
-    /* Get 16-bit RGBA image, do gamma-correction using gAMA chunk information if available.*/
-    spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA16, SPNG_DECODE_USE_GAMA);
 
     /* Free context memory */
     spng_ctx_free(ctx);
