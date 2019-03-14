@@ -2,7 +2,7 @@ project('libspng', 'c', version : '0.4.4', license : 'bsd', default_options : ['
 
 cc = meson.get_compiler('c')
 
-spng_inc = include_directories('src')
+spng_inc = include_directories('.')
 
 zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'])
 m_dep = cc.find_library('m', required : false)
@@ -13,9 +13,9 @@ if get_option('optimize_filter') == true
     add_project_arguments('-DSPNG_OPTIMIZE_FILTER', language : 'c')
 endif
 
-install_headers('src/spng.h')
+install_headers('spng.h')
 
-spng_src = files('src/spng.c')
+spng_src = files('spng.c')
 
 spng_lib = library('spng', spng_src,
                    dependencies : spng_deps,
