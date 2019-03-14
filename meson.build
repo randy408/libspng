@@ -15,7 +15,7 @@ endif
 
 install_headers('src/spng.h')
 
-spng_src = files('src/decode.c')
+spng_src = files('src/spng.c')
 
 spng_lib = library('spng', spng_src,
                    dependencies : spng_deps,
