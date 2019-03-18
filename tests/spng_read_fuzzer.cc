@@ -4,6 +4,7 @@
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     unsigned char *out = NULL;
+    int flags;
 
     spng_ctx *ctx = spng_ctx_new(0);
     if(ctx == NULL) return 0;
@@ -24,7 +25,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     out = (unsigned char*)malloc(out_size);
     if(out == NULL) goto err;
 
-    if(spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, SPNG_DECODE_USE_TRNS | SPNG_DECODE_USE_GAMA)) goto err;
+    flags = SPNG_DECODE_USE_TRNS | SPNG_DECODE_USE_GAMA | SPNG_DECODE_USE_SBIT;
+    if(spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, flags)) goto err;
 
 err:
     spng_ctx_free(ctx);
