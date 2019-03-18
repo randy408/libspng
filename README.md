@@ -60,23 +60,10 @@ Online documentation is available at [libspng.org/doc](https://libspng.org/doc).
 * Text and iCCP chunks are not read, see issue [#31](https://gitlab.com/randy408/libspng/issues/31).
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
 
-# [Build from source](https://libspng.org/doc/build)
+# Using spng
 
-Download the latest release from [libspng.org/download](https://libspng.org/download).
-
-Meson is the primary build system but CMake is also supported, the library only depends on zlib.
-
-### CMake build
-
-```
-mkdir -p cbuild
-cd cbuild
-cmake ..
-make
-make install
-```
-
-### Meson build
+Download the [latest release](https://libspng.org/download) and include `spng.c/spng.h` in your project,
+you can also build with Meson:
 
 ```
 meson build
@@ -85,17 +72,12 @@ ninja
 ninja install
 ```
 
-### Amalgamation
-
-The amalgamation is a concatenation of source files, you only have to include `spng.c/spng.h` in your project.
-Define `SPNG_OPTIMIZE_DEFILTER` before including `spng.h` to enable optimizations.
+Refer to the [documentation](https://libspng.org/doc) for details.
 
 ## Running the testsuite
 
-Only with Meson builds, the testsuite requires libpng.
-
 ```
-# Run in build directory
+# Run in build directory, requires libpng.
 meson configure -Ddev_build=true
 ninja test
 ```
