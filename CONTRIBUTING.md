@@ -1,7 +1,7 @@
 # Contributing
 
-If you intend to make major changes you should let others know by opening an 
-[issue](https://gitlab.com/randy408/libspng/issues).
+If you intend to make major changes you should let others know by creating a
+[new issue](https://gitlab.com/randy408/libspng/issues).
 
 # Fork
 
