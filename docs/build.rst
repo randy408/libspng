@@ -14,25 +14,8 @@ Platform requirements
   supported.
 
 
-Build system
--------------
-
-Meson is the primary build system but CMake is also supported.
-
-CMake
-------
-
-.. code-block:: bash
-
-   mkdir -p cbuild
-   cd cbuild
-   cmake ..
-   make
-   make install
-
-
-Meson
------
+Build with Meson
+----------------
 
 .. code-block:: bash
 
@@ -47,10 +30,9 @@ Filter optimizations
 
 The `SPNG_OPTIMIZE_FILTER` define controls filter optimization.
 
-The Meson project has an ``optimize_filter`` option,
-the CMake equivalent is ``OPTIMIZE_FILTER``, these are enabled by default.
+The Meson project has an ``optimize_filter`` option, it is enabled by default.
 
-For amalgamation builds define ``SPNG_OPTIMIZE_FILTER`` before
+When compiling directly define ``SPNG_OPTIMIZE_FILTER`` before
 including ``spng.h``.
 
 Filter optimizations require SSE2/SSSE3 on x86, compiler-specific macros
