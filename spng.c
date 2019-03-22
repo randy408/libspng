@@ -15,13 +15,13 @@
         #undef SPNG_OPTIMIZE_FILTER
     #endif
 
-    void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
-    void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
-    void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-    void png_read_filter_row_avg4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-    void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-    void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-#endif
+        void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
+        void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
+        void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        void png_read_filter_row_avg4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+    #endif
 
 #define SPNG_FILTER_TYPE_NONE 0
 #define SPNG_FILTER_TYPE_SUB 1
@@ -2162,7 +2162,10 @@ int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
     else if(ihdr->color_type == 4)
     {
         if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
+        if(sbit->alpha_bits == 0) return SPNG_ESBIT;
+
         if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->alpha_bits > ihdr->bit_depth) return SPNG_ESBIT;
     }
     else if(ihdr->color_type == 6)
     {
