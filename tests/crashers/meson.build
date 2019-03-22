@@ -25,3 +25,4 @@ test('huge_ztxt', test_exe, args : files('huge_zTXt_chunk.png'), should_fail : t
 # These are minimized testcases created by OSS-Fuzz with fixed CRC's
 test('zero_width', test_exe, args : files('zero_width.png'), should_fail : true)
 test('zero_gama', test_exe, args : files('zero_gama.png'), should_fail : true)
+test('invalid_gray_alpha_sbit', test_exe, args : files('invalid_gray_alpha_sbit.png'), should_fail : true)
