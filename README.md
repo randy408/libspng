@@ -10,7 +10,7 @@ not compatible.
 
 The goal is to provide a PNG library with a simpler API than [libpng](https://github.com/glennrp/libpng/blob/libpng16/png.h).
 
-Peformance is also a priority, decoding is 8% faster than libpng for truecolor images with an alpha channel and 3% faster for truecolor images.
+Peformance is also a priority, decode time is within 5% of libpng for RGB/RGBA images. see the [comparison page](comparison.md).
 
 The testsuite is designed to test both libraries, it has already uncovered a [bug](https://sourceforge.net/p/libpng/bugs/282/) in libpng.
 
