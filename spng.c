@@ -15,12 +15,12 @@
         #undef SPNG_OPTIMIZE_FILTER
     #endif
 
-        void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
-        void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
-        void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-        void png_read_filter_row_avg4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-        void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-        void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        static void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
+        static void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
+        static void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        static void png_read_filter_row_avg4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        static void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        static void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
     #endif
 
 #define SPNG_FILTER_TYPE_NONE 0
@@ -180,26 +180,26 @@ struct spng_subimage
     size_t scanline_width;
 };
 
-void *spng__malloc(spng_ctx *ctx,  size_t size);
-void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size);
-void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size);
-void spng__free(spng_ctx *ctx, void *ptr);
+static void *spng__malloc(spng_ctx *ctx,  size_t size);
+static void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size);
+static void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size);
+static void spng__free(spng_ctx *ctx, void *ptr);
 
-int get_ancillary(spng_ctx *ctx);
-int get_ancillary2(spng_ctx *ctx);
+static int get_ancillary(spng_ctx *ctx);
+static int get_ancillary2(spng_ctx *ctx);
 
-int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels);
+static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels);
 
-int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height);
-int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr);
-int check_chrm_int(struct spng_chrm_int *chrm_int);
-int check_phys(struct spng_phys *phys);
-int check_time(struct spng_time *time);
-int check_offs(struct spng_offs *offs);
-int check_exif(struct spng_exif *exif);
+static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height);
+static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr);
+static int check_chrm_int(struct spng_chrm_int *chrm_int);
+static int check_phys(struct spng_phys *phys);
+static int check_time(struct spng_time *time);
+static int check_offs(struct spng_offs *offs);
+static int check_exif(struct spng_exif *exif);
 
-int check_png_keyword(const char str[80]);
-int check_png_text(const char *str, size_t len);
+static int check_png_keyword(const char str[80]);
+static int check_png_text(const char *str, size_t len);
 
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
@@ -255,7 +255,7 @@ static inline int32_t read_s32(const void *_data)
     return ret;
 }
 
-int is_critical_chunk(struct spng_chunk *chunk)
+static int is_critical_chunk(struct spng_chunk *chunk)
 {
     if(chunk == NULL) return 0;
     if((chunk->type[0] & (1 << 5)) == 0) return 1;
@@ -1176,7 +1176,7 @@ static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned s
     return sample;
 }
 
-int get_ancillary(spng_ctx *ctx)
+static int get_ancillary(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
@@ -1197,7 +1197,7 @@ int get_ancillary(spng_ctx *ctx)
 }
 
 /* Same as above except it returns 0 if no buffer is set */
-int get_ancillary2(spng_ctx *ctx)
+static int get_ancillary2(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
@@ -1778,22 +1778,22 @@ decode_err:
     return ret;
 }
 
-inline void *spng__malloc(spng_ctx *ctx,  size_t size)
+static inline void *spng__malloc(spng_ctx *ctx,  size_t size)
 {
     return ctx->alloc.malloc_fn(size);
 }
 
-inline void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size)
+static inline void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size)
 {
     return ctx->alloc.calloc_fn(nmemb, size);
 }
 
-inline void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size)
+static inline void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size)
 {
     return ctx->alloc.realloc_fn(ptr, size);
 }
 
-inline void spng__free(spng_ctx *ctx, void *ptr)
+static inline void spng__free(spng_ctx *ctx, void *ptr)
 {
     ctx->alloc.free_fn(ptr);
 }
@@ -2015,7 +2015,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     return 0;
 }
 
-int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
+static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
 {
     if(sub == NULL || ihdr == NULL) return 1;
 
@@ -2079,7 +2079,7 @@ int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, st
     return 0;
 }
 
-int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
+static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
     if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
     if(ihdr->height > png_u32max || ihdr->height > max_height || !ihdr->height) return SPNG_EHEIGHT;
@@ -2136,7 +2136,7 @@ int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
     return 0;
 }
 
-int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
+static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
 {
     if(sbit == NULL || ihdr == NULL) return 1;
 
@@ -2183,7 +2183,7 @@ int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
     return 0;
 }
 
-int check_chrm_int(struct spng_chrm_int *chrm_int)
+static int check_chrm_int(struct spng_chrm_int *chrm_int)
 {
     if(chrm_int == NULL) return 1;
 
@@ -2199,7 +2199,7 @@ int check_chrm_int(struct spng_chrm_int *chrm_int)
     return 0;
 }
 
-int check_phys(struct spng_phys *phys)
+static int check_phys(struct spng_phys *phys)
 {
     if(phys == NULL) return 1;
 
@@ -2211,7 +2211,7 @@ int check_phys(struct spng_phys *phys)
     return 0;
 }
 
-int check_time(struct spng_time *time)
+static int check_time(struct spng_time *time)
 {
     if(time == NULL) return 1;
 
@@ -2224,7 +2224,7 @@ int check_time(struct spng_time *time)
     return 0;
 }
 
-int check_offs(struct spng_offs *offs)
+static int check_offs(struct spng_offs *offs)
 {
     if(offs == NULL) return 1;
 
@@ -2234,7 +2234,7 @@ int check_offs(struct spng_offs *offs)
     return 0;
 }
 
-int check_exif(struct spng_exif *exif)
+static int check_exif(struct spng_exif *exif)
 {
     if(exif == NULL) return 1;
 
@@ -2250,7 +2250,7 @@ int check_exif(struct spng_exif *exif)
 }
 
 /* Validate PNG keyword *str, *str must be 80 bytes */
-int check_png_keyword(const char str[80])
+static int check_png_keyword(const char str[80])
 {
     if(str == NULL) return 1;
     char *end = memchr(str, '\0', 80);
@@ -2274,7 +2274,7 @@ int check_png_keyword(const char str[80])
 }
 
 /* Validate PNG text *str up to 'len' bytes */
-int check_png_text(const char *str, size_t len)
+static int check_png_text(const char *str, size_t len)
 {/* XXX: are consecutive newlines permitted? */
     if(str == NULL || len == 0) return 1;
 
@@ -3031,7 +3031,7 @@ static void store3(void* p, __m128i v)
    memcpy(p, &tmp, 3);
 }
 
-void png_read_filter_row_sub3(size_t rowbytes, png_bytep row)
+static void png_read_filter_row_sub3(size_t rowbytes, png_bytep row)
 {
    /* The Sub filter predicts each pixel as the previous pixel, a.
     * There is no pixel to the left of the first pixel.  It's encoded directly.
@@ -3056,7 +3056,7 @@ void png_read_filter_row_sub3(size_t rowbytes, png_bytep row)
    }
 }
 
-void png_read_filter_row_sub4(size_t rowbytes, png_bytep row)
+static void png_read_filter_row_sub4(size_t rowbytes, png_bytep row)
 {
    /* The Sub filter predicts each pixel as the previous pixel, a.
     * There is no pixel to the left of the first pixel.  It's encoded directly.
@@ -3076,7 +3076,7 @@ void png_read_filter_row_sub4(size_t rowbytes, png_bytep row)
    }
 }
 
-void png_read_filter_row_avg3(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void png_read_filter_row_avg3(size_t rowbytes, png_bytep row, png_const_bytep prev)
 {
    /* The Avg filter predicts each pixel as the (truncated) average of a and b.
     * There's no pixel to the left of the first pixel.  Luckily, it's
@@ -3127,7 +3127,7 @@ void png_read_filter_row_avg3(size_t rowbytes, png_bytep row, png_const_bytep pr
    }
 }
 
-void png_read_filter_row_avg4(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void png_read_filter_row_avg4(size_t rowbytes, png_bytep row, png_const_bytep prev)
 {
    /* The Avg filter predicts each pixel as the (truncated) average of a and b.
     * There's no pixel to the left of the first pixel.  Luckily, it's
@@ -3191,7 +3191,7 @@ static __m128i if_then_else(__m128i c, __m128i t, __m128i e)
 #endif
 }
 
-void png_read_filter_row_paeth3(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void png_read_filter_row_paeth3(size_t rowbytes, png_bytep row, png_const_bytep prev)
 {
    /* Paeth tries to predict pixel d using the pixel to the left of it, a,
     * and two pixels from the previous row, b and c:
@@ -3283,7 +3283,7 @@ void png_read_filter_row_paeth3(size_t rowbytes, png_bytep row, png_const_bytep 
    }
 }
 
-void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row, png_const_bytep prev)
 {
    /* Paeth tries to predict pixel d using the pixel to the left of it, a,
     * and two pixels from the previous row, b and c:
