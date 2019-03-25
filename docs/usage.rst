@@ -28,4 +28,4 @@ with `SPNG_DECODE_USE_*` flags, by default they're ignored.
     spng_ctx_free(ctx);
 
 
-For a complete example see `example.c <https://gitlab.com/randy408/libspng/blob/v0.4.4/examples/example.c>`_.
+For a complete example see `example.c <https://gitlab.com/randy408/libspng/blob/v0.4.5/examples/example.c>`_.
