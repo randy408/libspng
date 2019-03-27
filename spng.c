@@ -1687,29 +1687,24 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                     gray = gray_8;
                 }
 
-
+                
                 if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
                    ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
                 {
                     gray = sample_to_target(gray, processing_depth, grayscale_sbits, depth_target);
-                    a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
+
+                    r = gray;
+                    g = gray;
+                    b = gray;
                 }
                 else
                 {
                     r = sample_to_target(r, processing_depth, red_sbits, depth_target);
                     g = sample_to_target(g, processing_depth, green_sbits, depth_target);
                     b = sample_to_target(b, processing_depth, blue_sbits, depth_target);
-                    a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
                 }
 
-
-                if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
-                   ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
-                {
-                    r = gray;
-                    g = gray;
-                    b = gray;
-                }
+                a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
 
 
                 if(flags & SPNG_DECODE_USE_GAMA && ctx->stored_gama)
