@@ -1393,9 +1393,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         }
     }
 
-    unsigned depth_target = 8; /* FMT_RGBA8 */
-    if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
-
     uint32_t bytes_read;
 
     ret = get_idat_bytes(ctx, &bytes_read);
@@ -1416,10 +1413,28 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     size_t pixel_offset = 0;
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
     unsigned processing_depth = ctx->ihdr.bit_depth;
-                
-    if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+    unsigned depth_target = 8; /* FMT_RGBA8 */
+
+    if(fmt == SPNG_FMT_RGBA16)
+    {
+        depth_target = 16;
+        pixel_size = 8;
+    }
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) processing_depth = 8;
+
+    /* Prevent infinite loops in sample_to_target() */
+    if(!depth_target || depth_target > 16 ||
+       !processing_depth || processing_depth > 16 || 
+       !grayscale_sbits || grayscale_sbits > processing_depth ||
+       !alpha_sbits || alpha_sbits > processing_depth ||
+       !red_sbits || red_sbits > processing_depth ||
+       !green_sbits || green_sbits > processing_depth ||
+       !blue_sbits || blue_sbits > processing_depth)
+    {
+        ret = SPNG_ESBIT;
+        goto decode_err;
+    }
 
     for(pass=0; pass < 7; pass++)
     {
@@ -1676,8 +1691,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
                    ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
                 {
-                    gray = sample_to_target(gray, ctx->ihdr.bit_depth, grayscale_sbits, depth_target);
-                    a = sample_to_target(a, ctx->ihdr.bit_depth, alpha_sbits, depth_target);
+                    gray = sample_to_target(gray, processing_depth, grayscale_sbits, depth_target);
+                    a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
                 }
                 else
                 {
