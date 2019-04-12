@@ -11,9 +11,18 @@
 #if defined(SPNG_OPTIMIZE_FILTER)
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
+    #elif defined( __arm__) || defined(_M_ARM)
+        #define SPNG_ARM
     #else
         #undef SPNG_OPTIMIZE_FILTER
     #endif
+
+    #if defined(SPNG_X86) || defined(SPNG_ARM)
+        typedef unsigned char png_byte;
+        typedef uint16_t png_uint_16;
+        typedef uint32_t png_uint_32;
+        typedef unsigned char* png_bytep;
+        typedef const unsigned char* png_const_bytep;
 
         static void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
         static void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
@@ -22,6 +31,7 @@
         static void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
         static void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
     #endif
+#endif
 
 #define SPNG_FILTER_TYPE_NONE 0
 #define SPNG_FILTER_TYPE_SUB 1
@@ -3001,12 +3011,6 @@ const char *spng_version_string(void)
 
 #define PNG_INTEL_SSE_IMPLEMENTATION 3
 
-typedef unsigned char png_byte;
-typedef uint16_t png_uint_16;
-typedef uint32_t png_uint_32;
-typedef unsigned char* png_bytep;
-typedef const unsigned char* png_const_bytep;
-
 /* Functions in this file look at most 3 pixels (a,b,c) to predict the 4th (d).
  * They're positioned like this:
  *    prev:  c b
@@ -3353,3 +3357,344 @@ static void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row, png_const
 }
 
 #endif /* SPNG_OPTIMIZE_FILTER && SPNG_X86 */
+
+
+/* filter_neon_intrinsics.c - NEON optimised filter functions
+ *
+ * Copyright (c) 2018 Cosmin Truta
+ * Copyright (c) 2014,2016 Glenn Randers-Pehrson
+ * Written by James Yu <james.yu at linaro.org>, October 2013.
+ * Based on filter_neon.S, written by Mans Rullgard, 2011.
+ *
+ * This code is released under the libpng license.
+ * For conditions of distribution and use, see the disclaimer
+ * and license in png.h
+ */
+
+
+#if defined(SPNG_OPTIMIZER_FILTER) && defined(SPNG_ARM)
+
+#if defined(_MSC_VER) && defined(_M_ARM64)
+    #include <arm64_neon.h>
+#else
+    # include <arm_neon.h>
+#endif
+
+static void png_read_filter_row_up(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+{
+   png_bytep rp = row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+   png_const_bytep pp = prev_row;
+
+   for (; rp < rp_stop; rp += 16, pp += 16)
+   {
+      uint8x16_t qrp, qpp;
+
+      qrp = vld1q_u8(rp);
+      qpp = vld1q_u8(pp);
+      qrp = vaddq_u8(qrp, qpp);
+      vst1q_u8(rp, qrp);
+   }
+}
+
+static void png_read_filter_row_sub3(png_row_infop row_info, png_bytep row)
+{
+   png_bytep rp = row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+
+   uint8x16_t vtmp = vld1q_u8(rp);
+   uint8x8x2_t *vrpt = png_ptr(uint8x8x2_t, &vtmp);
+   uint8x8x2_t vrp = *vrpt;
+
+   uint8x8x4_t vdest;
+   vdest.val[3] = vdup_n_u8(0);
+
+   for (; rp < rp_stop;)
+   {
+      uint8x8_t vtmp1, vtmp2;
+      uint32x2_t *temp_pointer;
+
+      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
+      vdest.val[0] = vadd_u8(vdest.val[3], vrp.val[0]);
+      vtmp2 = vext_u8(vrp.val[0], vrp.val[1], 6);
+      vdest.val[1] = vadd_u8(vdest.val[0], vtmp1);
+
+      vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
+      vdest.val[2] = vadd_u8(vdest.val[1], vtmp2);
+      vdest.val[3] = vadd_u8(vdest.val[2], vtmp1);
+
+      vtmp = vld1q_u8(rp + 12);
+      vrpt = png_ptr(uint8x8x2_t, &vtmp);
+      vrp = *vrpt;
+
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
+      rp += 3;
+   }
+}
+
+static void png_read_filter_row_sub4(png_row_infop row_info, png_bytep row)
+{
+   png_bytep rp = row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+
+   uint8x8x4_t vdest;
+   vdest.val[3] = vdup_n_u8(0);
+
+   for (; rp < rp_stop; rp += 16)
+   {
+      uint32x2x4_t vtmp = vld4_u32(png_ptr(uint32_t,rp));
+      uint8x8x4_t *vrpt = png_ptr(uint8x8x4_t,&vtmp);
+      uint8x8x4_t vrp = *vrpt;
+      uint32x2x4_t *temp_pointer;
+      uint32x2x4_t vdest_val;
+
+      vdest.val[0] = vadd_u8(vdest.val[3], vrp.val[0]);
+      vdest.val[1] = vadd_u8(vdest.val[0], vrp.val[1]);
+      vdest.val[2] = vadd_u8(vdest.val[1], vrp.val[2]);
+      vdest.val[3] = vadd_u8(vdest.val[2], vrp.val[3]);
+
+      vdest_val = png_ldr(uint32x2x4_t, &vdest);
+      vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
+   }
+}
+
+static void png_read_filter_row_avg3(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+{
+   png_bytep rp = row;
+   png_const_bytep pp = prev_row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+
+   uint8x16_t vtmp;
+   uint8x8x2_t *vrpt;
+   uint8x8x2_t vrp;
+   uint8x8x4_t vdest;
+   vdest.val[3] = vdup_n_u8(0);
+
+   vtmp = vld1q_u8(rp);
+   vrpt = png_ptr(uint8x8x2_t,&vtmp);
+   vrp = *vrpt;
+
+   for (; rp < rp_stop; pp += 12)
+   {
+      uint8x8_t vtmp1, vtmp2, vtmp3;
+
+      uint8x8x2_t *vppt;
+      uint8x8x2_t vpp;
+
+      uint32x2_t *temp_pointer;
+
+      vtmp = vld1q_u8(pp);
+      vppt = png_ptr(uint8x8x2_t,&vtmp);
+      vpp = *vppt;
+
+      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
+      vdest.val[0] = vhadd_u8(vdest.val[3], vpp.val[0]);
+      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+
+      vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 3);
+      vtmp3 = vext_u8(vrp.val[0], vrp.val[1], 6);
+      vdest.val[1] = vhadd_u8(vdest.val[0], vtmp2);
+      vdest.val[1] = vadd_u8(vdest.val[1], vtmp1);
+
+      vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 6);
+      vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
+
+      vtmp = vld1q_u8(rp + 12);
+      vrpt = png_ptr(uint8x8x2_t,&vtmp);
+      vrp = *vrpt;
+
+      vdest.val[2] = vhadd_u8(vdest.val[1], vtmp2);
+      vdest.val[2] = vadd_u8(vdest.val[2], vtmp3);
+
+      vtmp2 = vext_u8(vpp.val[1], vpp.val[1], 1);
+
+      vdest.val[3] = vhadd_u8(vdest.val[2], vtmp2);
+      vdest.val[3] = vadd_u8(vdest.val[3], vtmp1);
+
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
+      rp += 3;
+   }
+}
+
+static void png_read_filter_row_avg4(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+{
+   png_bytep rp = row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+   png_const_bytep pp = prev_row;
+
+   uint8x8x4_t vdest;
+   vdest.val[3] = vdup_n_u8(0);
+
+   for (; rp < rp_stop; rp += 16, pp += 16)
+   {
+      uint32x2x4_t vtmp;
+      uint8x8x4_t *vrpt, *vppt;
+      uint8x8x4_t vrp, vpp;
+      uint32x2x4_t *temp_pointer;
+      uint32x2x4_t vdest_val;
+
+      vtmp = vld4_u32(png_ptr(uint32_t,rp));
+      vrpt = png_ptr(uint8x8x4_t,&vtmp);
+      vrp = *vrpt;
+      vtmp = vld4_u32(png_ptrc(uint32_t,pp));
+      vppt = png_ptr(uint8x8x4_t,&vtmp);
+      vpp = *vppt;
+
+      vdest.val[0] = vhadd_u8(vdest.val[3], vpp.val[0]);
+      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+      vdest.val[1] = vhadd_u8(vdest.val[0], vpp.val[1]);
+      vdest.val[1] = vadd_u8(vdest.val[1], vrp.val[1]);
+      vdest.val[2] = vhadd_u8(vdest.val[1], vpp.val[2]);
+      vdest.val[2] = vadd_u8(vdest.val[2], vrp.val[2]);
+      vdest.val[3] = vhadd_u8(vdest.val[2], vpp.val[3]);
+      vdest.val[3] = vadd_u8(vdest.val[3], vrp.val[3]);
+
+      vdest_val = png_ldr(uint32x2x4_t, &vdest);
+      vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
+   }
+}
+
+static uint8x8_t paeth_arm(uint8x8_t a, uint8x8_t b, uint8x8_t c)
+{
+   uint8x8_t d, e;
+   uint16x8_t p1, pa, pb, pc;
+
+   p1 = vaddl_u8(a, b); /* a + b */
+   pc = vaddl_u8(c, c); /* c * 2 */
+   pa = vabdl_u8(b, c); /* pa */
+   pb = vabdl_u8(a, c); /* pb */
+   pc = vabdq_u16(p1, pc); /* pc */
+
+   p1 = vcleq_u16(pa, pb); /* pa <= pb */
+   pa = vcleq_u16(pa, pc); /* pa <= pc */
+   pb = vcleq_u16(pb, pc); /* pb <= pc */
+
+   p1 = vandq_u16(p1, pa); /* pa <= pb && pa <= pc */
+
+   d = vmovn_u16(pb);
+   e = vmovn_u16(p1);
+
+   d = vbsl_u8(d, b, c);
+   e = vbsl_u8(e, a, d);
+
+   return e;
+}
+
+static void png_read_filter_row_paeth3(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+{
+   png_bytep rp = row;
+   png_const_bytep pp = prev_row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+
+   uint8x16_t vtmp;
+   uint8x8x2_t *vrpt;
+   uint8x8x2_t vrp;
+   uint8x8_t vlast = vdup_n_u8(0);
+   uint8x8x4_t vdest;
+   vdest.val[3] = vdup_n_u8(0);
+
+   vtmp = vld1q_u8(rp);
+   vrpt = png_ptr(uint8x8x2_t,&vtmp);
+   vrp = *vrpt;
+
+   for (; rp < rp_stop; pp += 12)
+   {
+      uint8x8x2_t *vppt;
+      uint8x8x2_t vpp;
+      uint8x8_t vtmp1, vtmp2, vtmp3;
+      uint32x2_t *temp_pointer;
+
+      vtmp = vld1q_u8(pp);
+      vppt = png_ptr(uint8x8x2_t,&vtmp);
+      vpp = *vppt;
+
+      vdest.val[0] = paeth_arm(vdest.val[3], vpp.val[0], vlast);
+      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+
+      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
+      vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 3);
+      vdest.val[1] = paeth_arm(vdest.val[0], vtmp2, vpp.val[0]);
+      vdest.val[1] = vadd_u8(vdest.val[1], vtmp1);
+
+      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 6);
+      vtmp3 = vext_u8(vpp.val[0], vpp.val[1], 6);
+      vdest.val[2] = paeth_arm(vdest.val[1], vtmp3, vtmp2);
+      vdest.val[2] = vadd_u8(vdest.val[2], vtmp1);
+
+      vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
+      vtmp2 = vext_u8(vpp.val[1], vpp.val[1], 1);
+
+      vtmp = vld1q_u8(rp + 12);
+      vrpt = png_ptr(uint8x8x2_t,&vtmp);
+      vrp = *vrpt;
+
+      vdest.val[3] = paeth_arm(vdest.val[2], vtmp2, vtmp3);
+      vdest.val[3] = vadd_u8(vdest.val[3], vtmp1);
+
+      vlast = vtmp2;
+
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
+      rp += 3;
+      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
+      rp += 3;
+   }
+}
+
+static void png_read_filter_row_paeth4(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+{
+   png_bytep rp = row;
+   png_bytep rp_stop = row + row_info->rowbytes;
+   png_const_bytep pp = prev_row;
+
+   uint8x8_t vlast = vdup_n_u8(0);
+   uint8x8x4_t vdest;
+   vdest.val[3] = vdup_n_u8(0);
+
+   for (; rp < rp_stop; rp += 16, pp += 16)
+   {
+      uint32x2x4_t vtmp;
+      uint8x8x4_t *vrpt, *vppt;
+      uint8x8x4_t vrp, vpp;
+      uint32x2x4_t *temp_pointer;
+      uint32x2x4_t vdest_val;
+
+      vtmp = vld4_u32(png_ptr(uint32_t,rp));
+      vrpt = png_ptr(uint8x8x4_t,&vtmp);
+      vrp = *vrpt;
+      vtmp = vld4_u32(png_ptrc(uint32_t,pp));
+      vppt = png_ptr(uint8x8x4_t,&vtmp);
+      vpp = *vppt;
+
+      vdest.val[0] = paeth_arm(vdest.val[3], vpp.val[0], vlast);
+      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+      vdest.val[1] = paeth_arm(vdest.val[0], vpp.val[1], vpp.val[0]);
+      vdest.val[1] = vadd_u8(vdest.val[1], vrp.val[1]);
+      vdest.val[2] = paeth_arm(vdest.val[1], vpp.val[2], vpp.val[1]);
+      vdest.val[2] = vadd_u8(vdest.val[2], vrp.val[2]);
+      vdest.val[3] = paeth_arm(vdest.val[2], vpp.val[3], vpp.val[2]);
+      vdest.val[3] = vadd_u8(vdest.val[3], vrp.val[3]);
+
+      vlast = vpp.val[3];
+
+      vdest_val = png_ldr(uint32x2x4_t, &vdest);
+      vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
+   }
+}
+
+#endif /* SPNG_OPTIMIZER_FILTER && SPNG_ARM */
