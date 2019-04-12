@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     }
 
     png = fopen(argv[1], "r");
-    if(png==NULL)
+    if(png == NULL)
     {
         printf("error opening input file %s\n", argv[1]);
         goto err;
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     if(siz_pngbuf < 1) goto err;
 
     pngbuf = malloc(siz_pngbuf);
-    if(pngbuf==NULL)
+    if(pngbuf == NULL)
     {
         printf("malloc() failed\n");
         goto err;
