@@ -18,7 +18,7 @@ What is the expected correct behavior?
 (What you should see instead)
 
 
-Output of `./testsuite info` if built from source
+Output of `./tests/testsuite info` if built from source
 
 (Use code blocks (```) to format console output, logs, and code.)
 
