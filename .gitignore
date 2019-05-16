@@ -2,3 +2,7 @@
 /benchmark_images/
 /docs/_build/
 /cbuild/
+/.vscode/
+/subprojects/
+/trash/
+/tests/formal/
