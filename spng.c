@@ -1980,7 +1980,7 @@ int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
 
 int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_limit)
 {
-    if(ctx == NULL || chunk_size == NULL) return 1;
+    if(ctx == NULL || chunk_size == NULL || cache_limit == NULL) return 1;
 
     *chunk_size = ctx->max_chunk_size;
 
