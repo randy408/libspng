@@ -66,7 +66,7 @@ Download the [latest release](https://libspng.org/download) and include `spng.c/
 you can also build with Meson:
 
 ```
-meson build
+meson --default-library=both build
 cd build
 ninja
 ninja install
