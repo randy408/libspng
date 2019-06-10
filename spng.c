@@ -3430,10 +3430,10 @@ static void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row, png_const
 
 #if defined(SPNG_OPTIMIZER_FILTER) && defined(SPNG_ARM)
 
-#if defined(_MSC_VER) && defined(_M_ARM64)
+#if defined(_MSC_VER) && !defined(__clang__) && defined(_M_ARM64)
     #include <arm64_neon.h>
 #else
-    # include <arm_neon.h>
+    #include <arm_neon.h>
 #endif
 
 static void png_read_filter_row_up(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
