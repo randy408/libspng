@@ -1040,6 +1040,8 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
 
             ctx->file_exif = 1;
 
+            if(!chunk.length) return SPNG_EEXIF;
+
             struct spng_exif exif;
 
             exif.data = spng__malloc(ctx, chunk.length);
@@ -1085,6 +1087,8 @@ static int validate_past_idat(spng_ctx *ctx)
             if(ret) return ret;
             continue;
         }
+
+        data = ctx->data;
 
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;        
@@ -1143,6 +1147,8 @@ static int validate_past_idat(spng_ctx *ctx)
             if(ctx->file_exif) return SPNG_EDUP_EXIF;
 
             ctx->file_exif = 1;
+
+            if(!chunk.length) return SPNG_EEXIF;
 
             struct spng_exif exif;
 
