@@ -59,6 +59,9 @@ API
 
     Set chunk size and chunk cache limits.
 
+.. note:: This may only be used for limiting memory usage, it does not prevent
+ the storage of most standard chunks which do not require additional memory.
+
 .. warning:: Unreleased function, do not use.
 
 .. c:function:: int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_limit)
