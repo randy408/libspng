@@ -63,7 +63,8 @@ API
     ``out_size`` must be equal to or greater than the number calculated with
     :c:func:`spng_decoded_image_size` with the same output format.
 
-    Interlaced images are written deinterlaced to ``*out``.
+    Interlaced images are written deinterlaced to ``*out``,
+    16-bit images are converted to host-endian.
 
     This function can only be called once per context.
 
