@@ -1,7 +1,7 @@
 /build/
+/clang_build/
 /benchmark_images/
 /docs/_build/
-/cbuild/
 /.vscode/
 /subprojects/
 /trash/
