@@ -1,8 +1,10 @@
+# Tests marked '#*' fail due to a libpng bug: https://gitlab.com/randy408/libspng/issues/5
+
 test('basi0g01', test_exe, args: files('basi0g01.png'))
 test('basi0g02', test_exe, args: files('basi0g02.png'))
 test('basi0g04', test_exe, args: files('basi0g04.png'))
 test('basi0g08', test_exe, args: files('basi0g08.png'))
-test('basi0g16', test_exe, args: files('basi0g16.png'))
+test('basi0g16', test_exe, args: files('basi0g16.png'), should_fail : true) #*
 test('basi2c08', test_exe, args: files('basi2c08.png'))
 test('basi2c16', test_exe, args: files('basi2c16.png'))
 test('basi3p01', test_exe, args: files('basi3p01.png'))
@@ -17,7 +19,7 @@ test('basn0g01', test_exe, args: files('basn0g01.png'))
 test('basn0g02', test_exe, args: files('basn0g02.png'))
 test('basn0g04', test_exe, args: files('basn0g04.png'))
 test('basn0g08', test_exe, args: files('basn0g08.png'))
-test('basn0g16', test_exe, args: files('basn0g16.png'))
+test('basn0g16', test_exe, args: files('basn0g16.png'), should_fail : true) #*
 test('basn2c08', test_exe, args: files('basn2c08.png'))
 test('basn2c16', test_exe, args: files('basn2c16.png'))
 test('basn3p01', test_exe, args: files('basn3p01.png'))
@@ -91,13 +93,13 @@ test('g10n3p04', test_exe, args: files('g10n3p04.png'))
 test('g25n0g16', test_exe, args: files('g25n0g16.png'))
 test('g25n2c08', test_exe, args: files('g25n2c08.png'))
 test('g25n3p04', test_exe, args: files('g25n3p04.png'))
-test('oi1n0g16', test_exe, args: files('oi1n0g16.png'))
+test('oi1n0g16', test_exe, args: files('oi1n0g16.png'), should_fail : true) #*
 test('oi1n2c16', test_exe, args: files('oi1n2c16.png'))
-test('oi2n0g16', test_exe, args: files('oi2n0g16.png'))
+test('oi2n0g16', test_exe, args: files('oi2n0g16.png'), should_fail : true) #*
 test('oi2n2c16', test_exe, args: files('oi2n2c16.png'))
-test('oi4n0g16', test_exe, args: files('oi4n0g16.png'))
+test('oi4n0g16', test_exe, args: files('oi4n0g16.png'), should_fail : true) #*
 test('oi4n2c16', test_exe, args: files('oi4n2c16.png'))
-test('oi9n0g16', test_exe, args: files('oi9n0g16.png'))
+test('oi9n0g16', test_exe, args: files('oi9n0g16.png'), should_fail : true) #*
 test('oi9n2c16', test_exe, args: files('oi9n2c16.png'))
 test('pp0n2c16', test_exe, args: files('pp0n2c16.png'))
 test('pp0n6a08', test_exe, args: files('pp0n6a08.png'))
