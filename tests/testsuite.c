@@ -214,13 +214,6 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
         return 1;
     }
 
-    /* return 0 for should_fail tests if spng can't detect an invalid file */
-    if(should_fail)
-    {
-        free(img_spng);
-        return 0;
-    }
-
     size_t img_png_size;
     unsigned char *img_png = NULL;
 

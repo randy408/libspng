@@ -30,10 +30,7 @@ spng_dep = declare_dependency(link_with : spng_lib,
 
 example_src = files('examples/example.c')
 
-example_exe = executable('example', example_src,
-                         link_with : spng_lib,
-                         include_directories : spng_inc,
-                         dependencies : zlib_dep)
+example_exe = executable('example', example_src, dependencies : spng_dep)
 
 pkg = import('pkgconfig')
 pkg.generate(name : 'spng',

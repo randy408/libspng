@@ -16,16 +16,7 @@ endif
 
 png_dep = dependency('libpng', version : '>=1.6.0')
 
-test_exe = executable('testsuite',
-                      'testsuite.c',
-                      link_with : spng_lib,
-                      include_directories : spng_inc,
-                      dependencies : png_dep)
-
-example = executable('example', example_src,
-                     link_with : spng_lib,
-                     include_directories : spng_inc,
-                     dependencies : zlib_dep)
+test_exe = executable('testsuite', 'testsuite.c', dependencies : [ spng_dep, png_dep ])
 
 test('info', test_exe, args : 'info')
 
