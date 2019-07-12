@@ -27,5 +27,7 @@ example = executable('example', example_src,
                      include_directories : spng_inc,
                      dependencies : zlib_dep)
 
+test('info', test_exe, args : 'info')
+
 subdir('images')
 subdir('crashers')

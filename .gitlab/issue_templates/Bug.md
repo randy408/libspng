@@ -18,7 +18,7 @@ What is the expected correct behavior?
 (What you should see instead)
 
 
-Output of `./tests/testsuite info` if built from source
+Output of `meson test info -v` if built with Meson
 
 (Use code blocks (```) to format console output, logs, and code.)
 
