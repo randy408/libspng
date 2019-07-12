@@ -576,7 +576,7 @@ static int chunk_fits_in_cache(spng_ctx *ctx, size_t *new_usage)
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
     Returns zero and sets ctx->first_idat on success
 */
-static int get_ancillary_data_first_idat(spng_ctx *ctx)
+static int read_chunks_before_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
@@ -1067,7 +1067,7 @@ static int get_ancillary_data_first_idat(spng_ctx *ctx)
     return ret;
 }
 
-static int validate_past_idat(spng_ctx *ctx)
+static int read_chunks_after_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
 
@@ -1228,7 +1228,7 @@ static int get_ancillary(spng_ctx *ctx)
     int ret;
     if(!ctx->first_idat.offset)
     {
-        ret = get_ancillary_data_first_idat(ctx);
+        ret = read_chunks_before_idat(ctx);
         if(ret)
         {
             ctx->valid_state = 0;
@@ -1250,7 +1250,7 @@ static int get_ancillary2(spng_ctx *ctx)
     int ret;
     if(!ctx->first_idat.offset)
     {
-        ret = get_ancillary_data_first_idat(ctx);
+        ret = read_chunks_before_idat(ctx);
         if(ret)
         {
             ctx->valid_state = 0;
@@ -1829,7 +1829,7 @@ decode_err:
 
     memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
 
-    ret = validate_past_idat(ctx);
+    ret = read_chunks_after_idat(ctx);
 
     if(ret) ctx->valid_state = 0;
 
