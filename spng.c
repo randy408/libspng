@@ -194,27 +194,6 @@ struct spng_subimage
     size_t scanline_width;
 };
 
-static void *spng__malloc(spng_ctx *ctx,  size_t size);
-static void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size);
-static void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size);
-static void spng__free(spng_ctx *ctx, void *ptr);
-
-static int get_ancillary(spng_ctx *ctx);
-static int get_ancillary2(spng_ctx *ctx);
-
-static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels);
-
-static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height);
-static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr);
-static int check_chrm_int(struct spng_chrm_int *chrm_int);
-static int check_phys(struct spng_phys *phys);
-static int check_time(struct spng_time *time);
-static int check_offs(struct spng_offs *offs);
-static int check_exif(struct spng_exif *exif);
-
-static int check_png_keyword(const char str[80]);
-static int check_png_text(const char *str, size_t len);
-
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
@@ -240,6 +219,26 @@ static const uint8_t type_time[4] = { 116, 73, 77, 69 };
 
 static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
 static const uint8_t type_exif[4] = { 101, 88, 73, 102 };
+
+static inline void *spng__malloc(spng_ctx *ctx,  size_t size)
+{
+    return ctx->alloc.malloc_fn(size);
+}
+
+static inline void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size)
+{
+    return ctx->alloc.calloc_fn(nmemb, size);
+}
+
+static inline void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size)
+{
+    return ctx->alloc.realloc_fn(ptr, size);
+}
+
+static inline void spng__free(spng_ctx *ctx, void *ptr)
+{
+    ctx->alloc.free_fn(ptr);
+}
 
 static inline uint16_t read_u16(const void *_data)
 {
@@ -552,6 +551,253 @@ no_opt:
         }
 
         memcpy(scanline + i, &x, 1);
+    }
+
+    return 0;
+}
+
+/* Scale "sbits" significant bits in "sample" from "bit_depth" to "target"
+
+   "bit_depth" must be a valid PNG depth
+   "sbits" must be less than or equal to "bit_depth"
+   "target" must be between 1 and 16
+*/
+static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned sbits, unsigned target)
+{
+    if(bit_depth == sbits)
+    {
+        if(target == sbits) return sample; /* no scaling */
+    }/* bit_depth > sbits */
+    else sample = sample >> (bit_depth - sbits); /* shift significant bits to bottom */
+
+    /* downscale */
+    if(target < sbits) return sample >> (sbits - target);
+
+    /* upscale using left bit replication */
+    int8_t shift_amount = target - sbits;
+    uint16_t sample_bits = sample;
+    sample = 0;
+
+    while(shift_amount >= 0)
+    {
+        sample = sample | (sample_bits << shift_amount);
+        shift_amount -= sbits;
+    }
+
+    int8_t partial = shift_amount + (int8_t)sbits;
+
+    if(partial != 0) sample = sample | (sample_bits >> abs(shift_amount));
+
+    return sample;
+}
+
+static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
+{
+    if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
+    if(ihdr->height > png_u32max || ihdr->height > max_height || !ihdr->height) return SPNG_EHEIGHT;
+
+    switch(ihdr->color_type)
+    {
+        case SPNG_COLOR_TYPE_GRAYSCALE:
+        {
+            if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
+                  ihdr->bit_depth == 4 || ihdr->bit_depth == 8 ||
+                  ihdr->bit_depth == 16) )
+                  return SPNG_EBIT_DEPTH;
+
+            break;
+        }
+        case SPNG_COLOR_TYPE_TRUECOLOR:
+        {
+            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
+                return SPNG_EBIT_DEPTH;
+
+            break;
+        }
+        case SPNG_COLOR_TYPE_INDEXED:
+        {
+            if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
+                  ihdr->bit_depth == 4 || ihdr->bit_depth == 8) )
+                return SPNG_EBIT_DEPTH;
+
+            break;
+        }
+        case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+        {
+            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
+                return SPNG_EBIT_DEPTH;
+
+            break;
+        }
+        case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
+        {
+            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
+                return SPNG_EBIT_DEPTH;
+
+            break;
+        }
+    default: return SPNG_ECOLOR_TYPE;
+    }
+
+    if(ihdr->compression_method || ihdr->filter_method)
+        return SPNG_ECOMPRESSION_METHOD;
+
+    if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
+        return SPNG_EINTERLACE_METHOD;
+
+    return 0;
+}
+
+static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
+{
+    if(sbit == NULL || ihdr == NULL) return 1;
+
+    if(ihdr->color_type == 0)
+    {
+        if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
+        if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
+    }
+    else if(ihdr->color_type == 2 || ihdr->color_type == 3)
+    {
+        if(sbit->red_bits == 0) return SPNG_ESBIT;
+        if(sbit->green_bits == 0) return SPNG_ESBIT;
+        if(sbit->blue_bits == 0) return SPNG_ESBIT;
+
+        uint8_t bit_depth;
+        if(ihdr->color_type == 3) bit_depth = 8;
+        else bit_depth = ihdr->bit_depth;
+
+        if(sbit->red_bits > bit_depth) return SPNG_ESBIT;
+        if(sbit->green_bits > bit_depth) return SPNG_ESBIT;
+        if(sbit->blue_bits > bit_depth) return SPNG_ESBIT;
+    }
+    else if(ihdr->color_type == 4)
+    {
+        if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
+        if(sbit->alpha_bits == 0) return SPNG_ESBIT;
+
+        if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->alpha_bits > ihdr->bit_depth) return SPNG_ESBIT;
+    }
+    else if(ihdr->color_type == 6)
+    {
+        if(sbit->red_bits == 0) return SPNG_ESBIT;
+        if(sbit->green_bits == 0) return SPNG_ESBIT;
+        if(sbit->blue_bits == 0) return SPNG_ESBIT;
+        if(sbit->alpha_bits == 0) return SPNG_ESBIT;
+
+        if(sbit->red_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->green_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->blue_bits > ihdr->bit_depth) return SPNG_ESBIT;
+        if(sbit->alpha_bits > ihdr->bit_depth) return SPNG_ESBIT;
+    }
+
+    return 0;
+}
+
+static int check_chrm_int(struct spng_chrm_int *chrm_int)
+{
+    if(chrm_int == NULL) return 1;
+
+    if(chrm_int->white_point_x > png_u32max ||
+       chrm_int->white_point_y > png_u32max ||
+       chrm_int->red_x > png_u32max ||
+       chrm_int->red_y > png_u32max ||
+       chrm_int->green_x  > png_u32max ||
+       chrm_int->green_y  > png_u32max ||
+       chrm_int->blue_x > png_u32max ||
+       chrm_int->blue_y > png_u32max) return SPNG_ECHRM;
+
+    return 0;
+}
+
+static int check_phys(struct spng_phys *phys)
+{
+    if(phys == NULL) return 1;
+
+    if(phys->unit_specifier > 1) return SPNG_EPHYS;
+
+    if(phys->ppu_x > png_u32max) return SPNG_EPHYS;
+    if(phys->ppu_y > png_u32max) return SPNG_EPHYS;
+
+    return 0;
+}
+
+static int check_time(struct spng_time *time)
+{
+    if(time == NULL) return 1;
+
+    if(time->month == 0 || time->month > 12) return 1;
+    if(time->day == 0 || time->day > 31) return 1;
+    if(time->hour > 23) return 1;
+    if(time->minute > 59) return 1;
+    if(time->second > 60) return 1;
+
+    return 0;
+}
+
+static int check_offs(struct spng_offs *offs)
+{
+    if(offs == NULL) return 1;
+
+    if(offs->x < png_s32min || offs->y < png_s32min) return 1;
+    if(offs->unit_specifier > 1) return 1;
+
+    return 0;
+}
+
+static int check_exif(struct spng_exif *exif)
+{
+    if(exif == NULL) return 1;
+
+    if(exif->length < 4) return SPNG_ECHUNK_SIZE;
+    if(exif->length > png_u32max) return SPNG_ECHUNK_SIZE;
+
+    const uint8_t exif_le[4] = { 73, 73, 42, 0 };
+    const uint8_t exif_be[4] = { 77, 77, 0, 42 };
+
+    if(memcmp(exif->data, exif_le, 4) && memcmp(exif->data, exif_be, 4)) return 1;
+
+    return 0;
+}
+
+/* Validate PNG keyword *str, *str must be 80 bytes */
+static int check_png_keyword(const char str[80])
+{
+    if(str == NULL) return 1;
+    char *end = memchr(str, '\0', 80);
+
+    if(end == NULL) return 1; /* unterminated string */
+    if(end == str) return 1; /* zero-length string */
+    if(str[0] == ' ') return 1; /* leading space */
+    if(end[-1] == ' ') return 1; /* trailing space */
+    if(strstr(str, "  ") != NULL) return 1; /* consecutive spaces */
+
+    uint8_t c;
+    while(str != end)
+    {
+        memcpy(&c, str, 1);
+
+        if( (c >= 32 && c <= 126) || (c >= 161) ) str++;
+        else return 1; /* invalid character */
+    }
+
+    return 0;
+}
+
+/* Validate PNG text *str up to 'len' bytes */
+static int check_png_text(const char *str, size_t len)
+{/* XXX: are consecutive newlines permitted? */
+    if(str == NULL || len == 0) return 1;
+
+    uint8_t c;
+    size_t i = 0;
+    while(i < len)
+    {
+        memcpy(&c, str + i, 1);
+
+        if( (c >= 32 && c <= 126) || (c >= 161) || c == 10) i++;
+        else return 1; /* invalid character */
     }
 
     return 0;
@@ -1183,40 +1429,68 @@ static int read_chunks_after_idat(spng_ctx *ctx)
     return ret;
 }
 
-
-/* Scale "sbits" significant bits in "sample" from "bit_depth" to "target"
-
-   "bit_depth" must be a valid PNG depth
-   "sbits" must be less than or equal to "bit_depth"
-   "target" must be between 1 and 16
-*/
-static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned sbits, unsigned target)
+static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
 {
-    if(bit_depth == sbits)
+    if(sub == NULL || ihdr == NULL) return 1;
+
+    if(ihdr->interlace_method == 1)
     {
-        if(target == sbits) return sample; /* no scaling */
-    }/* bit_depth > sbits */
-    else sample = sample >> (bit_depth - sbits); /* shift significant bits to bottom */
-
-    /* downscale */
-    if(target < sbits) return sample >> (sbits - target);
-
-    /* upscale using left bit replication */
-    int8_t shift_amount = target - sbits;
-    uint16_t sample_bits = sample;
-    sample = 0;
-
-    while(shift_amount >= 0)
+        sub[0].width = (ihdr->width + 7) >> 3;
+        sub[0].height = (ihdr->height + 7) >> 3;
+        sub[1].width = (ihdr->width + 3) >> 3;
+        sub[1].height = (ihdr->height + 7) >> 3;
+        sub[2].width = (ihdr->width + 3) >> 2;
+        sub[2].height = (ihdr->height + 3) >> 3;
+        sub[3].width = (ihdr->width + 1) >> 2;
+        sub[3].height = (ihdr->height + 3) >> 2;
+        sub[4].width = (ihdr->width + 1) >> 1;
+        sub[4].height = (ihdr->height + 1) >> 2;
+        sub[5].width = ihdr->width >> 1;
+        sub[5].height = (ihdr->height + 1) >> 1;
+        sub[6].width = ihdr->width;
+        sub[6].height = ihdr->height >> 1;
+    }
+    else
     {
-        sample = sample | (sample_bits << shift_amount);
-        shift_amount -= sbits;
+        sub[0].width = ihdr->width;
+        sub[0].height = ihdr->height;
     }
 
-    int8_t partial = shift_amount + (int8_t)sbits;
+    size_t scanline_width, widest = 0;
 
-    if(partial != 0) sample = sample | (sample_bits >> abs(shift_amount));
+    int i;
+    for(i=0; i < 7; i++)
+    {/* Calculate scanline width in bits, round up to the nearest byte */
+        if(sub[i].width == 0 || sub[i].height == 0) continue;
 
-    return sample;
+        scanline_width = channels * ihdr->bit_depth;
+
+        if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
+        scanline_width = scanline_width * sub[i].width;
+
+        scanline_width += 8; /* Filter byte */
+
+        if(scanline_width < 8) return SPNG_EOVERFLOW;
+
+        /* Round up */
+        if(scanline_width % 8 != 0)
+        {
+            scanline_width = scanline_width + 8;
+            if(scanline_width < 8) return SPNG_EOVERFLOW;
+
+            scanline_width -= (scanline_width % 8);
+        }
+
+        scanline_width /= 8;
+
+        sub[i].scanline_width = scanline_width;
+
+        if(widest < scanline_width) widest = scanline_width;
+    }
+
+    *widest_scanline = widest;
+
+    return 0;
 }
 
 static int get_ancillary(spng_ctx *ctx)
@@ -1836,26 +2110,6 @@ decode_err:
     return ret;
 }
 
-static inline void *spng__malloc(spng_ctx *ctx,  size_t size)
-{
-    return ctx->alloc.malloc_fn(size);
-}
-
-static inline void *spng__calloc(spng_ctx *ctx, size_t nmemb, size_t size)
-{
-    return ctx->alloc.calloc_fn(nmemb, size);
-}
-
-static inline void *spng__realloc(spng_ctx *ctx, void *ptr, size_t size)
-{
-    return ctx->alloc.realloc_fn(ptr, size);
-}
-
-static inline void spng__free(spng_ctx *ctx, void *ptr)
-{
-    ctx->alloc.free_fn(ptr);
-}
-
 
 spng_ctx *spng_ctx_new(int flags)
 {
@@ -2071,282 +2325,6 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     else return SPNG_EFMT;
 
     *out = res;
-
-    return 0;
-}
-
-static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
-{
-    if(sub == NULL || ihdr == NULL) return 1;
-
-    if(ihdr->interlace_method == 1)
-    {
-        sub[0].width = (ihdr->width + 7) >> 3;
-        sub[0].height = (ihdr->height + 7) >> 3;
-        sub[1].width = (ihdr->width + 3) >> 3;
-        sub[1].height = (ihdr->height + 7) >> 3;
-        sub[2].width = (ihdr->width + 3) >> 2;
-        sub[2].height = (ihdr->height + 3) >> 3;
-        sub[3].width = (ihdr->width + 1) >> 2;
-        sub[3].height = (ihdr->height + 3) >> 2;
-        sub[4].width = (ihdr->width + 1) >> 1;
-        sub[4].height = (ihdr->height + 1) >> 2;
-        sub[5].width = ihdr->width >> 1;
-        sub[5].height = (ihdr->height + 1) >> 1;
-        sub[6].width = ihdr->width;
-        sub[6].height = ihdr->height >> 1;
-    }
-    else
-    {
-        sub[0].width = ihdr->width;
-        sub[0].height = ihdr->height;
-    }
-
-    size_t scanline_width, widest = 0;
-
-    int i;
-    for(i=0; i < 7; i++)
-    {/* Calculate scanline width in bits, round up to the nearest byte */
-        if(sub[i].width == 0 || sub[i].height == 0) continue;
-
-        scanline_width = channels * ihdr->bit_depth;
-
-        if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
-        scanline_width = scanline_width * sub[i].width;
-
-        scanline_width += 8; /* Filter byte */
-
-        if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-        /* Round up */
-        if(scanline_width % 8 != 0)
-        {
-            scanline_width = scanline_width + 8;
-            if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-            scanline_width -= (scanline_width % 8);
-        }
-
-        scanline_width /= 8;
-
-        sub[i].scanline_width = scanline_width;
-
-        if(widest < scanline_width) widest = scanline_width;
-    }
-
-    *widest_scanline = widest;
-
-    return 0;
-}
-
-static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
-{
-    if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
-    if(ihdr->height > png_u32max || ihdr->height > max_height || !ihdr->height) return SPNG_EHEIGHT;
-
-    switch(ihdr->color_type)
-    {
-        case SPNG_COLOR_TYPE_GRAYSCALE:
-        {
-            if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
-                  ihdr->bit_depth == 4 || ihdr->bit_depth == 8 ||
-                  ihdr->bit_depth == 16) )
-                  return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOR_TYPE_TRUECOLOR:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOR_TYPE_INDEXED:
-        {
-            if( !(ihdr->bit_depth == 1 || ihdr->bit_depth == 2 ||
-                  ihdr->bit_depth == 4 || ihdr->bit_depth == 8) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-    default: return SPNG_ECOLOR_TYPE;
-    }
-
-    if(ihdr->compression_method || ihdr->filter_method)
-        return SPNG_ECOMPRESSION_METHOD;
-
-    if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
-        return SPNG_EINTERLACE_METHOD;
-
-    return 0;
-}
-
-static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
-{
-    if(sbit == NULL || ihdr == NULL) return 1;
-
-    if(ihdr->color_type == 0)
-    {
-        if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
-        if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
-    }
-    else if(ihdr->color_type == 2 || ihdr->color_type == 3)
-    {
-        if(sbit->red_bits == 0) return SPNG_ESBIT;
-        if(sbit->green_bits == 0) return SPNG_ESBIT;
-        if(sbit->blue_bits == 0) return SPNG_ESBIT;
-
-        uint8_t bit_depth;
-        if(ihdr->color_type == 3) bit_depth = 8;
-        else bit_depth = ihdr->bit_depth;
-
-        if(sbit->red_bits > bit_depth) return SPNG_ESBIT;
-        if(sbit->green_bits > bit_depth) return SPNG_ESBIT;
-        if(sbit->blue_bits > bit_depth) return SPNG_ESBIT;
-    }
-    else if(ihdr->color_type == 4)
-    {
-        if(sbit->grayscale_bits == 0) return SPNG_ESBIT;
-        if(sbit->alpha_bits == 0) return SPNG_ESBIT;
-
-        if(sbit->grayscale_bits > ihdr->bit_depth) return SPNG_ESBIT;
-        if(sbit->alpha_bits > ihdr->bit_depth) return SPNG_ESBIT;
-    }
-    else if(ihdr->color_type == 6)
-    {
-        if(sbit->red_bits == 0) return SPNG_ESBIT;
-        if(sbit->green_bits == 0) return SPNG_ESBIT;
-        if(sbit->blue_bits == 0) return SPNG_ESBIT;
-        if(sbit->alpha_bits == 0) return SPNG_ESBIT;
-
-        if(sbit->red_bits > ihdr->bit_depth) return SPNG_ESBIT;
-        if(sbit->green_bits > ihdr->bit_depth) return SPNG_ESBIT;
-        if(sbit->blue_bits > ihdr->bit_depth) return SPNG_ESBIT;
-        if(sbit->alpha_bits > ihdr->bit_depth) return SPNG_ESBIT;
-    }
-
-    return 0;
-}
-
-static int check_chrm_int(struct spng_chrm_int *chrm_int)
-{
-    if(chrm_int == NULL) return 1;
-
-    if(chrm_int->white_point_x > png_u32max ||
-       chrm_int->white_point_y > png_u32max ||
-       chrm_int->red_x > png_u32max ||
-       chrm_int->red_y > png_u32max ||
-       chrm_int->green_x  > png_u32max ||
-       chrm_int->green_y  > png_u32max ||
-       chrm_int->blue_x > png_u32max ||
-       chrm_int->blue_y > png_u32max) return SPNG_ECHRM;
-
-    return 0;
-}
-
-static int check_phys(struct spng_phys *phys)
-{
-    if(phys == NULL) return 1;
-
-    if(phys->unit_specifier > 1) return SPNG_EPHYS;
-
-    if(phys->ppu_x > png_u32max) return SPNG_EPHYS;
-    if(phys->ppu_y > png_u32max) return SPNG_EPHYS;
-
-    return 0;
-}
-
-static int check_time(struct spng_time *time)
-{
-    if(time == NULL) return 1;
-
-    if(time->month == 0 || time->month > 12) return 1;
-    if(time->day == 0 || time->day > 31) return 1;
-    if(time->hour > 23) return 1;
-    if(time->minute > 59) return 1;
-    if(time->second > 60) return 1;
-
-    return 0;
-}
-
-static int check_offs(struct spng_offs *offs)
-{
-    if(offs == NULL) return 1;
-
-    if(offs->x < png_s32min || offs->y < png_s32min) return 1;
-    if(offs->unit_specifier > 1) return 1;
-
-    return 0;
-}
-
-static int check_exif(struct spng_exif *exif)
-{
-    if(exif == NULL) return 1;
-
-    if(exif->length < 4) return SPNG_ECHUNK_SIZE;
-    if(exif->length > png_u32max) return SPNG_ECHUNK_SIZE;
-
-    const uint8_t exif_le[4] = { 73, 73, 42, 0 };
-    const uint8_t exif_be[4] = { 77, 77, 0, 42 };
-
-    if(memcmp(exif->data, exif_le, 4) && memcmp(exif->data, exif_be, 4)) return 1;
-
-    return 0;
-}
-
-/* Validate PNG keyword *str, *str must be 80 bytes */
-static int check_png_keyword(const char str[80])
-{
-    if(str == NULL) return 1;
-    char *end = memchr(str, '\0', 80);
-
-    if(end == NULL) return 1; /* unterminated string */
-    if(end == str) return 1; /* zero-length string */
-    if(str[0] == ' ') return 1; /* leading space */
-    if(end[-1] == ' ') return 1; /* trailing space */
-    if(strstr(str, "  ") != NULL) return 1; /* consecutive spaces */
-
-    uint8_t c;
-    while(str != end)
-    {
-        memcpy(&c, str, 1);
-
-        if( (c >= 32 && c <= 126) || (c >= 161) ) str++;
-        else return 1; /* invalid character */
-    }
-
-    return 0;
-}
-
-/* Validate PNG text *str up to 'len' bytes */
-static int check_png_text(const char *str, size_t len)
-{/* XXX: are consecutive newlines permitted? */
-    if(str == NULL || len == 0) return 1;
-
-    uint8_t c;
-    size_t i = 0;
-    while(i < len)
-    {
-        memcpy(&c, str + i, 1);
-
-        if( (c >= 32 && c <= 126) || (c >= 161) || c == 10) i++;
-        else return 1; /* invalid character */
-    }
 
     return 0;
 }
