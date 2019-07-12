@@ -19,7 +19,7 @@ test:
     - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=undefined -Db_coverage=true gcc_build
     - cd gcc_build
     - ninja
-    - ./tests/testsuite info
+    - meson test info -v
     - ninja test
     - ninja coverage-text
     - cat meson-logs/coverage.txt
