@@ -30,7 +30,7 @@
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
     #elif defined( __arm__) || defined(_M_ARM)
-        #define SPNG_ARM
+        /* #define SPNG_ARM */ /* It's broken, https://gitlab.com/randy408/libspng/issues/35 */
     #else
         #undef SPNG_OPTIMIZE_FILTER
     #endif
