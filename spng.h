@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (BSD-2-Clause AND libpng-2.0) */
 #ifndef SPNG_H
 #define SPNG_H
 
