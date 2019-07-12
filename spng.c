@@ -36,18 +36,12 @@
     #endif
 
     #if defined(SPNG_X86) || defined(SPNG_ARM)
-        typedef unsigned char png_byte;
-        typedef uint16_t png_uint_16;
-        typedef uint32_t png_uint_32;
-        typedef unsigned char* png_bytep;
-        typedef const unsigned char* png_const_bytep;
-
-        static void png_read_filter_row_sub3(size_t rowbytes, unsigned char* row);
-        static void png_read_filter_row_sub4(size_t rowbytes, unsigned char* row);
-        static void png_read_filter_row_avg3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-        static void png_read_filter_row_avg4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-        static void png_read_filter_row_paeth3(size_t rowbytes, unsigned char* row, const unsigned char* prev);
-        static void png_read_filter_row_paeth4(size_t rowbytes, unsigned char* row, const unsigned char* prev);
+        static void defilter_sub3(size_t rowbytes, unsigned char *row);
+        static void defilter_sub4(size_t rowbytes, unsigned char *row);
+        static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+        static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+        static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+        static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev);
     #endif
 #endif
 
@@ -484,22 +478,22 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     if(bytes_per_pixel == 4)
     {
         if(filter == SPNG_FILTER_TYPE_SUB)
-            png_read_filter_row_sub4(scanline_width, scanline);
+            defilter_sub4(scanline_width, scanline);
         else if(filter == SPNG_FILTER_TYPE_AVERAGE)
-            png_read_filter_row_avg4(scanline_width, scanline, prev_scanline);
+            defilter_avg4(scanline_width, scanline, prev_scanline);
         else if(filter == SPNG_FILTER_TYPE_PAETH)
-            png_read_filter_row_paeth4(scanline_width, scanline, prev_scanline);
+            defilter_paeth4(scanline_width, scanline, prev_scanline);
 
         return 0;
     }
     else if(bytes_per_pixel == 3)
     {
         if(filter == SPNG_FILTER_TYPE_SUB)
-            png_read_filter_row_sub3(scanline_width, scanline);
+            defilter_sub3(scanline_width, scanline);
         else if(filter == SPNG_FILTER_TYPE_AVERAGE)
-            png_read_filter_row_avg3(scanline_width, scanline, prev_scanline);
+            defilter_avg3(scanline_width, scanline, prev_scanline);
         else if(filter == SPNG_FILTER_TYPE_PAETH)
-            png_read_filter_row_paeth3(scanline_width, scanline, prev_scanline);
+            defilter_paeth3(scanline_width, scanline, prev_scanline);
 
         return 0;
     }
@@ -3069,7 +3063,7 @@ static void store4(void* p, __m128i v)
 
 static __m128i load3(const void* p)
 {
-   png_uint_32 tmp = 0;
+   uint32_t tmp = 0;
    memcpy(&tmp, p, 3);
    return _mm_cvtsi32_si128(tmp);
 }
@@ -3080,7 +3074,7 @@ static void store3(void* p, __m128i v)
    memcpy(p, &tmp, 3);
 }
 
-static void png_read_filter_row_sub3(size_t rowbytes, png_bytep row)
+static void defilter_sub3(size_t rowbytes, unsigned char *row)
 {
    /* The Sub filter predicts each pixel as the previous pixel, a.
     * There is no pixel to the left of the first pixel.  It's encoded directly.
@@ -3105,7 +3099,7 @@ static void png_read_filter_row_sub3(size_t rowbytes, png_bytep row)
    }
 }
 
-static void png_read_filter_row_sub4(size_t rowbytes, png_bytep row)
+static void defilter_sub4(size_t rowbytes, unsigned char *row)
 {
    /* The Sub filter predicts each pixel as the previous pixel, a.
     * There is no pixel to the left of the first pixel.  It's encoded directly.
@@ -3125,7 +3119,7 @@ static void png_read_filter_row_sub4(size_t rowbytes, png_bytep row)
    }
 }
 
-static void png_read_filter_row_avg3(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* The Avg filter predicts each pixel as the (truncated) average of a and b.
     * There's no pixel to the left of the first pixel.  Luckily, it's
@@ -3176,7 +3170,7 @@ static void png_read_filter_row_avg3(size_t rowbytes, png_bytep row, png_const_b
    }
 }
 
-static void png_read_filter_row_avg4(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* The Avg filter predicts each pixel as the (truncated) average of a and b.
     * There's no pixel to the left of the first pixel.  Luckily, it's
@@ -3240,7 +3234,7 @@ static __m128i if_then_else(__m128i c, __m128i t, __m128i e)
 #endif
 }
 
-static void png_read_filter_row_paeth3(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* Paeth tries to predict pixel d using the pixel to the left of it, a,
     * and two pixels from the previous row, b and c:
@@ -3332,7 +3326,7 @@ static void png_read_filter_row_paeth3(size_t rowbytes, png_bytep row, png_const
    }
 }
 
-static void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row, png_const_bytep prev)
+static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* Paeth tries to predict pixel d using the pixel to the left of it, a,
     * and two pixels from the previous row, b and c:
@@ -3415,11 +3409,11 @@ static void png_read_filter_row_paeth4(size_t rowbytes, png_bytep row, png_const
     #include <arm_neon.h>
 #endif
 
-static void png_read_filter_row_up(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+static void defilter_up(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
 {
-   png_bytep rp = row;
-   png_bytep rp_stop = row + row_info->rowbytes;
-   png_const_bytep pp = prev_row;
+   unsigned char *rp = row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
+   const unsigned char *pp = prev_row;
 
    for (; rp < rp_stop; rp += 16, pp += 16)
    {
@@ -3432,10 +3426,10 @@ static void png_read_filter_row_up(png_row_infop row_info, png_bytep row, png_co
    }
 }
 
-static void png_read_filter_row_sub3(png_row_infop row_info, png_bytep row)
+static void defilter_sub3(png_row_infop row_info, unsigned char *row)
 {
-   png_bytep rp = row;
-   png_bytep rp_stop = row + row_info->rowbytes;
+   unsigned char *rp = row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
 
    uint8x16_t vtmp = vld1q_u8(rp);
    uint8x8x2_t *vrpt = png_ptr(uint8x8x2_t, &vtmp);
@@ -3473,10 +3467,10 @@ static void png_read_filter_row_sub3(png_row_infop row_info, png_bytep row)
    }
 }
 
-static void png_read_filter_row_sub4(png_row_infop row_info, png_bytep row)
+static void defilter_sub4(png_row_infop row_info, unsigned char *row)
 {
-   png_bytep rp = row;
-   png_bytep rp_stop = row + row_info->rowbytes;
+   unsigned char *rp = row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
 
    uint8x8x4_t vdest;
    vdest.val[3] = vdup_n_u8(0);
@@ -3499,11 +3493,11 @@ static void png_read_filter_row_sub4(png_row_infop row_info, png_bytep row)
    }
 }
 
-static void png_read_filter_row_avg3(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+static void defilter_avg3(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
 {
-   png_bytep rp = row;
-   png_const_bytep pp = prev_row;
-   png_bytep rp_stop = row + row_info->rowbytes;
+   unsigned char *rp = row;
+   const unsigned char *pp = prev_row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
 
    uint8x16_t vtmp;
    uint8x8x2_t *vrpt;
@@ -3563,11 +3557,11 @@ static void png_read_filter_row_avg3(png_row_infop row_info, png_bytep row, png_
    }
 }
 
-static void png_read_filter_row_avg4(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+static void defilter_avg4(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
 {
-   png_bytep rp = row;
-   png_bytep rp_stop = row + row_info->rowbytes;
-   png_const_bytep pp = prev_row;
+   unsigned char *rp = row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
+   const unsigned char *pp = prev_row;
 
    uint8x8x4_t vdest;
    vdest.val[3] = vdup_n_u8(0);
@@ -3627,11 +3621,11 @@ static uint8x8_t paeth_arm(uint8x8_t a, uint8x8_t b, uint8x8_t c)
    return e;
 }
 
-static void png_read_filter_row_paeth3(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+static void defilter_paeth3(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
 {
-   png_bytep rp = row;
-   png_const_bytep pp = prev_row;
-   png_bytep rp_stop = row + row_info->rowbytes;
+   unsigned char *rp = row;
+   const unsigned char *pp = prev_row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
 
    uint8x16_t vtmp;
    uint8x8x2_t *vrpt;
@@ -3691,11 +3685,11 @@ static void png_read_filter_row_paeth3(png_row_infop row_info, png_bytep row, pn
    }
 }
 
-static void png_read_filter_row_paeth4(png_row_infop row_info, png_bytep row, png_const_bytep prev_row)
+static void defilter_paeth4(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
 {
-   png_bytep rp = row;
-   png_bytep rp_stop = row + row_info->rowbytes;
-   png_const_bytep pp = prev_row;
+   unsigned char *rp = row;
+   unsigned char *rp_stop = row + row_info->rowbytes;
+   const unsigned char *pp = prev_row;
 
    uint8x8_t vlast = vdup_n_u8(0);
    uint8x8x4_t vdest;
