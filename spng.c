@@ -886,8 +886,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;
 
-        /* Reserved bit must be zero */
-        if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
         /* Ignore private chunks */
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
@@ -1334,8 +1332,6 @@ static int read_chunks_after_idat(spng_ctx *ctx)
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;        
 
-        /* Reserved bit must be zero */
-        if( (chunk.type[2] & (1 << 5)) != 0) return SPNG_ECHUNK_TYPE;
          /* Ignore private chunks */
         if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
