@@ -1257,6 +1257,8 @@ static int get_ancillary2(spng_ctx *ctx)
         }
     }
 
+    ctx->encode_only = 1;
+
     return 0;
 }
 
@@ -1264,8 +1266,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 {
     if(ctx == NULL) return 1;
     if(out == NULL) return 1;
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
-    if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
     int ret;
     size_t out_size_required;
@@ -1950,6 +1950,7 @@ int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size)
 {
     if(ctx == NULL || buf == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
     if(ctx->data != NULL) return SPNG_EBUF_SET;
 
@@ -1967,6 +1968,7 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn read_func, void *user)
 {
     if(ctx == NULL || read_func == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
     if(ctx->data != NULL) return SPNG_EBUF_SET;
 
@@ -2591,8 +2593,6 @@ int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 
     ctx->stored |= SPNG_CHUNK_IHDR;
     ctx->user_ihdr = 1;
-
-    ctx->encode_only = 1;
 
     return 0;
 }
