@@ -20,5 +20,8 @@ test_exe = executable('testsuite', 'testsuite.c', dependencies : [ spng_dep, png
 
 test('info', test_exe, args : 'info')
 
+cpp_exe = executable('cpp_exe', 'test.cpp', dependencies : spng_dep)
+test('cpp_test', cpp_exe)
+
 subdir('images')
 subdir('crashers')
