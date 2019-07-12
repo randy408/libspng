@@ -422,7 +422,7 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 }
 
 /* Read at least one byte from the IDAT stream */
-static int get_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
+static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
 {
     if(ctx == NULL || bytes_read == NULL) return 1;
     if(memcmp(ctx->current_chunk.type, type_idat, 4)) return SPNG_EIDAT_TOO_SHORT;
@@ -1439,7 +1439,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
     uint32_t bytes_read;
 
-    ret = get_idat_bytes(ctx, &bytes_read);
+    ret = read_idat_bytes(ctx, &bytes_read);
     if(ret) goto decode_err;
 
     stream.avail_in = bytes_read;
@@ -1520,7 +1520,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
             if(stream.avail_out != 0 && stream.avail_in == 0)
             {
-                ret = get_idat_bytes(ctx, &bytes_read);
+                ret = read_idat_bytes(ctx, &bytes_read);
                 if(ret) goto decode_err;
 
                 stream.avail_in = bytes_read;
@@ -1562,7 +1562,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 /* We don't have scanline_width of data and we ran out of IDAT bytes */
                 if(stream.avail_out != 0 && stream.avail_in == 0)
                 {
-                    ret = get_idat_bytes(ctx, &bytes_read);
+                    ret = read_idat_bytes(ctx, &bytes_read);
                     if(ret) goto decode_err;
 
                     stream.avail_in = bytes_read;
