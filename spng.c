@@ -2209,7 +2209,7 @@ int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size)
     return 0;
 }
 
-int spng_set_png_stream(spng_ctx *ctx, spng_read_fn read_func, void *user)
+int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
 {
     if(ctx == NULL || read_func == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
