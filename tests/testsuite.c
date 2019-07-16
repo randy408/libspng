@@ -283,7 +283,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    png = fopen(filename, "r");
+    png = fopen(filename, "rb");
 
     /* all images beginning with "x" are invalid */
     if(strstr(filename, "/x") != NULL) should_fail = 1;
