@@ -1579,7 +1579,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         goto decode_err;
     }
 
-    int i;
+    uint32_t i;
     for(i=0; i < 7; i++)
     {
         /* Skip empty passes */
@@ -1598,7 +1598,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         float file_gamma = (float)ctx->gama / 100000.0f;
         float max;
 
-        uint32_t i, lut_entries;
+        uint32_t lut_entries;
 
         if(fmt == SPNG_FMT_RGBA8)
         {
