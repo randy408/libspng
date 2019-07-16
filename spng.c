@@ -3201,7 +3201,11 @@ static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned ch
 }
 
 /* Returns |x| for 16-bit lanes. */
+#ifndef _MSC_VER
 static __attribute__((target("ssse3"))) __m128i abs_i16(__m128i x)
+#else 
+static __m128i abs_i16(__m128i x) 
+#endif
 {
 #if PNG_INTEL_SSE_IMPLEMENTATION >= 2
    return _mm_abs_epi16(x);
