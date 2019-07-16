@@ -47,7 +47,7 @@ API
 
     Get image width and height limits.
 
-    ``*width`` and ``*height`` must be non-NULL.
+    ``width`` and ``height`` must be non-NULL.
 
 .. c:function:: int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
 

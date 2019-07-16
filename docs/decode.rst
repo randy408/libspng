@@ -10,7 +10,7 @@ Data types
 
     Type definition for callback passed to :c:func:`spng_set_png_stream`.
 
-    A read callback function should copy "n" bytes to *data and return 0 or
+    A read callback function should copy ``n`` bytes to ``data`` and return 0 or
     SPNG_IO_EOF/SPNG_IO_ERROR on error.
 
 .. c:type:: spng_format
@@ -56,14 +56,14 @@ API
 
 .. c:function:: int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags)
 
-    Decodes the PNG file and writes the decoded image to ``*out``.
+    Decodes the PNG file and writes the decoded image to ``out``.
 
-    ``*out`` must point to a buffer of length ``out_size``.
+    ``out`` must point to a buffer of length ``out_size``.
 
     ``out_size`` must be equal to or greater than the number calculated with
     :c:func:`spng_decoded_image_size` with the same output format.
 
-    Interlaced images are written deinterlaced to ``*out``,
+    Interlaced images are written deinterlaced to ``out``,
     16-bit images are converted to host-endian.
 
     This function can only be called once per context.

@@ -327,11 +327,11 @@ API
 
 .. c:function:: int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 
-   Copies text information to ``*text``.
+   Copies text information to ``text``.
 
-   ``*n_text`` should be greater than or equal to the number of stored text chunks.
+   ``n_text`` should be greater than or equal to the number of stored text chunks.
 
-   If ``*text`` is NULL and ``*n_text`` is non-NULL then ``*n_text`` is set to the number
+   If ``text`` is NULL and ``n_text`` is non-NULL then ``n_text`` is set to the number
    of stored text chunks.
 
    .. note:: Due to the structure of PNG files it is recommended to call this function
@@ -353,11 +353,11 @@ API
 
 .. c:function:: int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 
-   Copies suggested palettes to ``*splt``.
+   Copies suggested palettes to ``splt``.
 
-   ``*n_splt`` should be greater than or equal to the number of stored sPLT chunks.
+   ``n_splt`` should be greater than or equal to the number of stored sPLT chunks.
 
-   If ``*splt`` is NULL and ``*n_splt`` is non-NULL then ``*n_splt`` is set to the number
+   If ``splt`` is NULL and ``n_splt`` is non-NULL then ``n_splt`` is set to the number
    of stored sPLT chunks.
 
    .. warning:: Suggested palettes are freed when calling :c:func:`spng_ctx_free`.
@@ -430,7 +430,7 @@ API
 
    Set text data
 
-   ``*text`` should point to an :c:type:`spng_text` array of ``n_text`` elements.
+   ``text`` should point to an :c:type:`spng_text` array of ``n_text`` elements.
 
    :c:member:`spng_text.text` must only contain Latin-1 characters.
    Newlines must be a single linefeed character (decimal 10).
@@ -438,8 +438,6 @@ API
    :c:member:`spng_text.translated_keyword` must not contain linebreaks.
 
    :c:member:`spng_text.compression_method` must be zero.
-
-   .. note::
 
 .. c:function:: int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 
@@ -457,7 +455,7 @@ API
 
    Set suggested palette(s).
 
-   ``*splt`` should point to an :c:type:`spng_splt` array of ``n_splt`` elements.
+   ``splt`` should point to an :c:type:`spng_splt` array of ``n_splt`` elements.
 
 .. c:function:: int spng_set_time(spng_ctx *ctx, struct spng_time *time)
 
