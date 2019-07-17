@@ -13,6 +13,10 @@ if get_option('optimize_filter') == true
     add_project_arguments('-DSPNG_OPTIMIZE_FILTER', language : 'c')
 endif
 
+if get_option('default_library') == 'static'
+    add_project_arguments('-DSPNG_STATIC', language : 'c')
+endif
+
 install_headers('spng.h')
 
 spng_src = files('spng.c')
