@@ -14,7 +14,7 @@ else
     warning('fuzz target will not be built')
 endif
 
-png_dep = dependency('libpng', version : '>=1.6.0')
+png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
 test_exe = executable('testsuite', 'testsuite.c', dependencies : [ spng_dep, png_dep ])
 
