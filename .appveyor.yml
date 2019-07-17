@@ -16,9 +16,21 @@ build_script:
     meson -Ddev_build=true --default-library both build
 
     ninja -C build
-  
-    cmake --configure .
+
+test_script:
+- cmd: >-
+    ninja -C build test
+
+    mkdir zroot
+
+    cd zroot
+
+    cmake ../subprojects/zlib-1.2.11
 
     cmake --build . --target install
-test_script:
-- cmd: ninja -C build test
+
+    cd ..
+
+    cmake -DZLIB_ROOT=zroot --configure .
+
+    cmake --build . --target install
