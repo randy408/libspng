@@ -1,8 +1,9 @@
 /build/
+/cbuild/
 /clang_build/
 /benchmark_images/
+/subprojects/*/
 /docs/_build/
 /.vscode/
-/subprojects/
 /trash/
 /tests/formal/
