@@ -1,0 +1,17 @@
+version: 1.0.{build}
+image: Visual Studio 2017
+
+install:
+- cmd: >-
+    call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+
+    choco install ninja
+    pip3 install meson
+  
+build_script:
+- cmd: >-
+    meson -Ddev_build=true --default-library both build
+    ninja -C build
+  
+test_script:
+- cmd: ninja -C build test
