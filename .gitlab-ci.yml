@@ -35,9 +35,10 @@ coverity:
   when: manual
   script:
     - wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_TOKEN&project=randy408%2Flibspng" -O coverity_tool.tgz
-    - tar -xvzf coverity_tool.tgz
+    - mkdir coverity_tool
+    - tar -xvzf coverity_tool.tgz -C coverity_tool --strip-components=1
     - ninja -C gcc_build clean
-    - ./cov-analysis-linux64-2017.07/bin/cov-build --dir cov-int ninja -C gcc_build
+    - ./coverity_tool/bin/cov-build --dir cov-int ninja -C gcc_build
     - tar czvf spng.tgz cov-int
     - curl --form token=$COVERITY_TOKEN --form email=randy408@protonmail.com --form file=@spng.tgz --form version="master" --form description="libspng" https://scan.coverity.com/builds?project=randy408%2Flibspng
     - rm spng.tgz
