@@ -2055,10 +2055,10 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 }
                 else
                 {
-                    const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
-                    const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
-                    const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
-                    const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
+                    const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 }; /* base x offset of interlace block */
+                    const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 }; /* base y offset of interlace block */
+                    const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 }; /* x offset to next interlace block */
+                    const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 }; /* y offset to next interlace block */
 
                     pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
                                      ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
