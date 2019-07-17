@@ -14,8 +14,11 @@ install:
 build_script:
 - cmd: >-
     meson -Ddev_build=true --default-library both build
-    
+
     ninja -C build
   
+    cmake --configure .
+
+    cmake --build . --target install
 test_script:
 - cmd: ninja -C build test
