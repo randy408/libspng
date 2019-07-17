@@ -1,3 +1,9 @@
+[![GitLab](https://gitlab.com/randy408/libspng/badges/master/pipeline.svg)](https://gitlab.com/randy408/libspng/commits/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/rrnin6fjqbdxmyqr/branch/master?svg=true)](https://ci.appveyor.com/project/randy408/libspng/branch/master)
+[![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
+[![codecov](https://codecov.io/gl/randy408/libspng/branch/master/graph/badge.svg)](https://codecov.io/gl/randy408/libspng)
+[![tag](https://img.shields.io/github/tag-date/randy408/libspng.svg)](https://libspng.org/download.html)
+
 # Overview
 
 libspng is a C library for reading and writing Portable Network Graphics (PNG) 
