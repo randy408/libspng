@@ -31,6 +31,6 @@ test_script:
 
     cd ..
 
-    cmake -DZLIB_ROOT=zroot --configure .
+    cmake --configure .
 
     cmake --build . --target install
