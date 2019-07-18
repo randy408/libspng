@@ -55,7 +55,7 @@ All integer arithmetic is checked for overflow and all error conditions are hand
 
 The library is continously fuzzed by [OSS-Fuzz](https://github.com/google/oss-fuzz), 
 releases are scanned with Clang Static Analyzer, PVS-Studio and Coverity Scan
-and have a [Defect Density](https://scan.coverity.com/projects/randy408-libspng) 0.00.
+and have a [Defect Density](https://scan.coverity.com/projects/randy408-libspng) of 0.00.
 
 # Documentation
 
