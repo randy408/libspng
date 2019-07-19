@@ -1851,7 +1851,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             {
                 if(!ctx->ihdr.interlace_method)
                 {   
-                    pixel = out + pixel_offset;
+                    pixel = (unsigned char*)out + pixel_offset;
                     
                     pixel_offset += pixel_size;
                 }
@@ -1865,7 +1865,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                     pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
                                      ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
 
-                    pixel = out + pixel_offset;
+                    pixel = (unsigned char*)out + pixel_offset;
                 }
             
                 /* Extract a pixel from the scanline,
