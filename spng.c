@@ -1717,7 +1717,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     uint8_t r_8, g_8, b_8, a_8, gray_8;
     uint16_t r_16, g_16, b_16, a_16, gray_16;
     uint16_t r, g, b, a, gray;
-    unsigned char pixel[8] = {0};
+    unsigned char *pixel;
     size_t pixel_offset = 0;
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
     unsigned processing_depth = ctx->ihdr.bit_depth;
@@ -1849,6 +1849,25 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             /* Process a scanline per-pixel and write to *out */
             for(k=0; k < sub[pass].width; k++)
             {
+                if(!ctx->ihdr.interlace_method)
+                {   
+                    pixel = out + pixel_offset;
+                    
+                    pixel_offset += pixel_size;
+                }
+                else
+                {
+                    const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
+                    const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
+                    const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
+                    const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
+
+                    pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
+                                     ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
+
+                    pixel = out + pixel_offset;
+                }
+            
                 /* Extract a pixel from the scanline,
                    *_16/8 variables are used for memcpy'ing depending on bit_depth,
                    r, g, b, a, gray (all 16bits) are used for processing */
@@ -2045,25 +2064,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                     memcpy(pixel + 2, &g_16, 2);
                     memcpy(pixel + 4, &b_16, 2);
                     memcpy(pixel + 6, &a_16, 2);
-                }
-
-                if(!ctx->ihdr.interlace_method)
-                {
-                    memcpy((char*)out + pixel_offset, pixel, pixel_size);
-
-                    pixel_offset = pixel_offset + pixel_size;
-                }
-                else
-                {
-                    const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 }; /* base x offset of interlace block */
-                    const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 }; /* base y offset of interlace block */
-                    const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 }; /* x offset to next interlace block */
-                    const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 }; /* y offset to next interlace block */
-
-                    pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
-                                     ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
-
-                    memcpy((char*)out + pixel_offset, pixel, pixel_size);
                 }
                 
             }/* for(k=0; k < sub[pass].width; k++) */
