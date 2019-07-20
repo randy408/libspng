@@ -2217,9 +2217,9 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
 
     if(ctx->data != NULL) return SPNG_EBUF_SET;
 
-    ctx->data = spng__malloc(ctx, 8192);
+    ctx->data = spng__malloc(ctx, SPNG_READ_SIZE);
     if(ctx->data == NULL) return SPNG_EMEM;
-    ctx->data_size = 8192;
+    ctx->data_size = SPNG_READ_SIZE;
 
     ctx->read_fn = read_func;
     ctx->read_user_ptr = user;
