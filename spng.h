@@ -130,7 +130,7 @@ enum spng_decode_flags
 {
     SPNG_DECODE_USE_TRNS = 1,
     SPNG_DECODE_USE_GAMA = 2,
-    SPNG_DECODE_USE_SBIT = 8 /* Rescale samples using sBIT values */
+    SPNG_DECODE_USE_SBIT = 8 /* do not use */
 };
 
 enum spng_crc_action
