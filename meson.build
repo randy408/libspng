@@ -4,7 +4,12 @@ cc = meson.get_compiler('c')
 
 spng_inc = include_directories('.')
 
-zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'])
+if cc.get_define('__ANDROID__') != ''
+    zlib_dep = cc.find_library('z')
+else
+    zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'])
+endif
+
 m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
