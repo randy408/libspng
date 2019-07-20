@@ -29,8 +29,8 @@
 #if defined(SPNG_OPTIMIZE_FILTER)
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
-    #elif defined( __arm__) || defined(_M_ARM)
-        /* #define SPNG_ARM */ /* It's broken, https://gitlab.com/randy408/libspng/issues/35 */
+    #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
+        #define SPNG_ARM
     #else
         #undef SPNG_OPTIMIZE_FILTER
     #endif
@@ -3401,7 +3401,27 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
  */
 
 
-#if defined(SPNG_OPTIMIZER_FILTER) && defined(SPNG_ARM)
+#if defined(SPNG_OPTIMIZE_FILTER) && defined(SPNG_ARM)
+
+#define png_aligncast(type, value) ((void*)(value))
+#define png_aligncastconst(type, value) ((const void*)(value))
+
+/* libpng row pointers are not necessarily aligned to any particular boundary,
+ * however this code will only work with appropriate alignment. mips/mips_init.c
+ * checks for this (and will not compile unless it is done). This code uses
+ * variants of png_aligncast to avoid compiler warnings.
+ */
+#define png_ptr(type,pointer) png_aligncast(type *,pointer)
+#define png_ptrc(type,pointer) png_aligncastconst(const type *,pointer)
+
+/* The following relies on a variable 'temp_pointer' being declared with type
+ * 'type'.  This is written this way just to hide the GCC strict aliasing
+ * warning; note that the code is safe because there never is an alias between
+ * the input and output pointers.
+ */
+#define png_ldr(type,pointer)\
+   (temp_pointer = png_ptr(type,pointer), *temp_pointer)
+
 
 #if defined(_MSC_VER) && !defined(__clang__) && defined(_M_ARM64)
     #include <arm64_neon.h>
@@ -3409,27 +3429,10 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
     #include <arm_neon.h>
 #endif
 
-static void defilter_up(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
+static void defilter_sub3(size_t rowbytes, unsigned char *row)
 {
    unsigned char *rp = row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
-   const unsigned char *pp = prev_row;
-
-   for (; rp < rp_stop; rp += 16, pp += 16)
-   {
-      uint8x16_t qrp, qpp;
-
-      qrp = vld1q_u8(rp);
-      qpp = vld1q_u8(pp);
-      qrp = vaddq_u8(qrp, qpp);
-      vst1q_u8(rp, qrp);
-   }
-}
-
-static void defilter_sub3(png_row_infop row_info, unsigned char *row)
-{
-   unsigned char *rp = row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
+   unsigned char *rp_stop = row + rowbytes;
 
    uint8x16_t vtmp = vld1q_u8(rp);
    uint8x8x2_t *vrpt = png_ptr(uint8x8x2_t, &vtmp);
@@ -3467,10 +3470,10 @@ static void defilter_sub3(png_row_infop row_info, unsigned char *row)
    }
 }
 
-static void defilter_sub4(png_row_infop row_info, unsigned char *row)
+static void defilter_sub4(size_t rowbytes, unsigned char *row)
 {
    unsigned char *rp = row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
+   unsigned char *rp_stop = row + rowbytes;
 
    uint8x8x4_t vdest;
    vdest.val[3] = vdup_n_u8(0);
@@ -3493,11 +3496,11 @@ static void defilter_sub4(png_row_infop row_info, unsigned char *row)
    }
 }
 
-static void defilter_avg3(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
+static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
    const unsigned char *pp = prev_row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
+   unsigned char *rp_stop = row + rowbytes;
 
    uint8x16_t vtmp;
    uint8x8x2_t *vrpt;
@@ -3557,10 +3560,10 @@ static void defilter_avg3(png_row_infop row_info, unsigned char *row, const unsi
    }
 }
 
-static void defilter_avg4(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
+static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
+   unsigned char *rp_stop = row + rowbytes;
    const unsigned char *pp = prev_row;
 
    uint8x8x4_t vdest;
@@ -3621,11 +3624,11 @@ static uint8x8_t paeth_arm(uint8x8_t a, uint8x8_t b, uint8x8_t c)
    return e;
 }
 
-static void defilter_paeth3(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
+static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
    const unsigned char *pp = prev_row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
+   unsigned char *rp_stop = row + rowbytes;
 
    uint8x16_t vtmp;
    uint8x8x2_t *vrpt;
@@ -3685,10 +3688,10 @@ static void defilter_paeth3(png_row_infop row_info, unsigned char *row, const un
    }
 }
 
-static void defilter_paeth4(png_row_infop row_info, unsigned char *row, const unsigned char *prev_row)
+static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
-   unsigned char *rp_stop = row + row_info->rowbytes;
+   unsigned char *rp_stop = row + rowbytes;
    const unsigned char *pp = prev_row;
 
    uint8x8_t vlast = vdup_n_u8(0);
@@ -3726,4 +3729,4 @@ static void defilter_paeth4(png_row_infop row_info, unsigned char *row, const un
    }
 }
 
-#endif /* SPNG_OPTIMIZER_FILTER && SPNG_ARM */
+#endif /* SPNG_OPTIMIZE_FILTER && SPNG_ARM */
