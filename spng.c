@@ -1734,8 +1734,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) processing_depth = 8;
 
     /* Prevent infinite loops in sample_to_target() */
-    if(!depth_target || depth_target > 16 ||
-       !processing_depth || processing_depth > 16 || 
+    if(!processing_depth || processing_depth > 16 || 
        !grayscale_sbits || grayscale_sbits > processing_depth ||
        !alpha_sbits || alpha_sbits > processing_depth ||
        !red_sbits || red_sbits > processing_depth ||
