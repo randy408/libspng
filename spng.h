@@ -314,7 +314,7 @@ struct spng_alloc
 
 typedef struct spng_ctx spng_ctx;
 
-typedef int spng_read_fn(spng_ctx *ctx, void *user, void *data, size_t n);
+typedef int spng_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length);
 
 SPNG_API spng_ctx *spng_ctx_new(int flags);
 SPNG_API spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags);

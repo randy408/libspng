@@ -6,12 +6,12 @@ Decode
 Data types
 ----------
 
-.. c:type:: int spng_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
+.. c:type:: typedef int spng_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length)
 
     Type definition for callback passed to :c:func:`spng_set_png_stream`.
 
-    A read callback function should copy ``n`` bytes to ``data`` and return 0 or
-    SPNG_IO_EOF/SPNG_IO_ERROR on error.
+    A read callback function should copy ``length`` bytes to ``dest`` and return 0 or
+    ``SPNG_IO_EOF``/``SPNG_IO_ERROR`` on error.
 
 .. c:type:: spng_format
 
