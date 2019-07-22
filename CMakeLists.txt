@@ -7,7 +7,7 @@ set(SPNG_MINOR 4)
 set(SPNG_REVISION 6)
 set(SPNG_VERSION ${SPNG_MAJOR}.${SPNG_MINOR}.${SPNG_REVISION})
 
-option(OPTIMIZE_FILTER "Optimize (de)filtering, requires SSSE3 on x86" ON)
+option(ENABLE_OPT "Enable architecture-specific optimizations" ON)
 option(SPNG_SHARED "Build shared lib" ON)
 option(SPNG_STATIC "Build static lib" ON)
 
@@ -18,8 +18,8 @@ include_directories(${ZLIB_INCLUDE_DIRS})
 
 set(spng_SOURCES spng.c)
 
-if(OPTIMIZE_FILTER)
-    add_definitions( -DSPNG_OPTIMIZE_FILTER=1 )
+if(NOT ENABLE_OPT)
+    add_definitions( -DSPNG_DISABLE_OPT=1 )
 endif()
 
 if(SPNG_SHARED)

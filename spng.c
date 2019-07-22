@@ -26,16 +26,18 @@
 
 #define SPNG_READ_SIZE 8192
 
-#if defined(SPNG_OPTIMIZE_FILTER)
+#ifndef SPNG_DISABLE_OPT
+
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
     #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
         #define SPNG_ARM
     #else
-        #undef SPNG_OPTIMIZE_FILTER
+        #warning "disabling optimizations for unknown platform"
+        #define SPNG_DISABLE_OPT
     #endif
 
-    #if defined(SPNG_X86) || defined(SPNG_ARM)
+    #ifndef SPNG_DISABLE_OPT
         static void defilter_sub3(size_t rowbytes, unsigned char *row);
         static void defilter_sub4(size_t rowbytes, unsigned char *row);
         static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev);
@@ -472,7 +474,7 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     if(filter > 4) return SPNG_EFILTER;
     if(filter == 0) return 0;
 
-#if defined(SPNG_OPTIMIZE_FILTER)
+#ifndef SPNG_DISABLE_OPT
     if(filter == SPNG_FILTER_TYPE_UP) goto no_opt;
 
     if(bytes_per_pixel == 4)
@@ -3021,7 +3023,7 @@ const char *spng_version_string(void)
  * and license in png.h
  */
 
-#if defined(SPNG_OPTIMIZE_FILTER) && defined(SPNG_X86)
+#if defined(SPNG_X86)
 
 #if defined(__GNUC__) && !defined(__clang__)
    #pragma GCC target("sse2")
@@ -3385,7 +3387,7 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
    }
 }
 
-#endif /* SPNG_OPTIMIZE_FILTER && SPNG_X86 */
+#endif /* SPNG_X86 */
 
 
 /* filter_neon_intrinsics.c - NEON optimised filter functions
@@ -3401,7 +3403,7 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
  */
 
 
-#if defined(SPNG_OPTIMIZE_FILTER) && defined(SPNG_ARM)
+#if defined(SPNG_ARM)
 
 #define png_aligncast(type, value) ((void*)(value))
 #define png_aligncastconst(type, value) ((const void*)(value))
@@ -3729,4 +3731,4 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
    }
 }
 
-#endif /* SPNG_OPTIMIZE_FILTER && SPNG_ARM */
+#endif /* SPNG_ARM */

@@ -25,26 +25,26 @@ Build with Meson
    ninja install
 
 
-Filter optimizations
+Optimizations
 --------------------
 
-The `SPNG_OPTIMIZE_FILTER` define controls filter optimization.
+Architecture-specific optimizations are enabled by default,
+these can be disabled with the ``SPNG_DISABLE_OPT`` compiler option.
 
-The Meson project has an ``optimize_filter`` option, it is enabled by default.
+The Meson project has an ``enable_opt`` option, it is enabled by default,
+the CMake equivalent is ``ENABLE_OPT``.
 
-When compiling directly define ``SPNG_OPTIMIZE_FILTER`` before
-including ``spng.h``.
-
-Filter optimizations require SSE2/SSSE3 on x86, compiler-specific macros
-are used to omit the need for the `-msse2` and `-mssse3` compiler flags,
-if the code does not compile without these flags you should file a bug report.
+These optimizations require SSE2/SSSE3 on x86 and NEON on ARM.
+Compiler-specific macros are used to omit the need for the `-msse2` and
+`-mssse3` compiler flags, if the code does not compile without these flags
+you should file a bug report.
 
 Profile-guided optimization (PGO)
 ---------------------------------
 
 `Profile-guided optimization (PGO)
 <https://clang.llvm.org/docs/UsersManual.html#profile-guided-optimization>`_
-improves performance by up to 20%.
+improves performance by up to 10%.
 
 .. note:: Run in root directory
 
@@ -60,4 +60,3 @@ improves performance by up to 20%.
     meson configure -Db_pgo=use
     ninja
     ninja install
-

@@ -1,2 +1,2 @@
 option('dev_build', type : 'boolean', value : false, description : 'Enable the testsuite, requires libpng')
-option('optimize_filter', type : 'boolean', value : true, description : 'Optimize (de)filtering, requires SSSE3 on x86, NEON on ARM')
+option('enable_opt', type : 'boolean', value : true, description : 'Enable architecture-specific optimizations')

@@ -14,8 +14,8 @@ m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
 
-if get_option('optimize_filter') == true
-    add_project_arguments('-DSPNG_OPTIMIZE_FILTER', language : 'c')
+if get_option('enable_opt') == false
+    add_project_arguments('-DSPNG_DISABLE_OPT', language : 'c')
 endif
 
 if get_option('default_library') == 'static'
