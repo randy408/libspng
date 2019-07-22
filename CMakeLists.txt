@@ -14,7 +14,7 @@ option(SPNG_STATIC "Build static lib" ON)
 include(GNUInstallDirs)
 
 find_package(ZLIB REQUIRED)
-include_directories(${ZLIB_INCLUDE_DIR})
+include_directories(${ZLIB_INCLUDE_DIRS})
 
 set(spng_SOURCES spng.c)
 
