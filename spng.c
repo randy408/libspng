@@ -1639,10 +1639,36 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         }
     }
 
+    int pass;
+    uint8_t filter = 0, next_filter = 0;
+    uint32_t scanline_idx;
+
+    uint32_t k;
+    uint8_t r_8, g_8, b_8, a_8, gray_8;
+    uint16_t r_16, g_16, b_16, a_16, gray_16;
+    uint16_t r, g, b, a, gray;
+    unsigned char *pixel;
+    size_t pixel_offset = 0;
+    size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
+    unsigned processing_depth = ctx->ihdr.bit_depth;
+    unsigned depth_target = 8; /* FMT_RGBA8 */
+
+    int apply_trns = 0;
+    if(flags & SPNG_DECODE_USE_TRNS && ctx->stored & SPNG_CHUNK_TRNS) apply_trns = 1;
+
+    int apply_gamma = 0;
+    if(flags & SPNG_DECODE_USE_GAMA && ctx->stored & SPNG_CHUNK_GAMA) apply_gamma = 1;
+
+    if(fmt == SPNG_FMT_RGBA16)
+    {
+        depth_target = 16;
+        pixel_size = 8;
+    }
+
     uint16_t *gamma_lut = NULL;
     uint16_t gamma_lut8[256];
 
-    if(flags & SPNG_DECODE_USE_GAMA && ctx->stored & SPNG_CHUNK_GAMA)
+    if(apply_gamma)
     {
         float file_gamma = (float)ctx->gama / 100000.0f;
         float max;
@@ -1742,8 +1768,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     {
         for(i=0; i < ctx->plte.n_entries; i++)
         {
-            if(flags & SPNG_DECODE_USE_TRNS &&
-               ctx->stored & SPNG_CHUNK_TRNS && i < ctx->trns.n_type3_entries)
+            if(apply_trns && i < ctx->trns.n_type3_entries)
                 ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
             else
                 ctx->plte.entries[i].alpha = 255;
@@ -1753,25 +1778,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     stream.avail_in = 0;
     stream.next_in = ctx->data;
 
-    int pass;
-    uint8_t filter = 0, next_filter = 0;
-    uint32_t scanline_idx;
-
-    uint32_t k;
-    uint8_t r_8, g_8, b_8, a_8, gray_8;
-    uint16_t r_16, g_16, b_16, a_16, gray_16;
-    uint16_t r, g, b, a, gray;
-    unsigned char *pixel;
-    size_t pixel_offset = 0;
-    size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
-    unsigned processing_depth = ctx->ihdr.bit_depth;
-    unsigned depth_target = 8; /* FMT_RGBA8 */
-
-    if(fmt == SPNG_FMT_RGBA16)
-    {
-        depth_target = 16;
-        pixel_size = 8;
-    }
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) processing_depth = 8;
 
@@ -1858,9 +1864,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                         {
                             gray_16 = read_u16(scanline + (k * 2));
 
-                            if(flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->stored & SPNG_CHUNK_TRNS &&
-                               ctx->trns.gray == gray_16) a_16 = 0;
+                            if(apply_trns && ctx->trns.gray == gray_16) a_16 = 0;
                             else a_16 = 65535;
                         }
                         else /* <= 8 */
@@ -1876,9 +1880,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             gray_8 = gray_8 & (mask << shift_amount);
                             gray_8 = gray_8 >> shift_amount;
 
-                            if(flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->stored & SPNG_CHUNK_TRNS &&
-                               ctx->trns.gray == gray_8) a_8 = 0;
+                            if(apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
                             else a_8 = 255;
                         }
 
@@ -1892,8 +1894,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             g_16 = read_u16(scanline + (k * 6) + 2);
                             b_16 = read_u16(scanline + (k * 6) + 4);
 
-                            if(flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->stored & SPNG_CHUNK_TRNS &&
+                            if(apply_trns &&
                                ctx->trns.red == r_16 &&
                                ctx->trns.green == g_16 &&
                                ctx->trns.blue == b_16) a_16 = 0;
@@ -1905,8 +1906,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             memcpy(&g_8, scanline + (k * 3) + 1, 1);
                             memcpy(&b_8, scanline + (k * 3) + 2, 1);
 
-                            if(flags & SPNG_DECODE_USE_TRNS &&
-                               ctx->stored & SPNG_CHUNK_TRNS &&
+                            if(apply_trns &&
                                ctx->trns.red == r_8 &&
                                ctx->trns.green == g_8 &&
                                ctx->trns.blue == b_8) a_8 = 0;
@@ -2017,7 +2017,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                 a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
 
 
-                if(flags & SPNG_DECODE_USE_GAMA && ctx->stored & SPNG_CHUNK_GAMA)
+                if(apply_gamma)
                 {
                     r = gamma_lut[r];
                     g = gamma_lut[g];
