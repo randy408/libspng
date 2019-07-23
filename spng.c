@@ -527,7 +527,6 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 
     size_t i;
 
-    if(filter > 4) return SPNG_EFILTER;
     if(filter == 0) return 0;
 
 #ifndef SPNG_DISABLE_OPT
@@ -541,6 +540,7 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
             defilter_avg4(scanline_width, scanline, prev_scanline);
         else if(filter == SPNG_FILTER_TYPE_PAETH)
             defilter_paeth4(scanline_width, scanline, prev_scanline);
+        else return SPNG_EFILTER;
 
         return 0;
     }
@@ -552,11 +552,14 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
             defilter_avg3(scanline_width, scanline, prev_scanline);
         else if(filter == SPNG_FILTER_TYPE_PAETH)
             defilter_paeth3(scanline_width, scanline, prev_scanline);
+        else return SPNG_EFILTER;
 
         return 0;
     }
 no_opt:
 #endif
+
+    if(filter > 4) return SPNG_EFILTER;
 
     for(i=0; i < scanline_width; i++)
     {
