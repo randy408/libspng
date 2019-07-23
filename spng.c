@@ -1637,22 +1637,11 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         goto decode_err;
     }
 
-    uint32_t i;
-    for(i=0; i < 7; i++)
-    {
-        /* Skip empty passes */
-        if(sub[i].width != 0 && sub[i].height != 0)
-        {
-            scanline_width = sub[i].scanline_width;
-            break;
-        }
-    }
-
     int pass;
     uint8_t filter = 0, next_filter = 0;
     uint32_t scanline_idx;
 
-    uint32_t k;
+    uint32_t i, k;
     uint8_t r_8, g_8, b_8, a_8, gray_8;
     uint16_t r_16, g_16, b_16, a_16, gray_16;
     uint16_t r, g, b, a, gray;
