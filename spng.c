@@ -190,6 +190,15 @@ struct spng_subimage
     size_t scanline_width;
 };
 
+struct spng_plte_entry16
+{
+    uint16_t red;
+    uint16_t green;
+    uint16_t blue;
+
+    uint16_t alpha; /* reserved for internal use */
+};
+
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
 
@@ -1763,22 +1772,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         }
     }
 
-    /* Calculate the palette's alpha channel ahead of time */
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
-    {
-        for(i=0; i < ctx->plte.n_entries; i++)
-        {
-            if(apply_trns && i < ctx->trns.n_type3_entries)
-                ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
-            else
-                ctx->plte.entries[i].alpha = 255;
-        }
-    }
-
-    stream.avail_in = 0;
-    stream.next_in = ctx->data;
-
-
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) processing_depth = 8;
 
     /* Prevent infinite loops in sample_to_target() */
@@ -1792,6 +1785,28 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         ret = SPNG_ESBIT;
         goto decode_err;
     }
+
+    struct spng_plte_entry16 scaled_entries[256];
+
+    /* Scale palette entries */
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+    {
+        for(i=0; i < ctx->plte.n_entries; i++)
+        {
+            if(apply_trns && i < ctx->trns.n_type3_entries)
+                ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
+            else
+                ctx->plte.entries[i].alpha = 255;
+
+            scaled_entries[i].red = sample_to_target(ctx->plte.entries[i].red, 8, red_sbits, depth_target);
+            scaled_entries[i].green = sample_to_target(ctx->plte.entries[i].green, 8, green_sbits, depth_target);
+            scaled_entries[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, blue_sbits, depth_target);
+            scaled_entries[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, alpha_sbits, depth_target);
+        }
+    }
+
+    stream.avail_in = 0;
+    stream.next_in = ctx->data;
 
     for(pass=0; pass < 7; pass++)
     {
@@ -1942,10 +1957,10 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             goto decode_err;
                         }
                       
-                        r_8 = ctx->plte.entries[entry].red;
-                        g_8 = ctx->plte.entries[entry].green;
-                        b_8 = ctx->plte.entries[entry].blue;
-                        a_8 = ctx->plte.entries[entry].alpha;
+                        r = scaled_entries[entry].red;
+                        g = scaled_entries[entry].green;
+                        b = scaled_entries[entry].blue;
+                        a = scaled_entries[entry].alpha;
                 
                         break;
                     }
@@ -1985,6 +2000,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                     }
                 }/* switch(ctx->ihdr.color_type) */
 
+                if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) goto plte_fastpath;
 
                 if(ctx->ihdr.bit_depth == 16)
                 {
@@ -2016,6 +2032,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
                 a = sample_to_target(a, processing_depth, alpha_sbits, depth_target);
 
+plte_fastpath:
 
                 if(apply_gamma)
                 {
