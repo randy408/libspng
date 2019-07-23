@@ -1591,14 +1591,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     if(out == NULL) return 1;
 
     int ret;
-    size_t out_size_required;
+    size_t out_size_required, out_width;
 
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
 
-    ret = get_ancillary(ctx);
-    if(ret) return ret;
+    out_width = out_size_required / ctx->ihdr.height;
 
     uint8_t channels = 1; /* grayscale or indexed_color */
 
@@ -1618,30 +1617,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
     if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
 
-    struct spng_subimage sub[7];
-    memset(sub, 0, sizeof(struct spng_subimage) * 7);
-
-    size_t scanline_width;
-
-    ret = calculate_subimages(sub, &scanline_width, &ctx->ihdr, channels);
-    if(ret) return ret;
-
-    unsigned char *scanline = NULL, *prev_scanline = NULL;
-
-    scanline = spng__malloc(ctx, scanline_width);
-    prev_scanline = spng__malloc(ctx, scanline_width);
-
-    if(scanline == NULL || prev_scanline == NULL)
-    {
-        ret = SPNG_EMEM;
-        goto decode_err;
-    }
-
     int pass;
     uint8_t filter = 0, next_filter = 0;
-    uint32_t scanline_idx;
-
-    uint32_t i, k;
+    uint32_t i, k, scanline_idx, width;
     uint8_t r_8, g_8, b_8, a_8, gray_8;
     uint16_t r_16, g_16, b_16, a_16, gray_16;
     uint16_t r, g, b, a, gray;
@@ -1657,10 +1635,34 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
     int apply_gamma = 0;
     if(flags & SPNG_DECODE_USE_GAMA && ctx->stored & SPNG_CHUNK_GAMA) apply_gamma = 1;
 
+    int interlaced = 0;
+    if(ctx->ihdr.interlace_method) interlaced = 1;
+
     if(fmt == SPNG_FMT_RGBA16)
     {
         depth_target = 16;
         pixel_size = 8;
+    }
+
+    struct spng_subimage sub[7];
+    memset(sub, 0, sizeof(struct spng_subimage) * 7);
+
+    size_t scanline_width;
+
+    ret = calculate_subimages(sub, &scanline_width, &ctx->ihdr, channels);
+    if(ret) return ret;
+
+    unsigned char *row = NULL;
+    unsigned char *scanline = spng__malloc(ctx, scanline_width);
+    unsigned char *prev_scanline = spng__malloc(ctx, scanline_width);
+
+    if(ctx->ihdr.interlace_method) row = spng__malloc(ctx, out_width);
+    else row = out;
+
+    if(scanline == NULL || prev_scanline == NULL || row == NULL)
+    {
+        ret = SPNG_EMEM;
+        goto decode_err;
     }
 
     uint16_t *gamma_lut = NULL;
@@ -1835,27 +1837,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
             r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
 
+            pixel_offset = 0;
+            width = sub[pass].width;
             /* Process a scanline per-pixel and write to *out */
-            for(k=0; k < sub[pass].width; k++)
+            for(k=0; k < width; k++)
             {
-                if(!ctx->ihdr.interlace_method)
-                {   
-                    pixel = (unsigned char*)out + pixel_offset;
-                    
-                    pixel_offset += pixel_size;
-                }
-                else
-                {
-                    const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
-                    const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
-                    const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
-                    const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
-
-                    pixel_offset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
-                                     ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
-
-                    pixel = (unsigned char*)out + pixel_offset;
-                }
+                pixel = row + pixel_offset;
+                pixel_offset += pixel_size;
             
                 /* Extract a pixel from the scanline,
                    *_16/8 variables are used for memcpy'ing depending on bit_depth,
@@ -2056,6 +2044,26 @@ plte_fastpath:
             /* NOTE: prev_scanline is always defiltered */
             memcpy(prev_scanline, scanline, scanline_width);
 
+            if(interlaced)
+            {
+                const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
+                const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
+                const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
+                const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
+
+                for(k=0; k < width; k++)
+                {
+                    size_t ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
+                                      ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
+
+                    memcpy((unsigned char*)out + ioffset, row + k * pixel_size, pixel_size);
+                }
+            }
+            else
+            {/* avoid creating an invalid reference */
+                if(scanline_idx != (sub[pass].height - 1) ) row += out_width;
+            }
+
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
     }/* for(pass=0; pass < 7; pass++) */
 
@@ -2067,6 +2075,7 @@ plte_fastpath:
 decode_err:
 
     inflateEnd(&stream);
+    if(interlaced) spng__free(ctx, row);
     spng__free(ctx, scanline);
     spng__free(ctx, prev_scanline);
 
