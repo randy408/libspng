@@ -447,6 +447,53 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
     return ret;
 }
 
+static int read_scanline_bytes(spng_ctx *ctx, z_stream *stream, unsigned char *dest, size_t len)
+{
+    if(ctx == NULL || stream == NULL || dest == NULL) return 1;
+
+    int ret;
+    uint32_t bytes_read;
+
+    stream->avail_out = len;
+    stream->next_out = dest;
+
+    if(!stream->avail_in)
+    {
+        ret = read_idat_bytes(ctx, &bytes_read);
+        if(ret) return ret;
+
+        stream->avail_in = bytes_read;
+        stream->next_in = ctx->data;
+    }
+
+    do
+    {
+        ret = inflate(stream, Z_SYNC_FLUSH);
+
+        if(ret != Z_OK)
+        {/* here we should handle z_stream */
+            if(ret == Z_STREAM_END) /* zlib reached an end-marker */
+            {/* we don't have a full scanline or there are more scanlines left */
+                if(stream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
+            }
+            else if(ret != Z_BUF_ERROR) return SPNG_EIDAT_STREAM;
+        }
+
+        /* We don't have scanline_width of data and we ran out of IDAT bytes */
+        if(stream->avail_out != 0 && stream->avail_in == 0)
+        {
+            ret = read_idat_bytes(ctx, &bytes_read);
+            if(ret) return ret;
+
+            stream->avail_in = bytes_read;
+            stream->next_in = ctx->data;
+        }
+
+    }while(stream->avail_out != 0);
+
+    return 0;
+}
+
 static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
 {
     int16_t p = (int16_t)a + (int16_t)b - (int16_t)c;
@@ -1703,12 +1750,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
         }
     }
 
-    uint32_t bytes_read;
-
-    ret = read_idat_bytes(ctx, &bytes_read);
-    if(ret) goto decode_err;
-
-    stream.avail_in = bytes_read;
+    stream.avail_in = 0;
     stream.next_in = ctx->data;
 
     int pass;
@@ -1759,82 +1801,18 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
            The scanlines will be aligned with the start of the array with
            the next scanline's filter byte at the end,
            the last scanline will end up being 1 byte "shorter". */
-        stream.avail_out = 1;
-        stream.next_out = &filter;
-
-        do
-        {
-            ret = inflate(&stream, Z_SYNC_FLUSH);
-
-            if(ret != Z_OK)
-            {
-                if(ret == Z_STREAM_END)
-                {
-                    if(stream.avail_out !=0)
-                    {
-                        ret = SPNG_EIDAT_TOO_SHORT;
-                        goto decode_err;
-                    }
-                }
-                else if(ret != Z_BUF_ERROR)
-                {
-                    ret = SPNG_EIDAT_STREAM;
-                    goto decode_err;
-                }
-            }
-
-            if(stream.avail_out != 0 && stream.avail_in == 0)
-            {
-                ret = read_idat_bytes(ctx, &bytes_read);
-                if(ret) goto decode_err;
-
-                stream.avail_in = bytes_read;
-                stream.next_in = ctx->data;
-            }
-
-        }while(stream.avail_out != 0);
-
+        ret = read_scanline_bytes(ctx, &stream, &filter, 1);
+        if(ret) goto decode_err;
 
         for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++)
         {
-            stream.next_out = scanline;
-
             /* The last scanline is 1 byte "shorter" */
-            if(scanline_idx == (sub[pass].height - 1)) stream.avail_out = scanline_width - 1;
-            else stream.avail_out = scanline_width;
-
-            do
-            {
-                ret = inflate(&stream, Z_SYNC_FLUSH);
-
-                if(ret != Z_OK)
-                {
-                    if(ret == Z_STREAM_END) /* zlib reached an end-marker */
-                    {/* we don't have a full scanline or there are more scanlines left */
-                        if(stream.avail_out != 0 || scanline_idx != (sub[pass].height - 1))
-                        {
-                            ret = SPNG_EIDAT_TOO_SHORT;
-                            goto decode_err;
-                        }
-                    }
-                    else if(ret != Z_BUF_ERROR)
-                    {
-                        ret = SPNG_EIDAT_STREAM;
-                        goto decode_err;
-                    }
-                }
-
-                /* We don't have scanline_width of data and we ran out of IDAT bytes */
-                if(stream.avail_out != 0 && stream.avail_in == 0)
-                {
-                    ret = read_idat_bytes(ctx, &bytes_read);
-                    if(ret) goto decode_err;
-
-                    stream.avail_in = bytes_read;
-                    stream.next_in = ctx->data;
-                }
-
-            }while(stream.avail_out != 0);
+            if(scanline_idx == (sub[pass].height - 1)) 
+                ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width - 1);
+            else
+                ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width);
+            
+            if(ret) goto decode_err;
 
             memcpy(&next_filter, scanline + scanline_width - 1, 1);
 
