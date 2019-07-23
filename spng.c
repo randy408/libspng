@@ -643,6 +643,42 @@ static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned s
     return sample;
 }
 
+static inline int gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt, uint16_t *gamma_lut)
+{
+    uint32_t i;
+
+    if(fmt == SPNG_FMT_RGBA8)
+    {
+        for(i=0; i < pixels; i++)
+        {
+            unsigned char px[4];
+            memcpy(px, row + i * 4, 4);
+
+            px[0] = gamma_lut[px[0]];
+            px[1] = gamma_lut[px[1]];
+            px[2] = gamma_lut[px[2]];
+
+            memcpy(row + i * 4, px, 4);
+        }
+    }
+    else if(fmt == SPNG_FMT_RGBA16)
+    {
+        for(i=0; i < pixels; i++)
+        {
+            uint16_t px[4];
+            memcpy(px, row + i * 8, 8);
+
+            px[0] = gamma_lut[px[0]];
+            px[1] = gamma_lut[px[1]];
+            px[2] = gamma_lut[px[2]];
+
+            memcpy(row + i * 8, px, 8);
+        }
+    }
+
+    return 0;
+}
+
 static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
     if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
@@ -2011,13 +2047,6 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
 
 plte_fastpath:
 
-                if(apply_gamma)
-                {
-                    r = gamma_lut[r];
-                    g = gamma_lut[g];
-                    b = gamma_lut[b];
-                }
-
                 /* only use *_8/16 for memcpy */
                 r_8 = r; g_8 = g; b_8 = b; a_8 = a;
                 r_16 = r; g_16 = g; b_16 = b; a_16 = a;
@@ -2043,6 +2072,8 @@ plte_fastpath:
 
             /* NOTE: prev_scanline is always defiltered */
             memcpy(prev_scanline, scanline, scanline_width);
+
+            if(apply_gamma) gamma_correct_row(row, width, fmt, gamma_lut);
 
             if(interlaced)
             {
