@@ -2090,6 +2090,16 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                         goto decode_err;
                     }
 
+                    if(fmt == SPNG_FMT_RGBA8)
+                    {
+                        pixel[0] = plte[entry].red;
+                        pixel[1] = plte[entry].green;
+                        pixel[2] = plte[entry].blue;
+                        pixel[3] = plte[entry].alpha;
+
+                        continue;
+                    }
+
                     r = plte[entry].red;
                     g = plte[entry].green;
                     b = plte[entry].blue;
@@ -2138,7 +2148,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                             memcpy(row, scanline, width * 4);
                             break;
                         }
-                        
+
                         memcpy(&r_8, scanline + (k * 4), 1);
                         memcpy(&g_8, scanline + (k * 4) + 1, 1);
                         memcpy(&b_8, scanline + (k * 4) + 2, 1);
