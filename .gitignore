@@ -1,6 +1,7 @@
 /build/
 /cbuild/
 /clang_build/
+/arm_build/
 /benchmark_images/
 /subprojects/*/
 /docs/_build/
