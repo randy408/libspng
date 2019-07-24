@@ -31,7 +31,8 @@
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
     #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
-        #define SPNG_ARM
+        /* #define SPNG_ARM */ /* buffer overflow for rgb8 images */
+        #define SPNG_DISABLE_OPT
     #else
         #warning "disabling optimizations for unknown platform"
         #define SPNG_DISABLE_OPT
