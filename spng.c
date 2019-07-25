@@ -749,7 +749,7 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
     }
 }
 
-static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
+static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
     if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
     if(ihdr->height > png_u32max || ihdr->height > max_height || !ihdr->height) return SPNG_EHEIGHT;
@@ -806,7 +806,7 @@ static int check_ihdr(struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_h
     return 0;
 }
 
-static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
+static int check_sbit(const struct spng_sbit *sbit, const struct spng_ihdr *ihdr)
 {
     if(sbit == NULL || ihdr == NULL) return 1;
 
@@ -853,7 +853,7 @@ static int check_sbit(struct spng_sbit *sbit, struct spng_ihdr *ihdr)
     return 0;
 }
 
-static int check_chrm_int(struct spng_chrm_int *chrm_int)
+static int check_chrm_int(const struct spng_chrm_int *chrm_int)
 {
     if(chrm_int == NULL) return 1;
 
@@ -869,7 +869,7 @@ static int check_chrm_int(struct spng_chrm_int *chrm_int)
     return 0;
 }
 
-static int check_phys(struct spng_phys *phys)
+static int check_phys(const struct spng_phys *phys)
 {
     if(phys == NULL) return 1;
 
@@ -881,7 +881,7 @@ static int check_phys(struct spng_phys *phys)
     return 0;
 }
 
-static int check_time(struct spng_time *time)
+static int check_time(const struct spng_time *time)
 {
     if(time == NULL) return 1;
 
@@ -894,7 +894,7 @@ static int check_time(struct spng_time *time)
     return 0;
 }
 
-static int check_offs(struct spng_offs *offs)
+static int check_offs(const struct spng_offs *offs)
 {
     if(offs == NULL) return 1;
 
@@ -904,7 +904,7 @@ static int check_offs(struct spng_offs *offs)
     return 0;
 }
 
-static int check_exif(struct spng_exif *exif)
+static int check_exif(const struct spng_exif *exif)
 {
     if(exif == NULL) return 1;
 
