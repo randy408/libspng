@@ -1829,7 +1829,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
             float c = pow((float)i / max, exponent) * max;
             c = fmin(c, max);
 
-            gamma_lut[i] = c;
+            gamma_lut[i] = (uint16_t)c;
         }
     }
 
@@ -2788,14 +2788,14 @@ int spng_set_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 
     struct spng_chrm_int chrm_int;
 
-    chrm_int.white_point_x = chrm->white_point_x * 100000.0;
-    chrm_int.white_point_y = chrm->white_point_y * 100000.0;
-    chrm_int.red_x = chrm->red_x * 100000.0;
-    chrm_int.red_y = chrm->red_y * 100000.0;
-    chrm_int.green_x = chrm->green_x * 100000.0;
-    chrm_int.green_y = chrm->green_y * 100000.0;
-    chrm_int.blue_x = chrm->blue_x * 100000.0;
-    chrm_int.blue_y = chrm->blue_y * 100000.0;
+    chrm_int.white_point_x = (uint32_t)(chrm->white_point_x * 100000.0);
+    chrm_int.white_point_y = (uint32_t)(chrm->white_point_y * 100000.0);
+    chrm_int.red_x = (uint32_t)(chrm->red_x * 100000.0);
+    chrm_int.red_y = (uint32_t)(chrm->red_y * 100000.0);
+    chrm_int.green_x = (uint32_t)(chrm->green_x * 100000.0);
+    chrm_int.green_y = (uint32_t)(chrm->green_y * 100000.0);
+    chrm_int.blue_x = (uint32_t)(chrm->blue_x * 100000.0);
+    chrm_int.blue_y = (uint32_t)(chrm->blue_y * 100000.0);
 
     if(check_chrm_int(&chrm_int)) return SPNG_ECHRM;
 
