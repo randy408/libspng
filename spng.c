@@ -196,8 +196,7 @@ struct spng_plte_entry16
     uint16_t red;
     uint16_t green;
     uint16_t blue;
-
-    uint16_t alpha; /* reserved for internal use */
+    uint16_t alpha;
 };
 
 static const uint32_t png_u32max = 2147483647;
@@ -481,15 +480,15 @@ static int read_scanline_bytes(spng_ctx *ctx, z_stream *stream, unsigned char *d
         ret = inflate(stream, Z_SYNC_FLUSH);
 
         if(ret != Z_OK)
-        {/* here we should handle z_stream */
+        {
             if(ret == Z_STREAM_END) /* zlib reached an end-marker */
-            {/* we don't have a full scanline or there are more scanlines left */
+            {
                 if(stream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
             }
             else if(ret != Z_BUF_ERROR) return SPNG_EIDAT_STREAM;
         }
 
-        /* We don't have scanline_width of data and we ran out of IDAT bytes */
+        /* Read more IDAT bytes */
         if(stream->avail_out != 0 && stream->avail_in == 0)
         {
             ret = read_idat_bytes(ctx, &bytes_read);
@@ -520,7 +519,7 @@ static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
 /* Defilter *scanline in-place.
    *prev_scanline and *scanline should point to the first pixel,
    scanline_width is the width of the scanline without the filter byte.
-   */
+*/
 static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *scanline,
                              size_t scanline_width, unsigned bytes_per_pixel, unsigned filter)
 {
@@ -647,7 +646,7 @@ static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned s
     return sample;
 }
 
-static inline int gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt, uint16_t *gamma_lut)
+static inline int gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt, const uint16_t *gamma_lut)
 {
     uint32_t i;
 
@@ -685,12 +684,12 @@ static inline int gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt
 
 /* Apply transparency to truecolor output row */
 static inline void trns_row(unsigned char *row,
-                              unsigned char *scanline,
-                              unsigned char *trns,
-                              uint32_t pixels,
-                              int fmt,
-                              unsigned ctype,
-                              unsigned depth)
+                            const unsigned char *scanline,
+                            const unsigned char *trns,
+                            uint32_t pixels,
+                            int fmt,
+                            unsigned ctype,
+                            unsigned depth)
 {
     if(ctype != SPNG_COLOR_TYPE_TRUECOLOR) return;
 
@@ -2177,6 +2176,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int fl
                     r = gray;
                     g = gray;
                     b = gray;
+                    gray_8 = gray;
+                    gray_16 = gray;
                 }
 
 plte_fastpath:
@@ -2184,8 +2185,6 @@ plte_fastpath:
                 /* only use *_8/16 for memcpy */
                 r_8 = r; g_8 = g; b_8 = b; a_8 = a;
                 r_16 = r; g_16 = g; b_16 = b; a_16 = a;
-                gray_8 = gray;
-                gray_16 = gray;
 
                 if(fmt == SPNG_FMT_RGBA8)
                 {
