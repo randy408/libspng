@@ -5,10 +5,11 @@
 #include <string.h>
 #include <math.h>
 
-#include <zlib.h>
-
 #ifdef __FRAMAC__
     #define SPNG_DISABLE_OPT
+    #include "tests/framac_stubs.h"
+#else
+    #include <zlib.h>
 #endif
 
 #define SPNG_CHUNK_IHDR (1U)
