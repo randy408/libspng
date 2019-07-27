@@ -7,6 +7,10 @@
 
 #include <zlib.h>
 
+#ifdef __FRAMAC__
+    #define SPNG_DISABLE_OPT
+#endif
+
 #define SPNG_CHUNK_IHDR (1U)
 #define SPNG_CHUNK_PLTE (1U << 1)
 #define SPNG_CHUNK_CHRM (1U << 2)
