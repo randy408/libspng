@@ -816,6 +816,21 @@ static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t
     return 0;
 }
 
+static int check_plte(const struct spng_plte *plte, const struct spng_ihdr *ihdr)
+{
+    if(plte == NULL || ihdr == NULL) return 1;
+
+    if(plte->n_entries == 0) return 1;
+    if(plte->n_entries > 256) return 1;
+
+    if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED)
+    {
+        if(plte->n_entries > (1U << ihdr->bit_depth)) return 1;
+    }
+
+    return 0;
+}
+
 static int check_sbit(const struct spng_sbit *sbit, const struct spng_ihdr *ihdr)
 {
     if(sbit == NULL || ihdr == NULL) return 1;
@@ -1067,16 +1082,11 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         {
             if(!memcmp(chunk.type, type_plte, 4))
             {
-                if(chunk.length == 0) return SPNG_ECHUNK_SIZE;
                 if(chunk.length % 3 != 0) return SPNG_ECHUNK_SIZE;
-                if( (chunk.length / 3) > 256 ) return SPNG_ECHUNK_SIZE;
-
-                if(ctx->ihdr.color_type == 3)
-                {
-                    if(chunk.length / 3 > (1 << ctx->ihdr.bit_depth) ) return SPNG_ECHUNK_SIZE;
-                }
 
                 ctx->plte.n_entries = chunk.length / 3;
+
+                if(check_plte(&ctx->plte, &ctx->ihdr)) return SPNG_ECHUNK_SIZE; /* XXX: EPLTE? */
 
                 size_t i;
                 for(i=0; i < ctx->plte.n_entries; i++)
@@ -2743,13 +2753,7 @@ int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte)
 
     if( !(ctx->stored & SPNG_CHUNK_IHDR) ) return 1;
 
-    if(plte->n_entries == 0) return 1;
-    if(plte->n_entries > 256) return 1;
-
-    if(ctx->ihdr.color_type == 3)
-    {
-        if(plte->n_entries > (1 << ctx->ihdr.bit_depth)) return 1;
-    }
+    if(check_plte(plte, &ctx->ihdr)) return 1;
 
     memcpy(&ctx->plte, plte, sizeof(struct spng_plte));
 
