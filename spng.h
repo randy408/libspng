@@ -333,7 +333,7 @@ SPNG_API int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary);
 
 SPNG_API int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out);
 
-SPNG_API int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags);
+SPNG_API int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags);
 
 SPNG_API int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 SPNG_API int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte);

@@ -1701,7 +1701,7 @@ static int get_ancillary2(spng_ctx *ctx)
     return 0;
 }
 
-int spng_decode_image(spng_ctx *ctx, void *out, size_t out_size, int fmt, int flags)
+int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
     if(out == NULL) return 1;
