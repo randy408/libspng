@@ -48,6 +48,11 @@
     #endif
 #endif
 
+#if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable: 4244)
+#endif
+
 #define SPNG_FILTER_TYPE_NONE 0
 #define SPNG_FILTER_TYPE_SUB 1
 #define SPNG_FILTER_TYPE_UP 2
@@ -3169,6 +3174,10 @@ const char *spng_version_string(void)
 {
     return SPNG_VERSION_STRING;
 }
+
+#if defined(_MSC_VER)
+    #pragma warning(pop)
+#endif
 
 /* filter_sse2_intrinsics.c - SSE2 optimized filter functions
  *
