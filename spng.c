@@ -776,6 +776,8 @@ static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t
             break;
         }
         case SPNG_COLOR_TYPE_TRUECOLOR:
+        case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+        case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
         {
             if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
                 return SPNG_EBIT_DEPTH;
@@ -790,25 +792,11 @@ static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t
 
             break;
         }
-        case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
-        case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
-        {
-            if( !(ihdr->bit_depth == 8 || ihdr->bit_depth == 16) )
-                return SPNG_EBIT_DEPTH;
-
-            break;
-        }
     default: return SPNG_ECOLOR_TYPE;
     }
 
-    if(ihdr->compression_method || ihdr->filter_method)
-        return SPNG_ECOMPRESSION_METHOD;
+    if(ihdr->compression_method) return SPNG_ECOMPRESSION_METHOD;
+    if(ihdr->filter_method) return SPNG_EFILTER_METHOD;
 
     if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
         return SPNG_EINTERLACE_METHOD;
