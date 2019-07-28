@@ -81,6 +81,20 @@
     int ret = get_ancillary2(ctx); \
     if(ret) return ret;
 
+struct spng_subimage
+{
+    uint32_t width;
+    uint32_t height;
+    size_t scanline_width;
+};
+
+struct spng_plte_entry16
+{
+    uint16_t red;
+    uint16_t green;
+    uint16_t blue;
+    uint16_t alpha;
+};
 
 struct spng_ctx
 {
@@ -191,22 +205,8 @@ struct spng_ctx
     struct spng_time time;
     struct spng_offs offs;
     struct spng_exif exif;
-};
 
-
-struct spng_subimage
-{
-    uint32_t width;
-    uint32_t height;
-    size_t scanline_width;
-};
-
-struct spng_plte_entry16
-{
-    uint16_t red;
-    uint16_t green;
-    uint16_t blue;
-    uint16_t alpha;
+    uint16_t gamma_lut8[256];
 };
 
 static const uint32_t png_u32max = 2147483647;
@@ -1766,7 +1766,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     uint32_t i, k, scanline_idx, width;
     uint8_t r_8, g_8, b_8, a_8, gray_8;
     uint16_t r_16, g_16, b_16, a_16, gray_16;
-    uint16_t r, g, b, a, gray;
+    r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
+    r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
     unsigned char *pixel;
     size_t pixel_offset = 0;
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
@@ -1803,7 +1804,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     }
 
     uint16_t *gamma_lut = NULL;
-    uint16_t gamma_lut8[256];
 
     if(apply_gamma)
     {
@@ -1817,7 +1817,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
             lut_entries = 256;
             max = 255.0f;
             
-            gamma_lut = gamma_lut8;
+            gamma_lut = ctx->gamma_lut8;
         }
         else /* SPNG_FMT_RGBA16 */
         {
@@ -2011,66 +2011,22 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
             filter = next_filter;
 
-            r=0; g=0; b=0; a=0; gray=0;
-            r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
-            r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
-
             pixel_offset = 0;
             width = sub[pass].width;
-            /* Process a scanline per-pixel and write to *out */
+
             for(k=0; k < width; k++)
             {
                 pixel = row + pixel_offset;
                 pixel_offset += pixel_size;
-            
-                /* Extract a pixel from the scanline,
-                   *_16/8 variables are used for memcpy'ing depending on bit_depth,
-                   r, g, b, a, gray (all 16bits) are used for processing */
-                if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
-                {
-                    if(ctx->ihdr.bit_depth == 16)
-                    {
-                        gray_16 = read_u16(scanline + (k * 2));
 
-                        if(apply_trns && ctx->trns.gray == gray_16) a_16 = 0;
-                        else a_16 = 65535;
-
-                        if(fmt == SPNG_FMT_RGBA8)
-                        {
-                            gray_16 >>= 8;
-                        }
-                    }
-                    else /* <= 8 */
-                    {
-                        memcpy(&gray_8, scanline + k / (8 / ctx->ihdr.bit_depth), 1);
-
-                        uint16_t mask16 = (1 << ctx->ihdr.bit_depth) - 1;
-                        uint8_t mask = mask16; /* avoid shift by width */
-                        uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
-                        uint8_t max_shift_amount = 8 - ctx->ihdr.bit_depth;
-                        uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * ctx->ihdr.bit_depth);
-
-                        gray_8 = gray_8 & (mask << shift_amount);
-                        gray_8 = gray_8 >> shift_amount;
-
-                        if(apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
-                        else a_8 = 255;
-                    }
-                }
-                else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+                
+                if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
                 {
                     if(ctx->ihdr.bit_depth == 16)
                     {
                         r_16 = read_u16(scanline + (k * 6));
                         g_16 = read_u16(scanline + (k * 6) + 2);
                         b_16 = read_u16(scanline + (k * 6) + 4);
-
-                        if(fmt == SPNG_FMT_RGBA8)
-                        {
-                            r_16 >>= 8;
-                            g_16 >>= 8;
-                            b_16 >>= 8;
-                        }
 
                         a_16 = 65535;
                     }
@@ -2119,29 +2075,19 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
                         continue;
                     }
-
-                    r = plte[entry].red;
-                    g = plte[entry].green;
-                    b = plte[entry].blue;
-                    a = plte[entry].alpha;
-                }
-                else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
-                {
-                    if(ctx->ihdr.bit_depth == 16)
+                    else
                     {
-                        gray_16 = read_u16(scanline + (k * 4));
-                        a_16 = read_u16(scanline + (k * 4) + 2);
+                        r_16 = plte[entry].red;
+                        g_16 = plte[entry].green;
+                        b_16 = plte[entry].blue;
+                        a_16 = plte[entry].alpha;
 
-                        if(fmt== SPNG_FMT_RGBA8)
-                        {
-                            gray_16 >>= 8;
-                            a_16 >>= 8;
-                        }
-                    }
-                    else /* == 8 */
-                    {
-                        memcpy(&gray_8, scanline + (k * 2), 1);
-                        memcpy(&a_8, scanline + (k * 2) + 1, 1);
+                        memcpy(pixel, &r_16, 2);
+                        memcpy(pixel + 2, &g_16, 2);
+                        memcpy(pixel + 4, &b_16, 2);
+                        memcpy(pixel + 6, &a_16, 2);
+
+                        continue;
                     }
                 }
                 else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA)
@@ -2152,20 +2098,12 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                         g_16 = read_u16(scanline + (k * 8) + 2);
                         b_16 = read_u16(scanline + (k * 8) + 4);
                         a_16 = read_u16(scanline + (k * 8) + 6);
-
-                        if(fmt== SPNG_FMT_RGBA8)
-                        {
-                            r_16 >>= 8;
-                            g_16 >>= 8;
-                            b_16 >>= 8;
-                            a_16 >>= 8;
-                        }
                     }
                     else /* == 8 */
                     {
                         if(fmt == SPNG_FMT_RGBA8)
                         {
-                            memcpy(row, scanline, width * 4);
+                            memcpy(row, scanline, out_width);
                             break;
                         }
 
@@ -2175,39 +2113,71 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                         memcpy(&a_8, scanline + (k * 4) + 3, 1);
                     }
                 }
-
-                if(indexed) goto plte_fastpath;
-
-                if(ctx->ihdr.bit_depth == 16)
+                else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
                 {
-                    r = r_16; g = g_16; b = b_16; a = a_16;
-                    gray = gray_16;
+                    if(ctx->ihdr.bit_depth == 16)
+                    {
+                        gray_16 = read_u16(scanline + (k * 2));
+
+                        if(apply_trns && ctx->trns.gray == gray_16) a_16 = 0;
+                        else a_16 = 65535;
+
+                        r_16 = gray_16;
+                        g_16 = gray_16;
+                        b_16 = gray_16;
+                    }
+                    else /* <= 8 */
+                    {
+                        memcpy(&gray_8, scanline + k / (8 / ctx->ihdr.bit_depth), 1);
+
+                        uint16_t mask16 = (1 << ctx->ihdr.bit_depth) - 1;
+                        uint8_t mask = mask16; /* avoid shift by width */
+                        uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
+                        uint8_t max_shift_amount = 8 - ctx->ihdr.bit_depth;
+                        uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * ctx->ihdr.bit_depth);
+
+                        gray_8 = gray_8 & (mask << shift_amount);
+                        gray_8 = gray_8 >> shift_amount;
+
+                        if(apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
+                        else a_8 = 255;
+
+                        r_8 = gray_8; g_8 = gray_8; b_8 = gray_8;
+                    }
                 }
-                else
+                else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
                 {
-                    r = r_8; g = g_8; b = b_8; a = a_8;
-                    gray = gray_8;
+                    if(ctx->ihdr.bit_depth == 16)
+                    {
+                        gray_16 = read_u16(scanline + (k * 4));
+                        a_16 = read_u16(scanline + (k * 4) + 2);
+
+                        r_16 = gray_16;
+                        g_16 = gray_16;
+                        b_16 = gray_16;
+                    }
+                    else /* == 8 */
+                    {
+                        memcpy(&gray_8, scanline + (k * 2), 1);
+                        memcpy(&a_8, scanline + (k * 2) + 1, 1);
+
+                        r_8 = gray_8;
+                        g_8 = gray_8;
+                        b_8 = gray_8;
+                    }
                 }
 
                 
-                if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
-                   ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
-                {                    
-                    r = gray;
-                    g = gray;
-                    b = gray;
-                    gray_8 = gray;
-                    gray_16 = gray;
-                }
-
-plte_fastpath:
-
-                /* only use *_8/16 for memcpy */
-                r_8 = r; g_8 = g; b_8 = b; a_8 = a;
-                r_16 = r; g_16 = g; b_16 = b; a_16 = a;
-
                 if(fmt == SPNG_FMT_RGBA8)
                 {
+                    if(ctx->ihdr.bit_depth == 16)
+                    {
+                        r_8 = r_16 >> 8;
+                        g_8 = g_16 >> 8;
+                        b_8 = b_16 >> 8;
+                        a_8 = a_16 >> 8;
+                    }
+
                     memcpy(pixel, &r_8, 1);
                     memcpy(pixel + 1, &g_8, 1);
                     memcpy(pixel + 2, &b_8, 1);
@@ -2215,6 +2185,14 @@ plte_fastpath:
                 }
                 else if(fmt == SPNG_FMT_RGBA16)
                 {
+                    if(ctx->ihdr.bit_depth != 16)
+                    {
+                        r_16 = r_8;
+                        g_16 = g_8;
+                        b_16 = b_8;
+                        a_16 = a_8;
+                    }
+                
                     memcpy(pixel, &r_16, 2);
                     memcpy(pixel + 2, &g_16, 2);
                     memcpy(pixel + 4, &b_16, 2);
