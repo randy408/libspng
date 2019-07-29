@@ -2089,7 +2089,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                     {
                         if(fmt == SPNG_FMT_RGBA8)
                         {
-                            memcpy(row, scanline, out_width);
+                            memcpy(row, scanline, scanline_width - 1);
                             break;
                         }
 
