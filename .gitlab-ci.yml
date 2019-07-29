@@ -1,6 +1,4 @@
-image: debian:stretch-backports
-
-# NOTE: ASan doesn't work on Gitlab runners, each commit has to be checked locally.
+image: debian:buster-slim
 
 stages:
   - test
@@ -8,15 +6,15 @@ stages:
 
 before_script:
   - apt update
-  - apt install -y -t stretch-backports build-essential meson clang-tools-6.0 libfuzzer-6.0-dev libubsan0 zlib1g-dev libpng-dev python3-pkgconfig gcovr wget tar curl
+  - apt install -y build-essential meson clang-tools clang-tidy libfuzzer-7-dev libubsan1 zlib1g-dev libpng-dev pkg-config gcovr wget tar curl
 
 test:
   stage: test
   script:
-    - CC=clang-6.0 CXX=clang++-6.0 meson -Ddev_build=true -Db_sanitize=undefined -Db_lundef=false clang_build
-    - ninja -C clang_build scan-build
-    - ninja -C clang_build
-    - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=undefined -Db_coverage=true gcc_build
+    - CC=clang-7 CXX=clang++-7 meson -Ddev_build=true -Db_sanitize=address,undefined -Db_lundef=false clang_build
+    - ninja -C clang_build test
+    - ninja -C clang_build scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
+    - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=address,undefined -Db_coverage=true gcc_build
     - cd gcc_build
     - ninja
     - meson test info -v
