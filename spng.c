@@ -656,7 +656,7 @@ static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned s
     return sample;
 }
 
-static inline int gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt, const uint16_t *gamma_lut)
+static inline void gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt, const uint16_t *gamma_lut)
 {
     uint32_t i;
 
@@ -688,8 +688,6 @@ static inline int gamma_correct_row(unsigned char *row, uint32_t pixels, int fmt
             memcpy(row + i * 8, px, 8);
         }
     }
-
-    return 0;
 }
 
 /* Apply transparency to truecolor output row */
