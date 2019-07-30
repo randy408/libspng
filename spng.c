@@ -2498,10 +2498,9 @@ int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte)
 {
     SPNG_GET_CHUNK_BOILERPLATE(plte);
 
-    if(ctx->stored.plte)
-        memcpy(plte, &ctx->plte, sizeof(struct spng_plte));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.plte) return SPNG_ECHUNKAVAIL;
+
+    memcpy(plte, &ctx->plte, sizeof(struct spng_plte));
 
     return 0;
 }
@@ -2510,10 +2509,9 @@ int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
     SPNG_GET_CHUNK_BOILERPLATE(trns);
 
-    if(ctx->stored.trns)
-        memcpy(trns, &ctx->trns, sizeof(struct spng_trns));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.trns) return SPNG_ECHUNKAVAIL;
+
+    memcpy(trns, &ctx->trns, sizeof(struct spng_trns));
 
     return 0;
 }
@@ -2540,10 +2538,9 @@ int spng_get_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm)
 {
     SPNG_GET_CHUNK_BOILERPLATE(chrm);
 
-    if(ctx->stored.chrm)
-        memcpy(chrm, &ctx->chrm_int, sizeof(struct spng_chrm_int));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.chrm) return SPNG_ECHUNKAVAIL;
+
+    memcpy(chrm, &ctx->chrm_int, sizeof(struct spng_chrm_int));
 
     return 0;
 }
@@ -2552,10 +2549,9 @@ int spng_get_gama(spng_ctx *ctx, double *gamma)
 {
     SPNG_GET_CHUNK_BOILERPLATE(gamma);
 
-    if(ctx->stored.gama)
-        *gamma = (double)ctx->gama / 100000.0;
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.gama) return SPNG_ECHUNKAVAIL;
+
+    *gamma = (double)ctx->gama / 100000.0;
 
     return 0;
 }
@@ -2564,10 +2560,9 @@ int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
     SPNG_GET_CHUNK_BOILERPLATE(iccp);
 
-    if(ctx->stored.iccp)
-        memcpy(iccp, &ctx->iccp, sizeof(struct spng_iccp));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.iccp) return SPNG_ECHUNKAVAIL;
+
+    memcpy(iccp, &ctx->iccp, sizeof(struct spng_iccp));
 
     return 0;
 }
@@ -2576,10 +2571,9 @@ int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 {
     SPNG_GET_CHUNK_BOILERPLATE(sbit);
 
-    if(ctx->stored.sbit)
-        memcpy(sbit, &ctx->sbit, sizeof(struct spng_sbit));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.sbit) return SPNG_ECHUNKAVAIL;
+
+    memcpy(sbit, &ctx->sbit, sizeof(struct spng_sbit));
 
     return 0;
 }
@@ -2588,10 +2582,9 @@ int spng_get_srgb(spng_ctx *ctx, uint8_t *rendering_intent)
 {
     SPNG_GET_CHUNK_BOILERPLATE(rendering_intent);
 
-    if(ctx->stored.srgb)
-        *rendering_intent = ctx->srgb_rendering_intent;
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.srgb) return SPNG_ECHUNKAVAIL;
+
+    *rendering_intent = ctx->srgb_rendering_intent;
 
     return 0;
 }
@@ -2611,10 +2604,9 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 
     if(*n_text < ctx->n_text) return 1;
 
-    if(ctx->stored.text)
-        memcpy(text, &ctx->text_list, ctx->n_text * sizeof(struct spng_text));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.text) return SPNG_ECHUNKAVAIL;
+
+    memcpy(text, &ctx->text_list, ctx->n_text * sizeof(struct spng_text));
 
     return ret;
 }
@@ -2623,10 +2615,9 @@ int spng_get_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
     SPNG_GET_CHUNK_BOILERPLATE(bkgd);
 
-    if(ctx->stored.bkgd)
-        memcpy(bkgd, &ctx->bkgd, sizeof(struct spng_bkgd));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.bkgd) return SPNG_ECHUNKAVAIL;
+
+    memcpy(bkgd, &ctx->bkgd, sizeof(struct spng_bkgd));
 
     return 0;
 }
@@ -2635,10 +2626,9 @@ int spng_get_hist(spng_ctx *ctx, struct spng_hist *hist)
 {
     SPNG_GET_CHUNK_BOILERPLATE(hist);
 
-    if(ctx->stored.hist)
-        memcpy(hist, &ctx->hist, sizeof(struct spng_hist));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.hist) return SPNG_ECHUNKAVAIL;
+
+    memcpy(hist, &ctx->hist, sizeof(struct spng_hist));
 
     return 0;
 }
@@ -2647,10 +2637,9 @@ int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys)
 {
     SPNG_GET_CHUNK_BOILERPLATE(phys);
 
-    if(ctx->stored.phys)
-        memcpy(phys, &ctx->phys, sizeof(struct spng_phys));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.phys) return SPNG_ECHUNKAVAIL;
+
+    memcpy(phys, &ctx->phys, sizeof(struct spng_phys));
 
     return 0;
 }
@@ -2670,10 +2659,9 @@ int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 
     if(*n_splt < ctx->n_splt) return 1;
 
-    if(ctx->stored.splt)
-        memcpy(splt, &ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.splt) return SPNG_ECHUNKAVAIL;
+
+    memcpy(splt, &ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
 
     return 0;
 }
@@ -2682,11 +2670,9 @@ int spng_get_time(spng_ctx *ctx, struct spng_time *time)
 {
     SPNG_GET_CHUNK_BOILERPLATE(time);
 
-    if(ctx->stored.time)
-        memcpy(time, &ctx->time, sizeof(struct spng_time));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.time) return SPNG_ECHUNKAVAIL;
 
+    memcpy(time, &ctx->time, sizeof(struct spng_time));
 
     return 0;
 }
@@ -2695,10 +2681,9 @@ int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
     SPNG_GET_CHUNK_BOILERPLATE(offs);
 
-    if(ctx->stored.offs)
-        memcpy(offs, &ctx->offs, sizeof(struct spng_offs));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.offs) return SPNG_ECHUNKAVAIL;
+
+    memcpy(offs, &ctx->offs, sizeof(struct spng_offs));
 
     return 0;
 }
@@ -2707,10 +2692,9 @@ int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif)
 {
     SPNG_GET_CHUNK_BOILERPLATE(exif);
 
-    if(ctx->stored.exif)
-        memcpy(exif, &ctx->exif, sizeof(struct spng_exif));
-    else
-        return SPNG_ECHUNKAVAIL;
+    if(!ctx->stored.exif) return SPNG_ECHUNKAVAIL;
+
+    memcpy(exif, &ctx->exif, sizeof(struct spng_exif));
 
     return 0;
 }
