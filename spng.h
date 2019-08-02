@@ -320,7 +320,7 @@ SPNG_API spng_ctx *spng_ctx_new(int flags);
 SPNG_API spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags);
 SPNG_API void spng_ctx_free(spng_ctx *ctx);
 
-SPNG_API int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size);
+SPNG_API int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size);
 SPNG_API int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user);
 
 SPNG_API int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height);

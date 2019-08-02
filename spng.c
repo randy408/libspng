@@ -100,14 +100,15 @@ struct spng_ctx
 {
     size_t data_size;
     size_t bytes_read;
-    unsigned char *data;
+    unsigned char *stream_buf;
+    const unsigned char *data;
 
     /* User-defined pointers for streaming */
     spng_read_fn *read_fn;
     void *read_user_ptr;
 
     /* Used for buffer reads */
-    unsigned char *png_buf; /* base pointer for the buffer */
+    const unsigned char *png_buf; /* base pointer for the buffer */
     size_t bytes_left;
     size_t last_read_size;
 
@@ -319,15 +320,16 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
 
     if(ctx->streaming && (bytes > ctx->data_size))
     {
-        void *buf = spng__realloc(ctx, ctx->data, bytes);
+        void *buf = spng__realloc(ctx, ctx->stream_buf, bytes);
         if(buf == NULL) return SPNG_EMEM;
 
-        ctx->data = buf;
+        ctx->stream_buf = buf;
+        ctx->data = ctx->stream_buf;
         ctx->data_size = bytes;
     }
 
     int ret;
-    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->data, bytes);
+    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->stream_buf, bytes);
     if(ret) return ret;
 
     ctx->bytes_read += bytes;
@@ -1019,7 +1021,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     if(!ctx->valid_state) return SPNG_EBADSTATE;
 
     int ret, discard;
-    unsigned char *data;
+    const unsigned char *data;
     struct spng_chunk chunk;
 
     chunk.offset = 8;
@@ -1503,7 +1505,7 @@ static int read_chunks_after_idat(spng_ctx *ctx)
     int ret, discard;
     int prev_was_idat = 1;
     struct spng_chunk chunk;
-    unsigned char *data;
+    const unsigned char *data;
 
     memcpy(&chunk, &ctx->last_idat, sizeof(struct spng_chunk));
 
@@ -2308,7 +2310,7 @@ void spng_ctx_free(spng_ctx *ctx)
 {
     if(ctx == NULL) return;
 
-    if(ctx->streaming && ctx->data != NULL) spng__free(ctx, ctx->data);
+    if(ctx->streaming && ctx->stream_buf != NULL) spng__free(ctx, ctx->stream_buf);
 
     if(ctx->exif.data != NULL && !ctx->user.exif) spng__free(ctx, ctx->exif.data);
 
@@ -2357,7 +2359,7 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
     return 0;
 }
 
-int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size)
+int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
 {
     if(ctx == NULL || buf == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
@@ -2381,10 +2383,12 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
     if(!ctx->valid_state) return SPNG_EBADSTATE;
     if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
-    if(ctx->data != NULL) return SPNG_EBUF_SET;
+    if(ctx->stream_buf != NULL) return SPNG_EBUF_SET;
 
-    ctx->data = spng__malloc(ctx, SPNG_READ_SIZE);
-    if(ctx->data == NULL) return SPNG_EMEM;
+    ctx->stream_buf = spng__malloc(ctx, SPNG_READ_SIZE);
+    if(ctx->stream_buf == NULL) return SPNG_EMEM;
+
+    ctx->data = ctx->stream_buf;
     ctx->data_size = SPNG_READ_SIZE;
 
     ctx->read_fn = read_func;
