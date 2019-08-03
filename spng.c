@@ -277,6 +277,23 @@ static inline void spng__free(spng_ctx *ctx, void *ptr)
     ctx->alloc.free_fn(ptr);
 }
 
+static void *spng__zalloc(void *opaque, unsigned items, unsigned size)
+{
+    spng_ctx *ctx = opaque;
+
+    if(size > SIZE_MAX / items) return NULL;
+
+    size_t len = (size_t)items * size;
+
+    return spng__malloc(ctx, len);
+}
+
+static void spng__zfree(void *opqaue, void *ptr)
+{
+    spng_ctx *ctx = opqaue;
+    spng__free(ctx, ptr);
+}
+
 static inline uint16_t read_u16(const void *_data)
 {
     const unsigned char *data = _data;
@@ -1746,9 +1763,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     else bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
 
     z_stream stream;
-    stream.zalloc = Z_NULL;
-    stream.zfree = Z_NULL;
-    stream.opaque = Z_NULL;
+    stream.zalloc = spng__zalloc;
+    stream.zfree = spng__zfree;
+    stream.opaque = ctx;
 
     if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
 
