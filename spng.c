@@ -12,23 +12,6 @@
     #include <zlib.h>
 #endif
 
-#define SPNG_CHUNK_IHDR (1U)
-#define SPNG_CHUNK_PLTE (1U << 1)
-#define SPNG_CHUNK_CHRM (1U << 2)
-#define SPNG_CHUNK_ICCP (1U << 3)
-#define SPNG_CHUNK_GAMA (1U << 4)
-#define SPNG_CHUNK_SBIT (1U << 5)
-#define SPNG_CHUNK_SRGB (1U << 6)
-#define SPNG_CHUNK_TEXT (1U << 7)
-#define SPNG_CHUNK_BKGD (1U << 8)
-#define SPNG_CHUNK_HIST (1U << 9)
-#define SPNG_CHUNK_TRNS (1U << 10)
-#define SPNG_CHUNK_PHYS (1U << 11)
-#define SPNG_CHUNK_SPLT (1U << 12)
-#define SPNG_CHUNK_TIME (1U << 13)
-#define SPNG_CHUNK_OFFS (1U << 14)
-#define SPNG_CHUNK_EXIF (1U << 15)
-
 #define SPNG_READ_SIZE 8192
 
 #ifndef SPNG_DISABLE_OPT
@@ -1006,7 +989,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     if(ctx->data == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
 
-    int ret, discard;
+    int ret, discard = 0;
     const unsigned char *data;
     struct spng_chunk chunk;
 
@@ -1048,8 +1031,18 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     ctx->file.ihdr = 1;
     ctx->stored.ihdr = 1;
 
+    struct spng_chunk_bitfield stored;
+    memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
+
     while( !(ret = read_header(ctx, &discard)))
     {
+        if(discard)
+        {
+            memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
+        }
+
+        memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
+
         memcpy(&chunk, &ctx->current_chunk, sizeof(struct spng_chunk));
 
         if(!memcmp(chunk.type, type_idat, 4))
@@ -1488,15 +1481,25 @@ static int read_chunks_after_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
 
-    int ret, discard;
+    int ret, discard = 0;
     int prev_was_idat = 1;
     struct spng_chunk chunk;
     const unsigned char *data;
+    struct spng_chunk_bitfield stored;
+
+    memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
 
     memcpy(&chunk, &ctx->last_idat, sizeof(struct spng_chunk));
 
     while( !(ret = read_header(ctx, &discard)))
     {
+        if(discard)
+        {
+            memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
+        }
+
+        memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
+
         memcpy(&chunk, &ctx->current_chunk, sizeof(struct spng_chunk));
 
         if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
