@@ -96,6 +96,26 @@ struct spng_plte_entry16
     uint16_t alpha;
 };
 
+struct spng_chunk_bitfield
+{
+    unsigned ihdr: 1;
+    unsigned plte: 1;
+    unsigned chrm: 1;
+    unsigned iccp: 1;
+    unsigned gama: 1;
+    unsigned sbit: 1;
+    unsigned srgb: 1;
+    unsigned text: 1;
+    unsigned bkgd: 1;
+    unsigned hist: 1;
+    unsigned trns: 1;
+    unsigned phys: 1;
+    unsigned splt: 1;
+    unsigned time: 1;
+    unsigned offs: 1;
+    unsigned exif: 1;
+};
+
 struct spng_ctx
 {
     size_t data_size;
@@ -127,65 +147,14 @@ struct spng_ctx
     unsigned have_first_idat: 1;
     unsigned have_last_idat: 1;
 
-    struct
-    {
-        unsigned ihdr: 1;
-        unsigned plte: 1;
-        unsigned chrm: 1;
-        unsigned iccp: 1;
-        unsigned gama: 1;
-        unsigned sbit: 1;
-        unsigned srgb: 1;
-        unsigned text: 1;
-        unsigned bkgd: 1;
-        unsigned hist: 1;
-        unsigned trns: 1;
-        unsigned phys: 1;
-        unsigned splt: 1;
-        unsigned time: 1;
-        unsigned offs: 1;
-        unsigned exif: 1;
-    }file; /* input file contains this chunk */
+    /* input file contains this chunk */
+    struct spng_chunk_bitfield file;
 
-    struct
-    {
-        unsigned ihdr: 1;
-        unsigned plte: 1;
-        unsigned chrm: 1;
-        unsigned iccp: 1;
-        unsigned gama: 1;
-        unsigned sbit: 1;
-        unsigned srgb: 1;
-        unsigned text: 1;
-        unsigned bkgd: 1;
-        unsigned hist: 1;
-        unsigned trns: 1;
-        unsigned phys: 1;
-        unsigned splt: 1;
-        unsigned time: 1;
-        unsigned offs: 1;
-        unsigned exif: 1;
-    }user; /* chunk was stored with spng_set_*() */
+    /* chunk was stored with spng_set_*() */
+    struct spng_chunk_bitfield user;
 
-    struct stored
-    {
-        unsigned ihdr: 1;
-        unsigned plte: 1;
-        unsigned chrm: 1;
-        unsigned iccp: 1;
-        unsigned gama: 1;
-        unsigned sbit: 1;
-        unsigned srgb: 1;
-        unsigned text: 1;
-        unsigned bkgd: 1;
-        unsigned hist: 1;
-        unsigned trns: 1;
-        unsigned phys: 1;
-        unsigned splt: 1;
-        unsigned time: 1;
-        unsigned offs: 1;
-        unsigned exif: 1;
-    }stored; /* chunk was stored by reading or with spng_set_*() */
+    /* chunk was stored by reading or with spng_set_*() */
+    struct spng_chunk_bitfield stored;
 
     struct spng_chunk first_idat, last_idat;
 
