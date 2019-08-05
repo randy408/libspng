@@ -2030,6 +2030,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                     }
                     else /* == 8 */
                     {
+                        if(fmt == SPNG_FMT_RGBA8)
+                        {
+                            memcpy(pixel, scanline + (k * 3), 3);
+                            pixel[3] = 255;
+                            continue;
+                        }
+
                         memcpy(&r_8, scanline + (k * 3), 1);
                         memcpy(&g_8, scanline + (k * 3) + 1, 1);
                         memcpy(&b_8, scanline + (k * 3) + 2, 1);
