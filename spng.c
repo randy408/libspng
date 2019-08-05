@@ -1066,10 +1066,10 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             continue;
         }
 
-        data = ctx->data;
-
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;
+
+        data = ctx->data;
 
         if(is_critical_chunk(&chunk))
         {
@@ -1302,6 +1302,44 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             ctx->file.phys = 1;
             ctx->stored.phys = 1;
         }
+        else if(!memcmp(chunk.type, type_time, 4))
+        {
+            if(ctx->file.time) return SPNG_EDUP_TIME;
+
+            if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
+
+            struct spng_time time;
+
+            time.year = read_u16(data);
+            memcpy(&time.month, data + 2, 1);
+            memcpy(&time.day, data + 3, 1);
+            memcpy(&time.hour, data + 4, 1);
+            memcpy(&time.minute, data + 5, 1);
+            memcpy(&time.second, data + 6, 1);
+
+            if(check_time(&time)) return SPNG_ETIME;
+
+            ctx->file.time = 1;
+
+            if(!ctx->user.time) memcpy(&ctx->time, &time, sizeof(struct spng_time));
+
+            ctx->stored.time = 1;
+        }
+        else if(!memcmp(chunk.type, type_offs, 4))
+        {
+            if(ctx->file.offs) return SPNG_EDUP_OFFS;
+
+            if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
+
+            ctx->offs.x = read_s32(data);
+            ctx->offs.y = read_s32(data + 4);
+            memcpy(&ctx->offs.unit_specifier, data + 8, 1);
+
+            if(check_offs(&ctx->offs)) return SPNG_EOFFS;
+
+            ctx->file.offs = 1;
+            ctx->stored.offs = 1;
+        }
         else if(!memcmp(chunk.type, type_splt, 4))
         {
             if(ctx->user.splt) continue; /* XXX: should check profile names for uniqueness */
@@ -1404,29 +1442,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
             ctx->stored.splt = 1;
         }
-        else if(!memcmp(chunk.type, type_time, 4))
-        {
-            if(ctx->file.time) return SPNG_EDUP_TIME;
-
-            if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
-
-            struct spng_time time;
-
-            time.year = read_u16(data);
-            memcpy(&time.month, data + 2, 1);
-            memcpy(&time.day, data + 3, 1);
-            memcpy(&time.hour, data + 4, 1);
-            memcpy(&time.minute, data + 5, 1);
-            memcpy(&time.second, data + 6, 1);
-
-            if(check_time(&time)) return SPNG_ETIME;
-
-            ctx->file.time = 1;
-
-            if(!ctx->user.time) memcpy(&ctx->time, &time, sizeof(struct spng_time));
-
-            ctx->stored.time = 1;
-        }
         else if(!memcmp(chunk.type, type_text, 4) ||
                 !memcmp(chunk.type, type_ztxt, 4) ||
                 !memcmp(chunk.type, type_itxt, 4))
@@ -1434,21 +1449,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             ctx->file.text = 1;
 
             continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
-        }
-        else if(!memcmp(chunk.type, type_offs, 4))
-        {
-            if(ctx->file.offs) return SPNG_EDUP_OFFS;
-
-            if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
-
-            ctx->offs.x = read_s32(data);
-            ctx->offs.y = read_s32(data + 4);
-            memcpy(&ctx->offs.unit_specifier, data + 8, 1);
-
-            if(check_offs(&ctx->offs)) return SPNG_EOFFS;
-
-            ctx->file.offs = 1;
-            ctx->stored.offs = 1;
         }
         else if(!memcmp(chunk.type, type_exif, 4))
         {
