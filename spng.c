@@ -313,6 +313,8 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
     return 0;
 }
 
+/* Read and check the current chunk's crc,
+   returns -SPNG_CRC_DISCARD if the chunk should be discarded */
 static inline int read_and_check_crc(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
@@ -332,7 +334,7 @@ static inline int read_and_check_crc(spng_ctx *ctx)
         else
         {
             if(ctx->crc_action_ancillary == SPNG_CRC_USE) return 0;
-            if(ctx->crc_action_ancillary == SPNG_CRC_DISCARD) return SPNG_CRC_DISCARD;
+            if(ctx->crc_action_ancillary == SPNG_CRC_DISCARD) return -SPNG_CRC_DISCARD;
         }
 
         return SPNG_ECHUNK_CRC;
@@ -352,7 +354,7 @@ static inline int read_header(spng_ctx *ctx, int *discard)
     ret = read_and_check_crc(ctx);
     if(ret)
     {
-        if(ret == SPNG_CRC_DISCARD)
+        if(ret == -SPNG_CRC_DISCARD)
         {
             if(discard != NULL) *discard = 1;
         }
@@ -1069,7 +1071,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;
 
-        if(is_critical_chunk(&chunk)) /* Critical chunk */
+        if(is_critical_chunk(&chunk))
         {
             if(!memcmp(chunk.type, type_plte, 4))
             {
@@ -1505,6 +1507,27 @@ static int read_chunks_after_idat(spng_ctx *ctx)
 
         memcpy(&chunk, &ctx->current_chunk, sizeof(struct spng_chunk));
 
+        if(is_critical_chunk(&chunk))
+        {
+            if(!memcmp(chunk.type, type_iend, 4))
+            {
+                if(chunk.length) return SPNG_ECHUNK_CRC;
+
+                ret = read_and_check_crc(ctx);
+                if(ret == -SPNG_CRC_DISCARD) ret = 0;
+
+                return ret;
+            }
+            else if(!memcmp(chunk.type, type_idat, 4) && prev_was_idat)
+            {/* ignore extra IDATs */
+                ret = discard_chunk_bytes(ctx, chunk.length);
+                if(ret) return ret;
+
+                continue;
+            }
+            else return SPNG_ECHUNK_POS; /* critical chunk after last IDAT that isn't IEND */
+        }
+
         if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
         {
             ret = discard_chunk_bytes(ctx, chunk.length);
@@ -1512,18 +1535,10 @@ static int read_chunks_after_idat(spng_ctx *ctx)
             continue;
         }
 
-        data = ctx->data;
-
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;
 
-        /* Critical chunk */
-        if(is_critical_chunk(&chunk))
-        {
-            if(!memcmp(chunk.type, type_iend, 4)) return 0;
-            else if(!memcmp(chunk.type, type_idat, 4) && prev_was_idat) continue; /* ignore extra IDATs */
-            else return SPNG_ECHUNK_POS; /* critical chunk after last IDAT that isn't IEND */
-        }
+        data = ctx->data;
 
         prev_was_idat = 0;
 
