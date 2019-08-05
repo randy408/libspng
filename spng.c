@@ -1069,9 +1069,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;
 
-        /* Ignore private chunks */
-        if( (chunk.type[1] & (1 << 5)) != 0) continue;
-
         if(is_critical_chunk(&chunk)) /* Critical chunk */
         {
             if(!memcmp(chunk.type, type_plte, 4))
@@ -1519,9 +1516,6 @@ static int read_chunks_after_idat(spng_ctx *ctx)
 
         ret = read_chunk_bytes(ctx, chunk.length);
         if(ret) return ret;
-
-         /* Ignore private chunks */
-        if( (chunk.type[1] & (1 << 5)) != 0) continue;
 
         /* Critical chunk */
         if(is_critical_chunk(&chunk))
