@@ -41,6 +41,12 @@
     #pragma warning(disable: 4244)
 #endif
 
+#if (defined(__BYTE_ORDER) && __BYTE_ORDER == __ORDER_BIG_ENDIAN__) || defined(__BIG_ENDIAN__)
+    #define SPNG_BE
+#else
+    #define SPNG_LE
+#endif
+
 #define SPNG_FILTER_TYPE_NONE 0
 #define SPNG_FILTER_TYPE_SUB 1
 #define SPNG_FILTER_TYPE_UP 2
