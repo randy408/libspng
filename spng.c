@@ -3186,18 +3186,21 @@ const char *spng_version_string(void)
 
 #if defined(SPNG_X86)
 
-#if defined(__GNUC__) && !defined(__clang__)
-   #pragma GCC target("sse2")
-   #pragma GCC target("ssse3")
+#ifndef SPNG_SSE
+    #define SPNG_SSE 1
 #endif
 
-#define _mm_blendv_epi8__SSSE3__ 1
+#if defined(__GNUC__) && !defined(__clang__)
+   #pragma GCC target("sse2")
+
+    #if SPNG_SSE == 3
+        #pragma GCC target("ssse3")
+    #endif
+#endif
 
 #include <immintrin.h>
 #include <inttypes.h>
 #include <string.h>
-
-#define PNG_INTEL_SSE_IMPLEMENTATION 3
 
 /* Functions in this file look at most 3 pixels (a,b,c) to predict the 4th (d).
  * They're positioned like this:
@@ -3364,13 +3367,13 @@ static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned ch
 }
 
 /* Returns |x| for 16-bit lanes. */
-#ifndef _MSC_VER
+#if (SPNG_SSE == 3) && !defined(_MSC_VER)
 static __attribute__((target("ssse3"))) __m128i abs_i16(__m128i x)
 #else
 static __m128i abs_i16(__m128i x)
 #endif
 {
-#if PNG_INTEL_SSE_IMPLEMENTATION >= 2
+#if SPNG_SSE >= 2
    return _mm_abs_epi16(x);
 #else
    /* Read this all as, return x<0 ? -x : x.
@@ -3390,7 +3393,7 @@ static __m128i abs_i16(__m128i x)
 /* Bytewise c ? t : e. */
 static __m128i if_then_else(__m128i c, __m128i t, __m128i e)
 {
-#if PNG_INTEL_SSE_IMPLEMENTATION > 3
+#if SPNG_SSE > 3
    return _mm_blendv_epi8(e, t, c);
 #else
    return _mm_or_si128(_mm_and_si128(c, t), _mm_andnot_si128(c, e));

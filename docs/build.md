@@ -20,12 +20,15 @@ ninja install
 # Optimizations
 
 Architecture-specific optimizations are enabled by default,
-these can be disabled with the `SPNG_DISABLE_OPT` compiler option.
+this can be disabled with the `SPNG_DISABLE_OPT` compiler option.
 
 The Meson project has an `enable_opt` option, it is enabled by default,
 the CMake equivalent is `ENABLE_OPT`.
 
-These optimizations require SSE2/SSSE3 on x86 and NEON on ARM.
+Optimizations on x86 require SSE2 by default, to enable SSSE3
+optimizations add `-DSPNG_SSE=3` as a compiler option, this improves
+performance by up to 7%.
+
 Compiler-specific macros are used to omit the need for the `-msse2` and
 `-mssse3` compiler flags, if the code does not compile without these flags
 you should file a bug report.
