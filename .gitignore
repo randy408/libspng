@@ -2,9 +2,12 @@
 /cbuild/
 /clang_build/
 /arm_build/
+/vbuild/
+/check_build/
 /benchmark_images/
 /subprojects/*/
-/docs/_build/
 /.vscode/
+/.frama-c/
 /trash/
 /tests/formal/
+/site/
