@@ -1,21 +1,11 @@
 # Semantics
 
-* Chunk data is stored in :c:type:`spng_ctx`.
-* When calling ``spng_get_*()`` or ``spng_set_*()`` functions all ancillary
+* Chunk data is stored in `spng_ctx`.
+* When calling `spng_get_*()` or `spng_set_*()` functions all ancillary
   chunks up to the first IDAT are read, validated then stored.
-* ``spng_set_*()`` functions replace stored chunk data for that type.
-* Chunk data stored with ``spng_set_*()`` functions are never replaced with
+* `spng_set_*()` functions replace stored chunk data for that type.
+* Chunk data stored with `spng_set_*()` functions are never replaced with
   input file chunk data i.e. if you set something it will stay that way.
-
-
-# Data types
-
-```c
-struct spng_ihdr
-```
-
-Image header information
-
 
 # API
 
@@ -99,10 +89,10 @@ of stored text chunks.
 
 !!! note
     Due to the structure of PNG files it is recommended to call this function
-    after :c:func:`spng_decode_image` to retrieve all text chunks.
+    after `spng_decode_image` to retrieve all text chunks.
 
 !!! warning
-    Text data is freed when calling :c:func:`spng_ctx_free`.
+    Text data is freed when calling `spng_ctx_free`.
 
 # spng_get_bkgd()
 ```c
@@ -138,7 +128,7 @@ If `splt` is NULL and `n_splt` is non-NULL then `n_splt` is set to the number
 of stored sPLT chunks.
 
 !!! warning
-    Suggested palettes are freed when calling :c:func:`spng_ctx_free`.
+    Suggested palettes are freed when calling `spng_ctx_free`.
 
 # spng_get_time()
 ```c
@@ -149,7 +139,7 @@ Get modification time
 
 !!! note
     Due to the structure of PNG files it is recommended to call this function
-    after :c:func:`spng_decode_image`.
+    after `spng_decode_image`.
 
 
 # spng_get_offs()
@@ -168,10 +158,10 @@ Get EXIF data
 
 !!! note
     Due to the structure of PNG files it is recommended to call this function
-    after :c:func:`spng_decode_image`.
+    after `spng_decode_image`.
 
 !!! warning
-    :c:member:`exif.data` is freed when calling :c:func:`spng_ctx_free`.
+    `exif.data` is freed when calling `spng_ctx_free`.
 
 
 
@@ -290,7 +280,7 @@ int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
 
 Set suggested palette(s).
 
-`splt` should point to an :c:type:`spng_splt` array of `n_splt` elements.
+`splt` should point to an `spng_splt` array of `n_splt` elements.
 
 # spng_set_time()
 ```c

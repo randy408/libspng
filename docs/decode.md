@@ -19,6 +19,8 @@ enum spng_format
 };
 ```
 
+The channels are always in byte-order regardless of host endianness.
+
 # spng_decode_flags
 
 ```c
@@ -72,7 +74,7 @@ Decodes the PNG file and writes the decoded image to `out`.
 `spng_decoded_image_size` with the same output format.
 
 Interlaced images are written deinterlaced to `out`,
-16-bit images are converted to host-endian,.
+16-bit images are converted to host-endian.
 
 This function can only be called once per context.
 
