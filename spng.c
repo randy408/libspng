@@ -1781,11 +1781,14 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     uint16_t r_16, g_16, b_16, a_16, gray_16;
     r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
     r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
-    unsigned char *pixel;
-    size_t pixel_offset = 0;
+    const uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
+    const uint8_t mask = (uint16_t)(1 << ctx->ihdr.bit_depth) - 1;
+    const uint8_t initial_shift = 8 - ctx->ihdr.bit_depth;
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
-    unsigned processing_depth = ctx->ihdr.bit_depth;
+    size_t pixel_offset = 0;
+    unsigned char *pixel;
     unsigned depth_target = 8; /* FMT_RGBA8 */
+    unsigned processing_depth = ctx->ihdr.bit_depth;
 
     if(indexed) processing_depth = 8;
 
@@ -1868,19 +1871,11 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
     struct spng_sbit sb;
 
-    sb.red_bits = ctx->ihdr.bit_depth;
-    sb.green_bits = ctx->ihdr.bit_depth;
-    sb.blue_bits = ctx->ihdr.bit_depth;
-    sb.alpha_bits = ctx->ihdr.bit_depth;
-    sb.grayscale_bits = ctx->ihdr.bit_depth;
-
-    if(indexed)
-    {
-        sb.red_bits = 8;
-        sb.green_bits = 8;
-        sb.blue_bits = 8;
-        sb.alpha_bits = 8;
-    }
+    sb.red_bits = processing_depth;
+    sb.green_bits = processing_depth;
+    sb.blue_bits = processing_depth;
+    sb.alpha_bits = processing_depth;
+    sb.grayscale_bits = processing_depth;
 
     if(use_sbit)
     {
@@ -2027,6 +2022,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
             pixel_offset = 0;
             width = sub[pass].width;
 
+            uint8_t shift_amount = initial_shift;
+
             for(k=0; k < width; k++)
             {
                 pixel = row + pixel_offset;
@@ -2067,17 +2064,15 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                     {
                         memcpy(&entry, scanline + k, 1);
                     }
-                    else
+                    else /* < 8 */
                     {
-                        memcpy(&entry, scanline + k / (8 / ctx->ihdr.bit_depth), 1);
+                        memcpy(&entry, scanline + k / samples_per_byte, 1);
 
-                        uint8_t mask = (1 << ctx->ihdr.bit_depth) - 1;
-                        uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
-                        uint8_t max_shift_amount = 8 - ctx->ihdr.bit_depth;
-                        uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * ctx->ihdr.bit_depth);
+                        if(shift_amount > 8) shift_amount = initial_shift;
 
-                        entry = entry & (mask << shift_amount);
-                        entry = entry >> shift_amount;
+                        entry = (entry >> shift_amount) & mask;
+
+                        shift_amount -= ctx->ihdr.bit_depth;
                     }
 
                     if(entry >= ctx->plte.n_entries)
@@ -2148,16 +2143,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                     }
                     else /* <= 8 */
                     {
-                        memcpy(&gray_8, scanline + k / (8 / ctx->ihdr.bit_depth), 1);
+                        memcpy(&gray_8, scanline + k / samples_per_byte, 1);
 
-                        uint16_t mask16 = (1 << ctx->ihdr.bit_depth) - 1;
-                        uint8_t mask = mask16; /* avoid shift by width */
-                        uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
-                        uint8_t max_shift_amount = 8 - ctx->ihdr.bit_depth;
-                        uint8_t shift_amount = max_shift_amount - ((k % samples_per_byte) * ctx->ihdr.bit_depth);
+                        if(shift_amount > 8) shift_amount = initial_shift;
 
-                        gray_8 = gray_8 & (mask << shift_amount);
-                        gray_8 = gray_8 >> shift_amount;
+                        gray_8 = (gray_8 >> shift_amount) & mask;
+
+                        shift_amount -= ctx->ihdr.bit_depth;
 
                         if(apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
                         else a_8 = 255;
