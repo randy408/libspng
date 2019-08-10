@@ -24,4 +24,4 @@ spng_ctx_free(ctx);
 ```
 
 
-For a complete example see [example.c](https://gitlab.com/randy408/libspng/blob/v0.5.0/examples/example.c)
+For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.5.0/examples/example.c)

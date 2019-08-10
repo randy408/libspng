@@ -1,8 +1,6 @@
 site_name: libspng v0.5.0
 site_url: https://libspng.org/docs
-repo_url: https://gitlab.com/randy408/libspng/
-repo_name: GitLab
-edit_uri: blob/master/docs/
+repo_url: https://github.com/randy408/libspng/
 site_description: libspng documentation
 site_author: Randy
 copyright: © 2018-2019, Randy

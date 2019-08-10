@@ -1,4 +1,4 @@
-# Tests marked '#*' fail due to a libpng bug: https://gitlab.com/randy408/libspng/issues/5
+# Tests marked '#*' fail due to a libpng bug: https://github.com/randy408/libspng/issues/17
 
 test('basi0g01', test_exe, args: files('basi0g01.png'))
 test('basi0g02', test_exe, args: files('basi0g02.png'))

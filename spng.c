@@ -1140,7 +1140,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             if(ctx->file.iccp) return SPNG_EDUP_ICCP;
             if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
-            continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
+            continue;
         }
         else if(!memcmp(chunk.type, type_sbit, 4))
         {
@@ -1449,7 +1449,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         {
             ctx->file.text = 1;
 
-            continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
+            continue;
         }
         else if(!memcmp(chunk.type, type_exif, 4))
         {
@@ -1610,7 +1610,7 @@ static int read_chunks_after_idat(spng_ctx *ctx)
         {
             ctx->file.text = 1;
 
-            continue; /* XXX: https://gitlab.com/randy408/libspng/issues/31 */
+            continue;
         }
     }
 
