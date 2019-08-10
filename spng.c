@@ -996,6 +996,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
     if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(ctx->first_idat.offset) return 0;
 
     int ret, discard = 0;
     const unsigned char *data;
@@ -1682,46 +1683,23 @@ static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanl
 
 static int get_ancillary(spng_ctx *ctx)
 {
-    if(ctx == NULL) return 1;
-    if(ctx->data == NULL) return 1;
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
+    int ret = read_chunks_before_idat(ctx);
 
-    int ret;
-    if(!ctx->first_idat.offset)
-    {
-        ret = read_chunks_before_idat(ctx);
-        if(ret)
-        {
-            ctx->valid_state = 0;
-            return ret;
-        }
-    }
+    if(ret) ctx->valid_state = 0;
 
-    return 0;
+    return ret;
 }
 
 /* Same as above except it returns 0 if no buffer is set */
 static int get_ancillary2(spng_ctx *ctx)
 {
-    if(ctx == NULL) return 1;
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
-
-    if(ctx->data == NULL) return 0;
-
-    int ret;
-    if(!ctx->first_idat.offset)
+    if(ctx->data == NULL)
     {
-        ret = read_chunks_before_idat(ctx);
-        if(ret)
-        {
-            ctx->valid_state = 0;
-            return ret;
-        }
+        ctx->encode_only = 1;
+        return 0;
     }
 
-    ctx->encode_only = 1;
-
-    return 0;
+    return get_ancillary(ctx);;
 }
 
 int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags)
