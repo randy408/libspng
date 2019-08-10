@@ -1918,7 +1918,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     /* Pre-process palette entries */
     if(indexed)
     {
-        for(i=0; i < ctx->plte.n_entries; i++)
+        for(i=0; i < 256; i++)
         {
             if(apply_trns && i < ctx->trns.n_type3_entries)
                 ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
@@ -2051,12 +2051,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                         entry = (entry >> shift_amount) & mask;
 
                         shift_amount -= ctx->ihdr.bit_depth;
-                    }
-
-                    if(entry >= ctx->plte.n_entries)
-                    {
-                        ret = SPNG_EPLTE_IDX;
-                        goto decode_err;
                     }
 
                     if(fmt == SPNG_FMT_RGBA8)
