@@ -47,11 +47,11 @@
     #define SPNG_LE
 #endif
 
-#define SPNG_FILTER_TYPE_NONE 0
-#define SPNG_FILTER_TYPE_SUB 1
-#define SPNG_FILTER_TYPE_UP 2
-#define SPNG_FILTER_TYPE_AVERAGE 3
-#define SPNG_FILTER_TYPE_PAETH 4
+#define SPNG_FILTER_NONE 0
+#define SPNG_FILTER_SUB 1
+#define SPNG_FILTER_UP 2
+#define SPNG_FILTER_AVERAGE 3
+#define SPNG_FILTER_PAETH 4
 
 #define SPNG_STR(x) _SPNG_STR(x)
 #define _SPNG_STR(x) #x
@@ -540,15 +540,15 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     if(filter == 0) return 0;
 
 #ifndef SPNG_DISABLE_OPT
-    if(filter == SPNG_FILTER_TYPE_UP) goto no_opt;
+    if(filter == SPNG_FILTER_UP) goto no_opt;
 
     if(bytes_per_pixel == 4)
     {
-        if(filter == SPNG_FILTER_TYPE_SUB)
+        if(filter == SPNG_FILTER_SUB)
             defilter_sub4(scanline_width, scanline);
-        else if(filter == SPNG_FILTER_TYPE_AVERAGE)
+        else if(filter == SPNG_FILTER_AVERAGE)
             defilter_avg4(scanline_width, scanline, prev_scanline);
-        else if(filter == SPNG_FILTER_TYPE_PAETH)
+        else if(filter == SPNG_FILTER_PAETH)
             defilter_paeth4(scanline_width, scanline, prev_scanline);
         else return SPNG_EFILTER;
 
@@ -556,11 +556,11 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     }
     else if(bytes_per_pixel == 3)
     {
-        if(filter == SPNG_FILTER_TYPE_SUB)
+        if(filter == SPNG_FILTER_SUB)
             defilter_sub3(scanline_width, scanline);
-        else if(filter == SPNG_FILTER_TYPE_AVERAGE)
+        else if(filter == SPNG_FILTER_AVERAGE)
             defilter_avg3(scanline_width, scanline, prev_scanline);
-        else if(filter == SPNG_FILTER_TYPE_PAETH)
+        else if(filter == SPNG_FILTER_PAETH)
             defilter_paeth3(scanline_width, scanline, prev_scanline);
         else return SPNG_EFILTER;
 
@@ -592,23 +592,23 @@ no_opt:
 
         switch(filter)
         {
-            case SPNG_FILTER_TYPE_SUB:
+            case SPNG_FILTER_SUB:
             {
                 x = x + a;
                 break;
             }
-            case SPNG_FILTER_TYPE_UP:
+            case SPNG_FILTER_UP:
             {
                 x = x + b;
                 break;
             }
-            case SPNG_FILTER_TYPE_AVERAGE:
+            case SPNG_FILTER_AVERAGE:
             {
                 uint16_t avg = (a + b) / 2;
                 x = x + avg;
                 break;
             }
-            case SPNG_FILTER_TYPE_PAETH:
+            case SPNG_FILTER_PAETH:
             {
                 x = x + paeth(a,b,c);
                 break;
