@@ -2197,7 +2197,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
             if(apply_gamma) gamma_correct_row(row, width, fmt, gamma_lut);
 
             /* prev_scanline is always defiltered */
-            memcpy(prev_scanline, scanline, scanline_width);
+            void *t = prev_scanline;
+            prev_scanline = scanline;
+            scanline = t;
 
             if(interlaced)
             {
