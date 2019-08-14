@@ -1,6 +1,5 @@
 [![Gitter](https://badges.gitter.im/libspng/community.svg)](https://gitter.im/libspng/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![GitLab](https://gitlab.com/randy408/libspng/badges/master/pipeline.svg)](https://gitlab.com/randy408/libspng/commits/master)
-[![Build status](https://ci.appveyor.com/api/projects/status/rrnin6fjqbdxmyqr/branch/master?svg=true)](https://ci.appveyor.com/project/randy408/libspng/branch/master)
+[![Windows CI](https://ci.appveyor.com/api/projects/status/raaer7ali0i1v25q?svg=true)](https://ci.appveyor.com/project/randy408/libspng)
 [![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
 [![codecov](https://codecov.io/gl/randy408/libspng/branch/master/graph/badge.svg)](https://codecov.io/gl/randy408/libspng)
 [![tag](https://img.shields.io/github/tag-date/randy408/libspng.svg)](https://libspng.org/download.html)
@@ -29,14 +28,16 @@ The goal is to provide a fast PNG library with a simpler API than [libpng](https
 | Decode from stream                | ✓                  | ✓        | ✓         | ❌       |
 | Gamma correction                  | ✓                  | ✓        | ❌         | ❌       |
 | Fuzzed by [OSS-Fuzz][1]           | ✓                  | ✓        | ❌         | ✓       |
-| Progressive read                  | ❌<sup>WIP</sup>    | ✓        | ❌         | ❌       |
+| Progressive read                  | ❌*                 | ✓        | ❌         | ❌       |
 | Doesn't require zlib              | ❌                  | ❌        | ✓         | ✓       |
-| Encoding                          | ❌<sup>WIP</sup>    | ✓        | ✓         | ✓       |
-| Animated PNG                      | ❌<sup>WIP</sup>    | ✓*       | ❌         | ❌      |
+| Encoding                          | ❌*                 | ✓        | ✓         | ✓       |
+| Animated PNG                      | ❌*                 | ✓**      | ❌         | ❌      |
 
 [1]: https://github.com/google/oss-fuzz
 
-\* With a 3rd party patch.
+\* Feature in planning phase
+
+\*\* With a 3rd party patch
 
 ## Getting spng
 
@@ -62,7 +63,7 @@ spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 spng_ctx_free(ctx);
 ```
 
-See [example.c](https://gitlab.com/randy408/libspng/blob/v0.5.0/examples/example.c).
+See [example.c](https://github.com/randy408/libspng/blob/v0.5.0/examples/example.c).
 
 ## License
 
@@ -99,5 +100,5 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
 
 ## Known Issues
 
-* Text and iCCP chunks are not read, see issue [#31](https://gitlab.com/randy408/libspng/issues/31).
+* Text and iCCP chunks are not read.
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
