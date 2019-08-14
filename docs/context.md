@@ -76,7 +76,8 @@ Set how chunk CRC errors should be handled for critical and ancillary chunks.
 int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
 ```
 
-Set chunk size and chunk cache limits.
+Set chunk size and chunk cache limits, the default chunk size limit is 2<sup>31</sup>-1,
+the default chunk cache limit is `SIZE_MAX`.
 
 !!!note
     This can only be used for limiting memory usage, most standard chunks
