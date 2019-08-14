@@ -8,6 +8,16 @@
   supported.
 
 
+# Build with CMake
+
+```bash
+mkdir cbuild
+cd cbuild
+cmake ..
+make
+make install
+```
+
 # Build with Meson
 
 ```bash
