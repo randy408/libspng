@@ -1,18 +1,7 @@
 add_languages('cpp')
 cpp = meson.get_compiler('cpp')
 
-fuzzlib = cpp.find_library('Fuzzer', required : false)
-
-if(fuzzlib.found())
-    threads = dependency('threads')
-
-    fuzz_exe = executable('spng_read_fuzzer',
-                          'spng_read_fuzzer.cc',
-                           link_with : spng_lib,
-                           dependencies : [ fuzzlib, threads ])
-else
-    warning('fuzz target will not be built')
-endif
+repro_exe = executable('fuzz_repro', 'fuzz_main.c', link_with : spng_lib)
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 

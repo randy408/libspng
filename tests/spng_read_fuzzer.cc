@@ -23,7 +23,10 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length)
     return 0;
 }
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+#ifdef __cplusplus
+extern "C"
+#endif
+int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     if(size < 2) return 0;
 
@@ -45,11 +48,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     if(stream) ret = spng_set_png_stream(ctx, buffer_read_fn, &state);
     else ret = spng_set_png_buffer(ctx, (void*)data, size);
-    
+
     if(ret) goto err;
 
     spng_set_image_limits(ctx, 200000, 200000);
-    
+
     spng_set_chunk_limits(ctx, 4 * 1000 * 1000, 8 * 1000 * 1000);
 
     spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
