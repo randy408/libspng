@@ -30,7 +30,6 @@ test:
 
 coverity:
   stage: coverity
-  when: manual
   script:
     - wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_TOKEN&project=randy408%2Flibspng" -O coverity_tool.tgz
     - mkdir coverity_tool
