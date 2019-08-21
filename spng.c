@@ -53,6 +53,14 @@
 #define SPNG_FILTER_AVERAGE 3
 #define SPNG_FILTER_PAETH 4
 
+#define SPNG_STATE_INVALID 0
+#define SPNG_STATE_INIT 1 /* no buffer/stream is set */
+#define SPNG_STATE_INPUT /* input PNG was set */
+#define SPNG_STATE_IHDR 2 /* IHDR was read */
+#define SPNG_STATE_FIRST_IDAT 3 /* */
+#define SPNG_STATE_LAST_IDAT 4 /* set at end of decode_image() */
+#define SPNG_STATE_IEND 5 /* reached IEND */
+
 #define SPNG_STR(x) _SPNG_STR(x)
 #define _SPNG_STR(x) #x
 
@@ -128,13 +136,11 @@ struct spng_ctx
 
     struct spng_alloc alloc;
 
+    unsigned state: 4;
     unsigned valid_state: 1;
     unsigned streaming: 1;
 
     unsigned encode_only: 1;
-
-    unsigned have_first_idat: 1;
-    unsigned have_last_idat: 1;
 
     /* input file contains this chunk */
     struct spng_chunk_bitfield file;
