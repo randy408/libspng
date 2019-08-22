@@ -292,13 +292,23 @@ static inline int32_t read_s32(const void *_data)
     return ret;
 }
 
-static void u16_row_to_host(void *data, size_t size)
+static void u16_row_to_host(void *row, size_t size)
 {
-    uint16_t *px = data;
+    uint16_t *px = row;
     size_t i, n = size / 2;
     for(i=0; i < n; i++)
     {
         px[i] = read_u16(&px[i]);
+    }
+}
+
+static void rgb8_row_to_rgba8(unsigned char *row, unsigned char *out, uint32_t n)
+{
+    uint32_t i;
+    for(i=0; i < n; i++)
+    {
+        memcpy(out + i * 4, row + i * 3, 3);
+        out[i*4+3] = 255;
     }
 }
 
@@ -2067,9 +2077,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                     {
                         if(fmt == SPNG_FMT_RGBA8)
                         {
-                            memcpy(pixel, scanline + (k * 3), 3);
-                            pixel[3] = 255;
-                            continue;
+                            rgb8_row_to_rgba8(scanline, row, width);
+                            break;
                         }
 
                         memcpy(&r_8, scanline + (k * 3), 1);
