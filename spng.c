@@ -26,12 +26,9 @@
         #define SPNG_DISABLE_OPT
     #endif
 
-    #if (defined(__GNUC__) && __GNUC__ >= 7 && !defined(__clang__)) || defined(__INTEL_COMPILER)
+    #if (__GNUC__ >= 7 && !defined(__clang__)) || defined(__INTEL_COMPILER) && defined(SPNG_X86)
         #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
-    #endif
-
-    #if !defined(SPNG_X86)
-        #undef SPNG_TARGET_CLONES
+    #else
         #define SPNG_TARGET_CLONES(x)
     #endif
 
