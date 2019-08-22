@@ -50,7 +50,7 @@ improves performance by up to 10%.
 
 ```bash
 # Run in root directory
-git clone https://gitlab.com/randy408/benchmark_images.git
+git clone https://github.com/libspng/benchmark_images.git
 cd build
 meson configure -Dbuildtype=release --default-library both -Db_pgo=generate
 ninja
