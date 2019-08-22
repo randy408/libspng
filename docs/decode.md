@@ -49,7 +49,7 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user)
 
 Set PNG stream, this can only be called once per context.
 
-!!! note
+!!! info
     PNG's are read up to the file end marker, this is identical behavior to libpng.
 
 # spng_decoded_image_size()
@@ -59,7 +59,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
 
 Calculates decoded image buffer size for the given output format.
 
-An input file must be set.
+An input PNG must be set.
 
 # spng_decode_image()
 ```c
@@ -77,8 +77,3 @@ Interlaced images are written deinterlaced to `out`,
 16-bit images are converted to host-endian.
 
 This function can only be called once per context.
-
-
-
-!!! note
-    Common errors in PNG files such as oversized IDAT streams are ignored.
