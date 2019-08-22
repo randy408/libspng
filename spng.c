@@ -18,15 +18,20 @@
 
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
-        #if (defined(__GNUC__) && __GNUC__ >= 7 && !defined(__clang__)) || defined(__INTEL_COMPILER)
-            #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
-        #endif
     #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
         /* #define SPNG_ARM */ /* buffer overflow for rgb8 images */
         #define SPNG_DISABLE_OPT
     #else
         #warning "disabling optimizations for unknown platform"
         #define SPNG_DISABLE_OPT
+    #endif
+
+    #if (defined(__GNUC__) && __GNUC__ >= 7 && !defined(__clang__)) || defined(__INTEL_COMPILER)
+        #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
+    #endif
+
+    #if !defined(SPNG_X86)
+        #undef SPNG_TARGET_CLONES
         #define SPNG_TARGET_CLONES(x)
     #endif
 
@@ -536,6 +541,7 @@ static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
     return c;
 }
 
+SPNG_TARGET_CLONES("default,avx2")
 static void defilter_up(size_t bytes, unsigned char *row, const unsigned char *prev)
 {
     size_t i;
