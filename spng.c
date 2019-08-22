@@ -292,6 +292,16 @@ static inline int32_t read_s32(const void *_data)
     return ret;
 }
 
+static void u16_row_to_host(void *data, size_t size)
+{
+    uint16_t *px = data;
+    size_t i, n = size / 2;
+    for(i=0; i < n; i++)
+    {
+        px[i] = read_u16(&px[i]);
+    }
+}
+
 static int is_critical_chunk(struct spng_chunk *chunk)
 {
     if(chunk == NULL) return 0;
@@ -1722,7 +1732,7 @@ static int get_ancillary2(spng_ctx *ctx)
         return 0;
     }
 
-    return get_ancillary(ctx);;
+    return get_ancillary(ctx);
 }
 
 int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags)
@@ -1775,6 +1785,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     int interlaced = 0;
     if(ctx->ihdr.interlace_method) interlaced = 1;
 
+    int same_layout = 0;
+
     int pass;
     uint8_t filter = 0, next_filter = 0;
     uint32_t i, k, scanline_idx, width;
@@ -1798,6 +1810,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
         depth_target = 16;
         pixel_size = 8;
     }
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
+       ctx->ihdr.bit_depth == depth_target) same_layout = 1;
 
     struct spng_subimage sub[7];
     memset(sub, 0, sizeof(struct spng_subimage) * 7);
@@ -2015,6 +2030,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
             memcpy(&next_filter, scanline + scanline_width - 1, 1);
 
+            if(ctx->ihdr.bit_depth == 16) u16_row_to_host(scanline, scanline_width - 1);
+
             ret = defilter_scanline(prev_scanline, scanline, scanline_width - 1, bytes_per_pixel, filter);
             if(ret) goto decode_err;
 
@@ -2030,14 +2047,19 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 pixel = row + pixel_offset;
                 pixel_offset += pixel_size;
 
+                if(same_layout)
+                {
+                    memcpy(row, scanline, scanline_width - 1);
+                    break;
+                }
 
                 if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
                 {
                     if(ctx->ihdr.bit_depth == 16)
                     {
-                        r_16 = read_u16(scanline + (k * 6));
-                        g_16 = read_u16(scanline + (k * 6) + 2);
-                        b_16 = read_u16(scanline + (k * 6) + 4);
+                        memcpy(&r_16, scanline + (k * 6), 2);
+                        memcpy(&g_16, scanline + (k * 6) + 2, 2);
+                        memcpy(&b_16, scanline + (k * 6) + 4, 2);
 
                         a_16 = 65535;
                     }
@@ -2104,19 +2126,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 {
                     if(ctx->ihdr.bit_depth == 16)
                     {
-                        r_16 = read_u16(scanline + (k * 8));
-                        g_16 = read_u16(scanline + (k * 8) + 2);
-                        b_16 = read_u16(scanline + (k * 8) + 4);
-                        a_16 = read_u16(scanline + (k * 8) + 6);
+                        memcpy(&r_16, scanline + (k * 8), 2);
+                        memcpy(&g_16, scanline + (k * 8) + 2, 2);
+                        memcpy(&b_16, scanline + (k * 8) + 4, 2);
+                        memcpy(&a_16, scanline + (k * 8) + 6, 2);
                     }
                     else /* == 8 */
                     {
-                        if(fmt == SPNG_FMT_RGBA8)
-                        {
-                            memcpy(row, scanline, scanline_width - 1);
-                            break;
-                        }
-
                         memcpy(&r_8, scanline + (k * 4), 1);
                         memcpy(&g_8, scanline + (k * 4) + 1, 1);
                         memcpy(&b_8, scanline + (k * 4) + 2, 1);
@@ -2127,7 +2143,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 {
                     if(ctx->ihdr.bit_depth == 16)
                     {
-                        gray_16 = read_u16(scanline + (k * 2));
+                        memcpy(&gray_16, scanline + k * 2, 2);
 
                         if(apply_trns && ctx->trns.gray == gray_16) a_16 = 0;
                         else a_16 = 65535;
@@ -2156,8 +2172,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 {
                     if(ctx->ihdr.bit_depth == 16)
                     {
-                        gray_16 = read_u16(scanline + (k * 4));
-                        a_16 = read_u16(scanline + (k * 4) + 2);
+                        memcpy(&gray_16, scanline + (k * 4), 2);
+                        memcpy(&a_16, scanline + (k * 4) + 2, 2);
 
                         r_16 = gray_16;
                         g_16 = gray_16;
