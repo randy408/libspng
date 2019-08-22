@@ -13,5 +13,4 @@ format files with a focus on security and ease of use.
 
 ## Download
 
-libspng can be downloaded [here](https://libspng.org/download.html).
-
+libspng can be downloaded [here](https://libspng.org/download).
