@@ -532,6 +532,15 @@ static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
     return c;
 }
 
+static void defilter_up(size_t bytes, unsigned char *row, const unsigned char *prev)
+{
+    size_t i;
+    for(i=0; i < bytes; i++)
+    {
+        row[i] += prev[i];
+    }
+}
+
 /* Defilter *scanline in-place.
    *prev_scanline and *scanline should point to the first pixel,
    scanline_width is the width of the scanline without the filter byte.
@@ -577,6 +586,12 @@ no_opt:
 
     if(filter > 4) return SPNG_EFILTER;
 
+    if(filter == SPNG_FILTER_UP)
+    {
+        defilter_up(scanline_width, scanline, prev_scanline);
+        return 0;
+    }
+
     for(i=0; i < scanline_width; i++)
     {
         uint8_t x, a, b, c;
@@ -601,11 +616,6 @@ no_opt:
             case SPNG_FILTER_SUB:
             {
                 x = x + a;
-                break;
-            }
-            case SPNG_FILTER_UP:
-            {
-                x = x + b;
                 break;
             }
             case SPNG_FILTER_AVERAGE:
