@@ -351,6 +351,7 @@ SPNG_API int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys);
 SPNG_API int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt);
 SPNG_API int spng_get_time(spng_ctx *ctx, struct spng_time *time);
 
+/* Extensions */
 SPNG_API int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif);
 
@@ -371,6 +372,7 @@ SPNG_API int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys);
 SPNG_API int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt);
 SPNG_API int spng_set_time(spng_ctx *ctx, struct spng_time *time);
 
+/* Extensions */
 SPNG_API int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif);
 
