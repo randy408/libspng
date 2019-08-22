@@ -18,12 +18,16 @@
 
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
+        #if (defined(__GNUC__) && __GNUC__ >= 7 && !defined(__clang__)) || defined(__INTEL_COMPILER)
+            #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
+        #endif
     #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
         /* #define SPNG_ARM */ /* buffer overflow for rgb8 images */
         #define SPNG_DISABLE_OPT
     #else
         #warning "disabling optimizations for unknown platform"
         #define SPNG_DISABLE_OPT
+        #define SPNG_TARGET_CLONES(x)
     #endif
 
     #ifndef SPNG_DISABLE_OPT
