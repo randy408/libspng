@@ -1,6 +1,6 @@
 # Platform requirements
 
-* Requires [zlib](http://zlib.net)
+* Requires [zlib](http://zlib.net) or a zlib-compatible library
 * Fixed width integer types up to `(u)int32_t`
 * Integers must be two's complement.
 * `CHAR_BIT` must equal 8.
