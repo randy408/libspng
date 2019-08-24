@@ -133,9 +133,12 @@ enum spng_ctx_flags
 
 enum spng_decode_flags
 {
-    SPNG_DECODE_USE_TRNS = 1,
-    SPNG_DECODE_USE_GAMA = 2,
-    SPNG_DECODE_USE_SBIT = 8 /* do not use */
+    SPNG_DECODE_USE_TRNS = 1, /* deprecated */
+    SPNG_DECODE_USE_GAMA = 2, /* deprecated */
+    SPNG_DECODE_USE_SBIT = 8, /* undocumented */
+
+    SPNG_DECODE_TRNS = 1,
+    SPNG_DECODE_GAMMA = 2
 };
 
 enum spng_crc_action

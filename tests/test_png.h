@@ -108,7 +108,7 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
         return NULL;
     }
 
-    if(flags & SPNG_DECODE_USE_GAMA)
+    if(flags & SPNG_DECODE_GAMMA)
     {
         double gamma;
         if(png_get_gAMA(png_ptr, info_ptr, &gamma))

@@ -1781,10 +1781,10 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     if(inflateValidate(&stream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
 
     int apply_trns = 0;
-    if(flags & SPNG_DECODE_USE_TRNS && ctx->stored.trns) apply_trns = 1;
+    if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) apply_trns = 1;
 
     int apply_gamma = 0;
-    if(flags & SPNG_DECODE_USE_GAMA && ctx->stored.gama) apply_gamma = 1;
+    if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) apply_gamma = 1;
 
     int use_sbit = 0;
     if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) use_sbit = 1;

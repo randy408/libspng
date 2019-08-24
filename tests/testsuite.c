@@ -25,8 +25,8 @@ void print_test_args(struct spng_test_case *test_case)
     printf("FLAGS: ");
 
     if(!test_case->flags) printf("(NONE)");
-    if(test_case->flags & SPNG_DECODE_USE_TRNS) printf("USE_TRNS ");
-    if(test_case->flags & SPNG_DECODE_USE_GAMA) printf("USE_GAMA ");
+    if(test_case->flags & SPNG_DECODE_TRNS) printf("TRNS ");
+    if(test_case->flags & SPNG_DECODE_GAMMA) printf("GAMMA ");
 
     printf("\n");
 }
@@ -45,10 +45,10 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
        PNG format without calling functions that alias to png_set_expand(_16),
        which acts as if png_set_tRNS_to_alpha() was called, as a result
        there are no tests where the tRNS chunk is ignored. */
-        for(j=1; j <= SPNG_DECODE_USE_GAMA; j++, k++)
+        for(j=1; j <= SPNG_DECODE_GAMMA; j++, k++)
         {
             test_cases[k].fmt = fmt_list[i];
-            test_cases[k].flags = j | SPNG_DECODE_USE_TRNS;
+            test_cases[k].flags = j | SPNG_DECODE_TRNS;
         }
     }
 
@@ -158,7 +158,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
 
             if(spng_red != png_red || spng_green != png_green || spng_blue != png_blue)
             {
-                if(flags & SPNG_DECODE_USE_GAMA)
+                if(flags & SPNG_DECODE_GAMMA)
                 {
                     uint32_t red_diff, green_diff, blue_diff;
                     uint32_t max_diff=0;
@@ -241,7 +241,7 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
 
     ret = compare_images(&ihdr, fmt, flags, img_spng, img_png);
 
-    if( !(flags & SPNG_DECODE_USE_GAMA) && !ret)
+    if( !(flags & SPNG_DECODE_GAMMA) && !ret)
     {/* in case compare_images() has some edge case */
         printf("compare_images() returned 0 but images are not identical\n");
         ret = 1;
