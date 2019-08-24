@@ -285,15 +285,15 @@ static inline uint16_t read_u16(const void *_data)
 {
     const unsigned char *data = _data;
 
-    return (data[0] & 0xffU) << 8 | (data[1] & 0xffU);
+    return (data[0] & 0xFFU) << 8 | (data[1] & 0xFFU);
 }
 
 static inline uint32_t read_u32(const void *_data)
 {
     const unsigned char *data = _data;
 
-    return (data[0] & 0xffUL) << 24 | (data[1] & 0xffUL) << 16 |
-           (data[2] & 0xffUL) << 8  | (data[3] & 0xffUL);
+    return (data[0] & 0xFFUL) << 24 | (data[1] & 0xFFUL) << 16 |
+           (data[2] & 0xFFUL) << 8  | (data[3] & 0xFFUL);
 }
 
 static inline int32_t read_s32(const void *_data)
@@ -301,8 +301,8 @@ static inline int32_t read_s32(const void *_data)
     const unsigned char *data = _data;
 
     int32_t ret;
-    uint32_t val = (data[0] & 0xffUL) << 24 | (data[1] & 0xffUL) << 16 |
-                   (data[2] & 0xffUL) << 8  | (data[3] & 0xffUL);
+    uint32_t val = (data[0] & 0xFFUL) << 24 | (data[1] & 0xFFUL) << 16 |
+                   (data[2] & 0xFFUL) << 8  | (data[3] & 0xFFUL);
 
     memcpy(&ret, &val, 4);
 
