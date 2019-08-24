@@ -99,6 +99,17 @@ struct spng_plte_entry16
     uint16_t alpha;
 };
 
+struct decode_flags
+{
+    unsigned apply_trns;
+    unsigned apply_gamma;
+    unsigned use_sbit;
+    unsigned indexed;
+    unsigned do_scaling;
+    unsigned interlaced;
+    unsigned same_layout;
+};
+
 struct spng_chunk_bitfield
 {
     unsigned ihdr: 1;
@@ -1755,6 +1766,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     int ret;
     size_t out_size_required, out_width;
 
+    struct decode_flags f = {0};
+
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
@@ -1780,23 +1793,18 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
     if(inflateValidate(&stream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
 
-    int apply_trns = 0;
-    if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) apply_trns = 1;
+    if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
 
-    int apply_gamma = 0;
-    if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) apply_gamma = 1;
+    if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) f.apply_gamma = 1;
 
-    int use_sbit = 0;
-    if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) use_sbit = 1;
+    if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) f.use_sbit = 1;
 
-    int indexed = 0;
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) indexed = 1;
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
 
-    int do_scaling = 1;
-    if(indexed) do_scaling = 0;
+    if(ctx->ihdr.interlace_method) f.interlaced = 1;
 
-    int interlaced = 0;
-    if(ctx->ihdr.interlace_method) interlaced = 1;
+    f.do_scaling = 1;
+    if(f.indexed) f.do_scaling = 0;
 
     int same_layout = 0;
 
@@ -1816,7 +1824,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     unsigned depth_target = 8; /* FMT_RGBA8 */
     unsigned processing_depth = ctx->ihdr.bit_depth;
 
-    if(indexed) processing_depth = 8;
+    if(f.indexed) processing_depth = 8;
 
     if(fmt == SPNG_FMT_RGBA16)
     {
@@ -1839,7 +1847,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     unsigned char *scanline = spng__malloc(ctx, scanline_width);
     unsigned char *prev_scanline = spng__malloc(ctx, scanline_width);
 
-    if(interlaced) row = spng__malloc(ctx, out_width);
+    if(f.interlaced) row = spng__malloc(ctx, out_width);
     else row = out;
 
     if(scanline == NULL || prev_scanline == NULL || row == NULL)
@@ -1850,7 +1858,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
     uint16_t *gamma_lut = NULL;
 
-    if(apply_gamma)
+    if(f.apply_gamma)
     {
         float file_gamma = (float)ctx->gama / 100000.0f;
         float max;
@@ -1906,7 +1914,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     sb.alpha_bits = processing_depth;
     sb.grayscale_bits = processing_depth;
 
-    if(use_sbit)
+    if(f.use_sbit)
     {
         if(ctx->ihdr.color_type == 0)
         {
@@ -1962,16 +1970,16 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
        sb.green_bits == sb.blue_bits &&
        sb.blue_bits == sb.alpha_bits &&
        sb.alpha_bits == processing_depth &&
-       processing_depth == depth_target) do_scaling = 0;
+       processing_depth == depth_target) f.do_scaling = 0;
 
     struct spng_plte_entry16 plte[256];
 
     /* Pre-process palette entries */
-    if(indexed)
+    if(f.indexed)
     {
         for(i=0; i < 256; i++)
         {
-            if(apply_trns && i < ctx->trns.n_type3_entries)
+            if(f.apply_trns && i < ctx->trns.n_type3_entries)
                 ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
             else
                 ctx->plte.entries[i].alpha = 255;
@@ -1981,7 +1989,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
             plte[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, sb.blue_bits, depth_target);
             plte[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb.alpha_bits, depth_target);
 
-            if(apply_gamma)
+            if(f.apply_gamma)
             {
                 plte[i].red = gamma_lut[plte[i].red];
                 plte[i].green = gamma_lut[plte[i].green];
@@ -1989,13 +1997,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
             }
         }
 
-        apply_trns = 0;
-        apply_gamma = 0;
+        f.apply_trns = 0;
+        f.apply_gamma = 0;
     }
 
     unsigned char trns_px[8];
 
-    if(apply_trns && ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+    if(f.apply_trns && ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
     {
         if(ctx->ihdr.bit_depth == 16)
         {
@@ -2157,7 +2165,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                     {
                         memcpy(&gray_16, scanline + k * 2, 2);
 
-                        if(apply_trns && ctx->trns.gray == gray_16) a_16 = 0;
+                        if(f.apply_trns && ctx->trns.gray == gray_16) a_16 = 0;
                         else a_16 = 65535;
 
                         r_16 = gray_16;
@@ -2174,7 +2182,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
                         shift_amount -= ctx->ihdr.bit_depth;
 
-                        if(apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
+                        if(f.apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
                         else a_8 = 255;
 
                         r_8 = gray_8; g_8 = gray_8; b_8 = gray_8;
@@ -2235,18 +2243,18 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 }
             }/* for(k=0; k < sub[pass].width; k++) */
 
-            if(apply_trns) trns_row(row, scanline, trns_px, width, fmt, ctx->ihdr.color_type, ctx->ihdr.bit_depth);
+            if(f.apply_trns) trns_row(row, scanline, trns_px, width, fmt, ctx->ihdr.color_type, ctx->ihdr.bit_depth);
 
-            if(do_scaling) scale_row(row, width, fmt, processing_depth, &sb);
+            if(f.do_scaling) scale_row(row, width, fmt, processing_depth, &sb);
 
-            if(apply_gamma) gamma_correct_row(row, width, fmt, gamma_lut);
+            if(f.apply_gamma) gamma_correct_row(row, width, fmt, gamma_lut);
 
             /* prev_scanline is always defiltered */
             void *t = prev_scanline;
             prev_scanline = scanline;
             scanline = t;
 
-            if(interlaced)
+            if(f.interlaced)
             {
                 const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
                 const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
@@ -2277,7 +2285,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 decode_err:
 
     inflateEnd(&stream);
-    if(interlaced) spng__free(ctx, row);
+    if(f.interlaced) spng__free(ctx, row);
     spng__free(ctx, scanline);
     spng__free(ctx, prev_scanline);
 
