@@ -39,7 +39,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     int ret;
     unsigned char *out = NULL;
 
-    spng_ctx *ctx = spng_ctx_new(0);
+    spng_ctx *ctx = spng_ctx_new(SPNG_CTX_IGNORE_ADLER32);
     if(ctx == NULL) return 0;
 
     struct buf_state state;
