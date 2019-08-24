@@ -1,2 +1,3 @@
 option('dev_build', type : 'boolean', value : false, description : 'Enable the testsuite, requires libpng')
 option('enable_opt', type : 'boolean', value : true, description : 'Enable architecture-specific optimizations')
+option('enable_mt', type : 'boolean', value : false, description : 'Enable experimental multithreading features')

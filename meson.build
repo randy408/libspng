@@ -14,6 +14,11 @@ m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
 
+if get_option('enable_mt') == true
+    spng_deps += dependency('threads')
+    add_project_arguments('-DSPNG_ENABLE_MT', language : 'c')
+endif
+
 if get_option('enable_opt') == false
     add_project_arguments('-DSPNG_DISABLE_OPT', language : 'c')
 endif

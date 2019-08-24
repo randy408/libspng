@@ -12,6 +12,10 @@
     #include <zlib.h>
 #endif
 
+#ifdef SPNG_ENABLE_MT
+    #include <pthread.h>
+#endif
+
 #define SPNG_READ_SIZE 8192
 
 #ifndef SPNG_DISABLE_OPT
