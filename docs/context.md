@@ -11,6 +11,15 @@ typedef struct spng_ctx spng_ctx;
     The context handle has no public members.
 
 
+# spng_ctx_flags
+
+```c
+enum spng_ctx_flags
+{
+    SPNG_CTX_IGNORE_ADLER32 = 1 /* ignore checksum in DEFLATE streams */
+};
+```
+
 # spng_crc_action
 
 ```c

@@ -126,6 +126,11 @@ enum spng_format
     SPNG_FMT_RGBA16 = 2
 };
 
+enum spng_ctx_flags
+{
+    SPNG_CTX_IGNORE_ADLER32 = 1 /* ignore checksum in DEFLATE streams */
+};
+
 enum spng_decode_flags
 {
     SPNG_DECODE_USE_TRNS = 1,

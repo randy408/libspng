@@ -142,6 +142,8 @@ struct spng_ctx
 
     struct spng_alloc alloc;
 
+    int flags;
+
     unsigned state: 4;
     unsigned valid_state: 1;
     unsigned streaming: 1;
@@ -1776,6 +1778,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     stream.opaque = ctx;
 
     if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
+    if(inflateValidate(&stream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
 
     int apply_trns = 0;
     if(flags & SPNG_DECODE_USE_TRNS && ctx->stored.trns) apply_trns = 1;
@@ -2296,8 +2299,6 @@ decode_err:
 
 spng_ctx *spng_ctx_new(int flags)
 {
-    if(flags) return NULL;
-
     struct spng_alloc alloc = {0};
 
     alloc.malloc_fn = malloc;
@@ -2311,7 +2312,7 @@ spng_ctx *spng_ctx_new(int flags)
 spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 {
     if(alloc == NULL) return NULL;
-    if(flags) return NULL;
+    if(flags != (flags & SPNG_CTX_IGNORE_ADLER32)) return NULL;
 
     if(alloc->malloc_fn == NULL) return NULL;
     if(alloc->realloc_fn == NULL) return NULL;
@@ -2327,6 +2328,8 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
     ctx->chunk_cache_limit = SIZE_MAX;
 
     ctx->valid_state = 1;
+
+    ctx->flags = flags;
 
     return ctx;
 }
