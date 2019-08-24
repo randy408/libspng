@@ -1,5 +1,4 @@
 /*#define TEST_SPNG_STREAM_READ_INFO*/
-/*#define TEST_SPNG_ANALYZE_MALLOC */
 
 #include <inttypes.h>
 
@@ -271,7 +270,6 @@ int main(int argc, char **argv)
     {
         unsigned int png_ver = png_access_version_number();
 
-/*        printf("spng context size: %zu bytes\n", sizeof(spng_ctx));*/
         printf("spng header version: %u.%u.%u, library version: %s\n",
                SPNG_VERSION_MAJOR, SPNG_VERSION_MINOR, SPNG_VERSION_PATCH,
                spng_version_string());
