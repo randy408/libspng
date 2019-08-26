@@ -1,6 +1,12 @@
 #ifndef TEST_PNG_H
 #define TEST_PNG_H
 
+#if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || defined(__BIG_ENDIAN__)
+    #define SPNG_BIG_ENDIAN
+#else
+    #define SPNG_LITTLE_ENDIAN
+#endif
+
 #include <png.h>
 #include "spng.h"
 
@@ -103,7 +109,7 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
 
         /* png_set_palette_to_rgb() + png_set_tRNS_to_alpha() */
         png_set_expand_16(png_ptr);
-#if !defined(__BIG_ENDIAN__) /* we want host-endian values */
+#if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values */
         png_set_swap(png_ptr);
 #endif
     }
