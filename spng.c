@@ -1284,7 +1284,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
                 if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
                 if(!ctx->file.plte) return SPNG_EBKGD_NO_PLTE;
 
-                memcpy(&ctx->bkgd.plte_index, data, 1);
+                ctx->bkgd.plte_index = data[0];
                 if(ctx->bkgd.plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
             }
 
