@@ -112,6 +112,7 @@ struct decode_flags
     unsigned do_scaling;
     unsigned interlaced;
     unsigned same_layout;
+    unsigned zerocopy;
 };
 
 struct spng_chunk_bitfield
@@ -1839,7 +1840,11 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     }
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
-       ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
+       ctx->ihdr.bit_depth == depth_target)
+    {
+        f.same_layout = 1;
+        if(!flags && !f.interlaced) f.zerocopy = 1;
+    }
 
     struct spng_subimage sub[7];
     memset(sub, 0, sizeof(struct spng_subimage) * 7);
@@ -1852,9 +1857,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     unsigned char *row = NULL;
     unsigned char *scanline = spng__malloc(ctx, scanline_width);
     unsigned char *prev_scanline = spng__malloc(ctx, scanline_width);
+    unsigned char *scanline_buf = scanline;
+    unsigned char *prev_scanline_buf = prev_scanline;
 
     if(f.interlaced) row = spng__malloc(ctx, out_width);
     else row = out;
+
+    if(f.zerocopy) scanline = row;
 
     if(scanline == NULL || prev_scanline == NULL || row == NULL)
     {
@@ -2036,6 +2045,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
         scanline_width = sub[pass].scanline_width;
 
         /* prev_scanline is all zeros for the first scanline */
+        prev_scanline = prev_scanline_buf;
         memset(prev_scanline, 0, scanline_width);
 
         /* Read the first filter byte, offsetting all reads by 1 byte.
@@ -2076,6 +2086,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
                 if(f.same_layout)
                 {
+                    if(f.zerocopy) break;
+
                     memcpy(row, scanline, scanline_width - 1);
                     break;
                 }
@@ -2277,7 +2289,12 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
             }
             else
             {/* avoid creating an invalid reference */
-                if(scanline_idx != (sub[pass].height - 1) ) row += out_width;
+                if(scanline_idx != (sub[pass].height - 1) )
+                {
+                    if(f.zerocopy) prev_scanline = row;
+
+                    row += out_width;
+                }
             }
 
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
@@ -2292,8 +2309,8 @@ decode_err:
 
     inflateEnd(&stream);
     if(f.interlaced) spng__free(ctx, row);
-    spng__free(ctx, scanline);
-    spng__free(ctx, prev_scanline);
+    spng__free(ctx, scanline_buf);
+    spng__free(ctx, prev_scanline_buf);
 
     if(ret)
     {
