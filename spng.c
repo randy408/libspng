@@ -319,7 +319,7 @@ static void u16_row_to_host(void *row, size_t size)
     }
 }
 
-static void rgb8_row_to_rgba8(unsigned char *row, unsigned char *out, uint32_t n)
+static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint32_t n)
 {
     uint32_t i;
     for(i=0; i < n; i++)
