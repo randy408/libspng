@@ -1814,8 +1814,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     f.do_scaling = 1;
     if(f.indexed) f.do_scaling = 0;
 
-    int same_layout = 0;
-
     int pass;
     uint8_t filter = 0, next_filter = 0;
     uint32_t i, k, scanline_idx, width;
@@ -1841,7 +1839,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     }
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
-       ctx->ihdr.bit_depth == depth_target) same_layout = 1;
+       ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
 
     struct spng_subimage sub[7];
     memset(sub, 0, sizeof(struct spng_subimage) * 7);
@@ -2076,7 +2074,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 pixel = row + pixel_offset;
                 pixel_offset += pixel_size;
 
-                if(same_layout)
+                if(f.same_layout)
                 {
                     memcpy(row, scanline, scanline_width - 1);
                     break;
