@@ -51,10 +51,10 @@
     #pragma warning(disable: 4244)
 #endif
 
-#if (defined(__BYTE_ORDER) && __BYTE_ORDER == __ORDER_BIG_ENDIAN__) || defined(__BIG_ENDIAN__)
-    #define SPNG_BE
+#if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || defined(__BIG_ENDIAN__)
+    #define SPNG_BIG_ENDIAN
 #else
-    #define SPNG_LE
+    #define SPNG_LITTLE_ENDIAN
 #endif
 
 #define SPNG_FILTER_NONE 0
