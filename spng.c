@@ -1795,7 +1795,11 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     stream.opaque = ctx;
 
     if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
+#if ZLIB_VERNUM >= 0x1290
     if(inflateValidate(&stream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
+#else
+    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#endif
 
     if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
 
