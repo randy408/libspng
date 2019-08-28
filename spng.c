@@ -2057,15 +2057,14 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
         for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++)
         {
-            /* The last scanline is 1 byte "shorter" */
-            if(scanline_idx == (sub[pass].height - 1))
-                ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width - 1);
-            else
+            if(scanline_idx < (sub[pass].height - 1))
+            {
                 ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width);
+                memcpy(&next_filter, scanline + scanline_width - 1, 1);
+            }
+            else ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width - 1);
 
             if(ret) goto decode_err;
-
-            memcpy(&next_filter, scanline + scanline_width - 1, 1);
 
             if(ctx->ihdr.bit_depth == 16) u16_row_to_host(scanline, scanline_width - 1);
 
