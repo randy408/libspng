@@ -13,7 +13,7 @@ jobs:
       run: echo Hello, world!
     - name: Run a multi-line script
       run: |
-        sudo apt install meson ninja gcovr clang-tools libubsan1
+        sudo apt install meson ninja-build gcovr clang-tools libubsan1
         CC=clang CXX=clang++ meson -Ddev_build=true -Db_sanitize=address,undefined -Db_lundef=false clang_build
         ninja -C clang_build test
         ninja -C clang_build scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
