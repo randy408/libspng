@@ -43,7 +43,7 @@ if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
     set(includedir  ${CMAKE_INSTALL_FULL_INCLUDEDIR})
     set(LIBS        "-lz -lm")
 
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/tests/libspng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libspng.pc @ONLY)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/tests/libspng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/tests/libspng.pc @ONLY)
 
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/libspng.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 endif()
