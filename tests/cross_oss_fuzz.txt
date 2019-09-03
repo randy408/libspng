@@ -5,6 +5,9 @@ c = '/usr/bin/clang'
 cpp = '/usr/bin/clang++'
 pkgconfig = '/usr/bin/i686-linux-gnu-pkg-config'
 
+[properties]
+c_link_args = ['-m32']
+
 [host_machine]
 system = 'linux'
 cpu_family = 'x86'
