@@ -6,6 +6,7 @@ cpp = '/usr/bin/clang++'
 pkgconfig = '/usr/bin/i686-linux-gnu-pkg-config'
 
 [properties]
+c_args = ['-m32']
 c_link_args = ['-m32']
 
 [host_machine]
