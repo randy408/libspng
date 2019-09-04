@@ -1806,10 +1806,16 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 #endif
 
     if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
+    else flags &= ~SPNG_DECODE_TRNS;
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA ||
+       ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) flags &= ~SPNG_DECODE_TRNS;
 
     if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) f.apply_gamma = 1;
+    else flags &= ~SPNG_DECODE_GAMMA;
 
     if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) f.use_sbit = 1;
+    else flags &= ~SPNG_DECODE_USE_SBIT;
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
 
