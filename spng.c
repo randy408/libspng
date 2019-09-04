@@ -18,6 +18,8 @@
 
 #define SPNG_READ_SIZE 8192
 
+#define SPNG_TARGET_CLONES(x)
+
 #ifndef SPNG_DISABLE_OPT
 
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
@@ -31,6 +33,7 @@
     #endif
 
     #if defined(SPNG_X86) && ((__GNUC__ >= 7) && !defined(__clang__) && !defined(__INTEL_COMPILER)) && !defined(_WIN32)
+        #undef SPNG_TARGET_CLONES
         #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
     #else
         #define SPNG_TARGET_CLONES(x)
