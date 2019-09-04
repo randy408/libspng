@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#define ZLIB_VERNUM 0x1290
+
 #define Z_NO_FLUSH      0
 #define Z_PARTIAL_FLUSH 1
 #define Z_SYNC_FLUSH    2
@@ -73,7 +75,12 @@ int inflateEnd(z_streamp stream)
     return 0;
 }
 
-unsigned long crc32(unsigned long crc, unsigned char *buf, unsigned int len)
+int inflateValidate(z_streamp stream, int b)
+{
+    return 0;
+}
+
+unsigned long crc32(unsigned long crc, const unsigned char *buf, unsigned int len)
 {
     if(buf==NULL) return 0;
     return crc+len;
