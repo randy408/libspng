@@ -28,7 +28,7 @@ $CXX $CXXFLAGS -std=c++11 -I. \
     -o $OUT/spng_read_fuzzer \
     $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng.a $SRC/libspng/build/subprojects/zlib-1.2.11/libz.a
 
-$CXX $CXXFLAGS -std=c++11 -I. -Ibuild/subprojects/zlib-1.2.11 \
+$CXX $CXXFLAGS -std=c++11 -I. -Isubprojects/zlib-1.2.11 \
     $SRC/libspng/tests/spng_read_fuzzer.cc \
     -o $OUT/spng_read_fuzzer_structure_aware \
     -include ../fuzzer-test-suite/libpng-1.2.56/png_mutator.h \
