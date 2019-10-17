@@ -1852,7 +1852,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
        ctx->ihdr.bit_depth == depth_target)
     {
         f.same_layout = 1;
-        if(!flags && !f.interlaced) f.zerocopy = 1;
+        /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
     }
 
     struct spng_subimage sub[7];
