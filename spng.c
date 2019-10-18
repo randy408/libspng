@@ -508,7 +508,7 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
     if(ctx->streaming)
     {/* TODO: calculate bytes to read for progressive reads */
         len = SPNG_READ_SIZE;
-        if(len > ctx->current_chunk.length) len = ctx->current_chunk.length;
+        if(len > ctx->cur_chunk_bytes_left) len = ctx->cur_chunk_bytes_left;
     }
     else len = ctx->current_chunk.length;
 
