@@ -18,22 +18,31 @@
 # This script is meant to be run by
 # https://github.com/google/oss-fuzz/blob/master/projects/libspng/Dockerfile
 
+if [ "$ARCHITECTURE" = 'i386' ]; then
+    wget http://ftp.us.debian.org/debian/pool/main/z/zlib/zlib1g-dev_1.2.11.dfsg-1_i386.deb http://ftp.us.debian.org/debian/pool/main/z/zlib/zlib1g_1.2.11.dfsg-1_i386.deb
+    ln -s /usr/lib/i386-linux-gnu/libz.a $SRC/libspng/libz.a
+else
+    wget http://ftp.us.debian.org/debian/pool/main/z/zlib/zlib1g-dev_1.2.11.dfsg-1_amd64.deb http://ftp.us.debian.org/debian/pool/main/z/zlib/zlib1g_1.2.11.dfsg-1_amd64.deb
+    ln -s /usr/lib/x86_64-linux-gnu/libz.a $SRC/libspng/libz.a
+fi
 
-meson --wrap-mode=forcefallback --default-library=static --buildtype=plain build
+dpkg -i zlib*.deb
+
+meson --default-library=static --buildtype=plain -Dstatic_zlib=true build
 
 ninja -C build
 
 $CXX $CXXFLAGS -std=c++11 -I. \
     $SRC/libspng/tests/spng_read_fuzzer.cc \
     -o $OUT/spng_read_fuzzer \
-    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng.a $SRC/libspng/build/subprojects/zlib-1.2.11/libz.a
+    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng.a $SRC/libspng/libz.a
 
-$CXX $CXXFLAGS -std=c++11 -I. -Isubprojects/zlib-1.2.11 \
+$CXX $CXXFLAGS -std=c++11 -I. \
     $SRC/libspng/tests/spng_read_fuzzer.cc \
     -o $OUT/spng_read_fuzzer_structure_aware \
     -include ../fuzzer-test-suite/libpng-1.2.56/png_mutator.h \
     -D PNG_MUTATOR_DEFINE_LIBFUZZER_CUSTOM_MUTATOR \
-    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng.a $SRC/libspng/build/subprojects/zlib-1.2.11/libz.a
+    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng.a $SRC/libspng/libz.a
 
 find $SRC/libspng/tests/images -name "*.png" | \
      xargs zip $OUT/spng_read_fuzzer_seed_corpus.zip
