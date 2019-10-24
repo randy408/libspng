@@ -7,7 +7,7 @@ spng_inc = include_directories('.')
 if cc.get_define('__ANDROID__') != ''
     zlib_dep = cc.find_library('z')
 else
-    zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'])
+    zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'], static : get_option('static_zlib'))
 endif
 
 m_dep = cc.find_library('m', required : false)
