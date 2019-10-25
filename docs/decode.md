@@ -26,6 +26,9 @@ The channels are always in byte-order regardless of host endianness.
 ```c
 enum spng_decode_flags
 {
+    SPNG_DECODE_USE_TRNS = 1, /* deprecated */
+    SPNG_DECODE_USE_GAMA = 2, /* deprecated */
+
     SPNG_DECODE_TRNS = 1,
     SPNG_DECODE_GAMMA = 2
 };
