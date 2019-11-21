@@ -37,13 +37,7 @@
         #define SPNG_DISABLE_OPT
     #endif
 
-    #ifndef __has_attribute
-        #define SPNG_HAS_ATTR(x) 0
-    #else
-        #define SPNG_HAS_ATTR(x) __has_attribute(x)
-    #endif
-
-    #if defined(SPNG_X86_64) && SPNG_HAS_ATTR(target_clones)
+    #if defined(SPNG_X86_64) && defined(SPNG_ENABLE_TARGET_CLONES)
         #undef SPNG_TARGET_CLONES
         #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
     #else
