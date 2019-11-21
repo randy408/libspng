@@ -24,6 +24,11 @@
 
     #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
         #define SPNG_X86
+
+        #if defined(__x86_64__) || defined(_M_X64)
+            #define X86_64
+        #endif
+
     #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
         /* #define SPNG_ARM */ /* buffer overflow for rgb8 images */
         #define SPNG_DISABLE_OPT
@@ -32,7 +37,13 @@
         #define SPNG_DISABLE_OPT
     #endif
 
-    #if defined(SPNG_X86) && ((__GNUC__ >= 7) && !defined(__clang__) && !defined(__INTEL_COMPILER)) && !defined(_WIN32)
+    #ifndef __has_attribute
+        #define SPNG_HAS_ATTR(x) 0
+    #else
+        #define SPNG_HAS_ATTR(x) __has_attribute(x)
+    #endif
+
+    #if defined(SPNG_X86_64) && SPNG_HAS_ATTR(target_clones)
         #undef SPNG_TARGET_CLONES
         #define SPNG_TARGET_CLONES(x) __attribute__((target_clones(x)))
     #else
