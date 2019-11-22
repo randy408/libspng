@@ -24,15 +24,15 @@ endif()
 
 if(SPNG_SHARED)
 	add_library(spng SHARED ${spng_SOURCES})
+    target_link_libraries(spng ${ZLIB_LIBRARIES})
+    install(TARGETS spng DESTINATION lib)
 endif()
 
 if(SPNG_STATIC)
 	add_library(spng_static STATIC ${spng_SOURCES})
+    install(TARGETS spng_static DESTINATION lib)
 endif()
 
-target_link_libraries(spng ${ZLIB_LIBRARIES})
-
-install(TARGETS spng DESTINATION lib)
 install(FILES spng.h DESTINATION include)
 
 
