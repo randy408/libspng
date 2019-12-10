@@ -35,7 +35,7 @@ enum spng_crc_action
 
 # spng_ctx_new()
 ```c
-spng_ctx *spng_ctx_new(int flags)`
+spng_ctx *spng_ctx_new(int flags)
 ```
 
 Creates a new context.
@@ -45,7 +45,9 @@ Creates a new context.
 spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 ```
 
-Creates a new context with a custom memory allocator, `alloc` must be non-NULL.
+Creates a new context with a custom memory allocator, it is passed to zlib.
+
+`alloc` and its members must be non-NULL.
 
 # spng_ctx_free()
 ```c
@@ -72,7 +74,7 @@ Get image width and height limits.
 
 # spng_set_crc_action()
 ```c
-int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)`
+int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
 ```
 
 Set how chunk CRC errors should be handled for critical and ancillary chunks.
