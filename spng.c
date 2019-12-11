@@ -1162,6 +1162,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
                 ctx->plte_offset = chunk.offset;
 
                 ctx->file.plte = 1;
+                ctx->stored.plte = 1;
             }
             else if(!memcmp(chunk.type, type_iend, 4)) return SPNG_ECHUNK_POS;
             else if(!memcmp(chunk.type, type_ihdr, 4)) return SPNG_ECHUNK_POS;
