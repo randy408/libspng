@@ -1,4 +1,4 @@
-[![Gitter](https://badges.gitter.im/libspng/community.svg)](https://gitter.im/libspng/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Financial Contributors on Open Collective](https://opencollective.com/libspng/all/badge.svg?label=financial+contributors)](https://opencollective.com/libspng) [![Gitter](https://badges.gitter.im/libspng/community.svg)](https://gitter.im/libspng/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Windows CI](https://ci.appveyor.com/api/projects/status/raaer7ali0i1v25q?svg=true)](https://ci.appveyor.com/project/randy408/libspng)
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/libspng.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#libspng)
 [![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
@@ -65,6 +65,36 @@ spng_ctx_free(ctx);
 ```
 
 See [example.c](https://github.com/randy408/libspng/blob/v0.5.0/examples/example.c).
+
+## Contributors
+
+### Code Contributors
+
+This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
+<a href="https://github.com/randy408/libspng/graphs/contributors"><img src="https://opencollective.com/libspng/contributors.svg?width=890&button=false" /></a>
+
+### Financial Contributors
+
+Become a financial contributor and help us sustain our community. [[Contribute](https://opencollective.com/libspng/contribute)]
+
+#### Individuals
+
+<a href="https://opencollective.com/libspng"><img src="https://opencollective.com/libspng/individuals.svg?width=890"></a>
+
+#### Organizations
+
+Support this project with your organization. Your logo will show up here with a link to your website. [[Contribute](https://opencollective.com/libspng/contribute)]
+
+<a href="https://opencollective.com/libspng/organization/0/website"><img src="https://opencollective.com/libspng/organization/0/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/1/website"><img src="https://opencollective.com/libspng/organization/1/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/2/website"><img src="https://opencollective.com/libspng/organization/2/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/3/website"><img src="https://opencollective.com/libspng/organization/3/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/4/website"><img src="https://opencollective.com/libspng/organization/4/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/5/website"><img src="https://opencollective.com/libspng/organization/5/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/6/website"><img src="https://opencollective.com/libspng/organization/6/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/7/website"><img src="https://opencollective.com/libspng/organization/7/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/8/website"><img src="https://opencollective.com/libspng/organization/8/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/organization/9/website"><img src="https://opencollective.com/libspng/organization/9/avatar.svg"></a>
 
 ## License
 
