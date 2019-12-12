@@ -1,14 +1,17 @@
 # Platform requirements
 
 * Requires [zlib](http://zlib.net) or a zlib-compatible library
-* Fixed width integer types up to `(u)int32_t`
 * Integers must be two's complement.
+* Fixed width integer types up to `(u)int32_t`
 * `CHAR_BIT` must equal 8.
-* `size_t` must be unsigned and at least 32-bit, 16-bit platforms are not
-  supported.
+* `size_t` must be unsigned.
+* `size_t` and `int` must be at least 32-bit, 16-bit platforms are not
+supported.
+* Floating point support and math functions
 
+# Build
 
-# Build with CMake
+## CMake
 
 ```bash
 mkdir cbuild
@@ -18,7 +21,7 @@ make
 make install
 ```
 
-# Build with Meson
+## Meson
 
 ```bash
 meson build
@@ -27,7 +30,12 @@ ninja
 ninja install
 ```
 
-# Optimizations
+## Embedding the source code
+
+The sources `spng.c`/`spng.h` can be dropped in a project without
+any configuration, most optimizations are enabled by default.
+
+# Build options
 
 Architecture-specific optimizations are enabled by default,
 this can be disabled with the `SPNG_DISABLE_OPT` compiler option.
@@ -35,13 +43,19 @@ this can be disabled with the `SPNG_DISABLE_OPT` compiler option.
 The Meson project has an `enable_opt` option, it is enabled by default,
 the CMake equivalent is `ENABLE_OPT`.
 
-Optimizations on x86 require SSE2 by default, to enable SSSE3
+Optimizations for x86 require SSE2 by default, to enable SSSE3
 optimizations add `-DSPNG_SSE=3` as a compiler option, this improves
 performance by up to 7%.
 
 Compiler-specific macros are used to omit the need for the `-msse2` and
 `-mssse3` compiler flags, if the code does not compile without these flags
 you should file a bug report.
+
+The `target_clones()` function attribute is used to optimize code
+for multiple instruction sets, this is enabled by the
+`SPNG_ENABLE_TARGET_CLONES` compiler option, it requires a recent version
+of GCC and glibc.
+For the Meson project this is always enabled if the target supports it.
 
 # Profile-guided optimization
 
