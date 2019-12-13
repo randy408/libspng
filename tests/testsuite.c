@@ -5,10 +5,13 @@
 #include "test_spng.h"
 #include "test_png.h"
 
+#define SPNG_TEST_COMPARE_CHUNKS 1
+
 struct spng_test_case
 {
     int fmt;
     int flags;
+    int test_flags;
 };
 
 int should_fail = 0;
@@ -23,36 +26,36 @@ void print_test_args(struct spng_test_case *test_case)
 
     printf("FLAGS: ");
 
-    if(!test_case->flags) printf("(NONE)");
+    if(!test_case->flags && !test_case->test_flags) printf("(NONE)");
+
     if(test_case->flags & SPNG_DECODE_TRNS) printf("TRNS ");
     if(test_case->flags & SPNG_DECODE_GAMMA) printf("GAMMA ");
+
+    if(test_case->test_flags & SPNG_TEST_COMPARE_CHUNKS) printf("COMPARE_CHUNKS ");
 
     printf("\n");
 }
 
+
 void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
 {
-    const int fmt_list[] = { SPNG_FMT_RGBA8, SPNG_FMT_RGBA16 };
-    const int fmt_n = 2;
-
-    int i, j;
-    int k = 0;
-
-    for(i=0; i < fmt_n; i++)
-    {
-    /* With libpng it's not possible to request 8/16-bit images regardless of
+/* With libpng it's not possible to request 8/16-bit images regardless of
        PNG format without calling functions that alias to png_set_expand(_16),
        which acts as if png_set_tRNS_to_alpha() was called, as a result
-       there are no tests where the tRNS chunk is ignored. */
-        for(j=1; j <= SPNG_DECODE_GAMMA; j++, k++)
-        {
-            test_cases[k].fmt = fmt_list[i];
-            test_cases[k].flags = j | SPNG_DECODE_TRNS;
-        }
-    }
+       there are no tests where transparency is not applied */
+    
+    test_cases[0].fmt = SPNG_FMT_RGBA8;
+    test_cases[0].flags = SPNG_DECODE_TRNS;
+    test_cases[1].fmt = SPNG_FMT_RGBA8;
+    test_cases[1].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
+    test_cases[2].fmt = SPNG_FMT_RGBA16;
+    test_cases[2].flags = SPNG_DECODE_TRNS;
+    test_cases[3].fmt = SPNG_FMT_RGBA16;
+    test_cases[3].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
 
-    *test_cases_n = k;
+    *test_cases_n = 4;
 }
+
 
 int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
 {
@@ -150,8 +153,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
             {
                 printf("alpha mismatch at x:%" PRIu32 " y:%" PRIu32 ", "
                        "spng: %" PRIu16 " png: %" PRIu16 "\n",
-                       x, y,
-                       spng_alpha, png_alpha);
+                       x, y, spng_alpha, png_alpha);
                 alpha_mismatch = 1;
             }
 
