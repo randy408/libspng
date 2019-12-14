@@ -2538,26 +2538,46 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     int ret = get_ancillary(ctx);
     if(ret) return ret;
 
-    size_t res;
-    if(fmt == SPNG_FMT_RGBA8)
+    /* define parameters used to calculate total uncompressed bytes */
+    size_t npixels = ctx->ihdr.width*ctx->ihdr.height;
+    size_t nsamples, bytes_per_sample;
+    if(fmt == SPNG_FMT_PNG)
     {
-        if(4 > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
-        res = 4 * ctx->ihdr.width;
-
-        if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
-        res = res * ctx->ihdr.height;
+        switch ((enum spng_color_type)ctx->ihdr.color_type) {
+            case SPNG_COLOR_TYPE_GRAYSCALE:
+            case SPNG_COLOR_TYPE_INDEXED:
+                nsamples = 1;
+                break;
+            case SPNG_COLOR_TYPE_TRUECOLOR:
+                nsamples = 3;
+                break;
+            case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+                nsamples = 2;
+                break;
+            case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
+                nsamples = 4;
+                break;
+        }
+        bytes_per_sample = (ctx->ihdr.bit_depth == 16) ? 2 : 1;
+    }
+    else if(fmt == SPNG_FMT_RGBA8)
+    {
+        bytes_per_sample = 1;
+        nsamples = 4;
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        if(8 > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
-        res = 8 * ctx->ihdr.width;
-
-        if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
-        res = res * ctx->ihdr.height;
+        bytes_per_sample = 2;
+        nsamples = 4;
     }
     else return SPNG_EFMT;
 
-    *out = res;
+    /* Assert we don't exceed the maximum possible size */
+    if (SIZE_MAX / npixels < bytes_per_sample*nsamples) {
+        return SPNG_EOVERFLOW;
+    }
+
+    *out = bytes_per_sample * nsamples * npixels;
 
     return 0;
 }
