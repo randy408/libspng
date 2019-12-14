@@ -2539,8 +2539,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     if(ret) return ret;
 
     /* define parameters used to calculate total uncompressed bytes */
-    size_t npixels = ctx->ihdr.width*ctx->ihdr.height;
-    size_t nsamples, bytes_per_sample;
+    size_t bits_per_sample, nsamples;
     if(fmt == SPNG_FMT_PNG)
     {
         switch ((enum spng_color_type)ctx->ihdr.color_type) {
@@ -2558,26 +2557,43 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
                 nsamples = 4;
                 break;
         }
-        bytes_per_sample = (ctx->ihdr.bit_depth == 16) ? 2 : 1;
+        bits_per_sample = ctx->ihdr.bit_depth;
     }
     else if(fmt == SPNG_FMT_RGBA8)
     {
-        bytes_per_sample = 1;
+        bits_per_sample = 8;
         nsamples = 4;
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        bytes_per_sample = 2;
+        bits_per_sample = 16;
         nsamples = 4;
     }
     else return SPNG_EFMT;
 
-    /* Assert we don't exceed the maximum possible size */
-    if (SIZE_MAX / npixels < bytes_per_sample*nsamples) {
-        return SPNG_EOVERFLOW;
-    }
+    /* For grayscale data with bit depths less than 8 the total number of
+    bytes cannot exceed SIZE_MAX, even with an alpha channel. However, for
+    a large enough image the number of bits can so we use a multistep
+    calulation to avoid overflow */
+    if (bits_per_sample < 8) {
+        if (SIZE_MAX / ctx->ihdr.width < ctx->ihdr.height) {
+            return SPNG_EOVERFLOW;
+        }
+        size_t row_bits = bits_per_sample * nsamples * ctx->ihdr.width;
+        size_t row_bytes = row_bits / 8, extra_bits = row_bits % 8;
 
-    *out = bytes_per_sample * nsamples * npixels;
+        extra_bits = extra_bits * ctx->ihdr.height;
+        *out = row_bytes*ctx->ihdr.height + extra_bits/8 + (extra_bits%8 ? 1 : 0);
+    }
+    else {
+        size_t npixels = ctx->ihdr.width*ctx->ihdr.height;
+        size_t bytes_per_sample = bits_per_sample / 8;
+        if (SIZE_MAX / ctx->ihdr.width < bytes_per_sample*nsamples) {
+            return SPNG_EOVERFLOW;
+        }
+
+        *out = bytes_per_sample * nsamples * npixels;
+    }
 
     return 0;
 }
