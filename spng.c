@@ -1854,8 +1854,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
         pixel_size = 8;
     }
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
-       ctx->ihdr.bit_depth == depth_target)
+    if((ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
+       ctx->ihdr.bit_depth == depth_target) ||
+       fmt == SPNG_FMT_RAW)
     {
         f.same_layout = 1;
         /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
@@ -2540,7 +2541,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
 
     /* define parameters used to calculate total uncompressed bytes */
     size_t bits_per_sample, nsamples;
-    if(fmt == SPNG_FMT_PNG)
+    if(fmt == SPNG_FMT_RAW)
     {
         switch ((enum spng_color_type)ctx->ihdr.color_type) {
             case SPNG_COLOR_TYPE_GRAYSCALE:
