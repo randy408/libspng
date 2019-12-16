@@ -2589,9 +2589,10 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
         *out = row_bytes*ctx->ihdr.height + extra_bits/8 + (extra_bits%8 ? 1 : 0);
     }
     else {
-        size_t npixels = ctx->ihdr.width*ctx->ihdr.height;
         size_t bytes_per_sample = bits_per_sample / 8;
-        if (SIZE_MAX / ctx->ihdr.width < bytes_per_sample*nsamples) {
+        size_t npixels = ctx->ihdr.width;
+        npixels = npixels * ctx->ihdr.height;
+        if (SIZE_MAX / npixels < bytes_per_sample*nsamples) {
             return SPNG_EOVERFLOW;
         }
 
