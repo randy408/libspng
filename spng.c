@@ -1782,6 +1782,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
     struct decode_flags f = {0};
 
+    if (fmt == SPNG_FMT_RAW && flags != 0) return SPNG_EFLAGS;
+
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
