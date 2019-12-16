@@ -2082,7 +2082,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
             if(ret) goto decode_err;
 
-            if(ctx->ihdr.bit_depth == 16) u16_row_to_host(scanline, scanline_width - 1);
+            if(ctx->ihdr.bit_depth == 16 && fmt != SPNG_FMT_RAW) {
+                u16_row_to_host(scanline, scanline_width - 1);
+            }
 
             ret = defilter_scanline(prev_scanline, scanline, scanline_width - 1, bytes_per_pixel, filter);
             if(ret) goto decode_err;
