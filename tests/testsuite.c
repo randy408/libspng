@@ -21,7 +21,8 @@ int info_printed = 0;
 void print_test_args(struct spng_test_case *test_case)
 {
     printf("Decode and compare ");
-    if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
+    if(test_case->fmt == SPNG_FMT_RAW) printf("RAW, ");
+    else if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
     else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
 
     printf("FLAGS: ");
@@ -43,17 +44,19 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
        PNG format without calling functions that alias to png_set_expand(_16),
        which acts as if png_set_tRNS_to_alpha() was called, as a result
        there are no tests where transparency is not applied */
-    
-    test_cases[0].fmt = SPNG_FMT_RGBA8;
-    test_cases[0].flags = SPNG_DECODE_TRNS;
-    test_cases[1].fmt = SPNG_FMT_RGBA8;
-    test_cases[1].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
-    test_cases[2].fmt = SPNG_FMT_RGBA16;
-    test_cases[2].flags = SPNG_DECODE_TRNS;
-    test_cases[3].fmt = SPNG_FMT_RGBA16;
-    test_cases[3].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
 
-    *test_cases_n = 4;
+    test_cases[0].fmt = SPNG_FMT_RAW;
+    test_cases[0].flags = 0;
+    test_cases[1].fmt = SPNG_FMT_RGBA8;
+    test_cases[1].flags = SPNG_DECODE_TRNS;
+    test_cases[2].fmt = SPNG_FMT_RGBA8;
+    test_cases[2].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
+    test_cases[3].fmt = SPNG_FMT_RGBA16;
+    test_cases[3].flags = SPNG_DECODE_TRNS;
+    test_cases[4].fmt = SPNG_FMT_RGBA16;
+    test_cases[4].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
+
+    *test_cases_n = 5;
 }
 
 
