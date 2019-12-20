@@ -67,7 +67,8 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     uint8_t have_alpha = 1;
     uint8_t alpha_mismatch = 0;
     uint8_t pixel_diff = 0;
-    uint8_t bytes_per_pixel = 4; /* SPNG_FMT_RGBA8 */
+    uint8_t bytes_per_pixel = 0;
+    size_t bits_per_sample, nsamples, row_bytes, extra_bits; /* Used with SPNG_FMT_RAW */
 
     uint16_t spng_red = 0, spng_green = 0, spng_blue = 0, spng_alpha = 0;
     uint16_t png_red = 0, png_green = 0, png_blue = 0, png_alpha = 0;
@@ -82,6 +83,40 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     else if(fmt == SPNG_FMT_RGBA16)
     {
         bytes_per_pixel = 8;
+    }
+    else
+    {
+        switch ((enum spng_color_type)ihdr->color_type) {
+            case SPNG_COLOR_TYPE_GRAYSCALE:
+            case SPNG_COLOR_TYPE_INDEXED:
+                nsamples = 1;
+                break;
+            case SPNG_COLOR_TYPE_TRUECOLOR:
+                nsamples = 3;
+                break;
+            case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+                nsamples = 2;
+                break;
+            case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
+                nsamples = 4;
+                break;
+        }
+        bits_per_sample = ihdr->bit_depth;
+
+        /* total pixel size of 1 byte or greater, allowed PNG formats
+        will never have a pixel size of 1.5 bytes, 2.5 bytes, etc.  */
+        if (nsamples * bits_per_sample / 8)
+        {
+            bytes_per_pixel = nsamples * bits_per_sample / 8;
+            row_bytes = ihdr->width * bytes_per_pixel;
+            extra_bits = 0;
+        }
+        else
+        {
+            size_t row_bits = bits_per_sample * nsamples * ihdr->width;
+            row_bytes = row_bits / 8;
+            extra_bits = row_bits % 8;
+        }
     }
 
     for(y=0; y < h; y++)
@@ -119,7 +154,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                     png_green = p_green;
                     png_blue = p_blue;
             }
-            else /* FMT_RGBA8 */
+            else if(fmt == SPNG_FMT_RGBA8)
             {
                 uint8_t s_red, s_green, s_blue, s_alpha;
                 uint8_t p_red, p_green, p_blue, p_alpha;
@@ -150,6 +185,72 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                 png_green = p_green;
                 png_blue = p_blue;
 
+            }
+            else /* SPNG_FMT_RAW */
+            {
+                /* calculate the offset in bytes and then an additional
+                bit offset if necessary*/
+                size_t offset_bytes, offset_bits;
+                offset_bytes = row_bytes*x + (extra_bits * y)/8;
+                offset_bits = (extra_bits * y) % 8;
+
+                /* Given the allowed bit depths, we know a sample's bits
+                will never span a byte boundary, for 16bit values we set
+                the local bits per sample (bps) to 8 so no shifting occurs
+                since the offset_bits should also be 0 */
+                unsigned char s_samples[8] = {0,0,0,0,0,0,0,0};
+                unsigned char p_samples[8] = {0,0,0,0,0,0,0,0};
+                unsigned char *s_ptr=img_spng+offset_bytes, *p_ptr=img_png+offset_bytes;
+                unsigned char s_byte, p_byte;
+                size_t bps = bits_per_sample == 16 ? 8 : bits_per_sample;
+                size_t l_shift, r_shift = 8 - bps;
+                for (int i = 0; i < nsamples; i++) {
+                    s_byte=*s_ptr;
+                    p_byte=*p_ptr;
+                    l_shift = offset_bits;
+                    s_samples[i] = (s_byte << l_shift) >> r_shift;
+                    p_samples[i] = (p_byte << l_shift) >> r_shift;
+                    offset_bits += bps;
+                    if (offset_bits == 8) {
+                        offset_bits = 0;
+                        s_ptr++;
+                        p_ptr++;
+                    }
+                }
+
+                /* convert samples array into pixels to compare */
+                bps = bits_per_sample == 16 ? 2 : 1;
+                spng_alpha = png_alpha = (1 << bits_per_sample) - 1;
+                if (nsamples == 1) /* grayscale */
+                {
+                    memcpy(&spng_red, s_samples, bps);
+                    memcpy(&png_red, p_samples, bps);
+                    spng_green = spng_blue = spng_red;
+                    png_green = png_blue = png_red;
+                }
+                else if (nsamples == 2) /* grayscale + alpha */
+                {
+                    memcpy(&spng_red, s_samples, bps);
+                    memcpy(&png_red, p_samples, bps);
+                    memcpy(&spng_alpha, s_samples + bps, bps);
+                    memcpy(&png_alpha, p_samples + bps, bps);
+                    spng_green = spng_blue = spng_red;
+                    png_green = png_blue = png_red;
+                }
+                else
+                {
+                    memcpy(&spng_red, s_samples, bps);
+                    memcpy(&png_red, p_samples, bps);
+                    memcpy(&spng_green, s_samples+bps, bps);
+                    memcpy(&png_green, p_samples+bps, bps);
+                    memcpy(&spng_blue, s_samples + 2*bps, bps);
+                    memcpy(&png_blue, p_samples + 2*bps, bps);
+                    if (nsamples == 4)
+                    {
+                        memcpy(&spng_alpha, s_samples + 3*bps, bps);
+                        memcpy(&png_alpha, p_samples + 3*bps, bps);
+                    }
+                }
             }
 
             if(have_alpha && spng_alpha != png_alpha)
