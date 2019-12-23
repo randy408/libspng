@@ -44,19 +44,20 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
        PNG format without calling functions that alias to png_set_expand(_16),
        which acts as if png_set_tRNS_to_alpha() was called, as a result
        there are no tests where transparency is not applied */
+    #define NCASES 5
+    int i, fmts_and_flags[2*NCASES] = {
+        SPNG_FMT_RAW, 0,
+        SPNG_FMT_RGBA8, SPNG_DECODE_TRNS,
+        SPNG_FMT_RGBA8, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA,
+        SPNG_FMT_RGBA16, SPNG_DECODE_TRNS,
+        SPNG_FMT_RGBA16, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA
 
-    test_cases[0].fmt = SPNG_FMT_RAW;
-    test_cases[0].flags = 0;
-    test_cases[1].fmt = SPNG_FMT_RGBA8;
-    test_cases[1].flags = SPNG_DECODE_TRNS;
-    test_cases[2].fmt = SPNG_FMT_RGBA8;
-    test_cases[2].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
-    test_cases[3].fmt = SPNG_FMT_RGBA16;
-    test_cases[3].flags = SPNG_DECODE_TRNS;
-    test_cases[4].fmt = SPNG_FMT_RGBA16;
-    test_cases[4].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
-
-    *test_cases_n = 5;
+    };
+    *test_cases_n = NCASES;
+    for (i = 0; i < NCASES; i++) {
+        test_cases[i].fmt = fmts_and_flags[2*i];
+        test_cases[i].flags = fmts_and_flags[2*i + 1];
+    }
 }
 
 
