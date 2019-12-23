@@ -2589,61 +2589,51 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     if(ret) return ret;
 
     /* define parameters used to calculate total uncompressed bytes */
-    size_t bits_per_sample, nsamples;
+    size_t pixel_size;
     if(fmt == SPNG_FMT_RAW)
     {
+        pixel_size = ctx->ihdr.bit_depth;
         switch ((enum spng_color_type)ctx->ihdr.color_type) {
             case SPNG_COLOR_TYPE_GRAYSCALE:
             case SPNG_COLOR_TYPE_INDEXED:
-                nsamples = 1;
                 break;
             case SPNG_COLOR_TYPE_TRUECOLOR:
-                nsamples = 3;
+                pixel_size *= 3;
                 break;
             case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
-                nsamples = 2;
+                pixel_size *= 2;
                 break;
             case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
-                nsamples = 4;
+                pixel_size *= 4;
                 break;
         }
-        bits_per_sample = ctx->ihdr.bit_depth;
     }
     else if(fmt == SPNG_FMT_RGBA8)
     {
-        bits_per_sample = 8;
-        nsamples = 4;
+        pixel_size = 32;
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        bits_per_sample = 16;
-        nsamples = 4;
+        pixel_size = 64;
     }
     else return SPNG_EFMT;
 
     /* For grayscale data with bit depths less than 8 the total number of
-    bytes cannot exceed SIZE_MAX, even with an alpha channel. However, for
-    a large enough image the number of bits can so we use a multistep
-    calulation to avoid overflow */
-    if (bits_per_sample < 8) {
+    bytes cannot exceed SIZE_MAX==2**64-1, even with an alpha channel */
+    if (pixel_size < 8) {
         if (SIZE_MAX / ctx->ihdr.width < ctx->ihdr.height) {
             return SPNG_EOVERFLOW;
         }
-        size_t row_bits = bits_per_sample * nsamples * ctx->ihdr.width;
-        size_t row_bytes = row_bits / 8, extra_bits = row_bits % 8;
-
-        extra_bits = extra_bits * ctx->ihdr.height;
-        *out = row_bytes*ctx->ihdr.height + extra_bits/8 + (extra_bits%8 ? 1 : 0);
+        *out = (ctx->ihdr.width * pixel_size + 7) >> 3;
+        *out *= ctx->ihdr.height;
     }
     else {
-        size_t bytes_per_sample = bits_per_sample / 8;
-        size_t npixels = ctx->ihdr.width;
-        npixels = npixels * ctx->ihdr.height;
-        if (SIZE_MAX / npixels < bytes_per_sample*nsamples) {
+        pixel_size = pixel_size >> 3;
+        *out = ctx->ihdr.width * ctx->ihdr.height;
+        if (SIZE_MAX / *out < pixel_size) {
             return SPNG_EOVERFLOW;
         }
-
-        *out = bytes_per_sample * nsamples * npixels;
+        *out *= pixel_size;
     }
 
     return 0;
