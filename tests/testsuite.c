@@ -340,6 +340,39 @@ int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int fl
         return 1;
     }
 
+    if (fmt == SPNG_FMT_RAW ) {
+        size_t pixel_size = ihdr.bit_depth;
+        switch ((enum spng_color_type)ihdr.color_type) {
+            case SPNG_COLOR_TYPE_GRAYSCALE:
+            case SPNG_COLOR_TYPE_INDEXED:
+                break;
+            case SPNG_COLOR_TYPE_TRUECOLOR:
+                pixel_size *= 3;
+                break;
+            case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+                pixel_size *= 2;
+                break;
+            case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
+                pixel_size *= 4;
+                break;
+        }
+        /* mask any trailing bits on each row to zero so we don't memcmp
+        potentially uninitialized memory */
+        if (pixel_size < 8) {
+            size_t row_bytes = (ihdr.width * pixel_size + 7) >> 3;
+            unsigned char mask, trail_bits;
+            unsigned char *s_ptr=img_spng+(row_bytes - 1), *p_ptr=img_png+(row_bytes - 1);
+            trail_bits = ihdr.width * pixel_size % 8;
+            trail_bits = (trail_bits > 0 ? 8 - trail_bits : 0);
+            mask = 255 << trail_bits;
+            for (int i = 0; i < ihdr.height; i++) {
+                *s_ptr &= mask;
+                *p_ptr &= mask;
+                s_ptr += row_bytes;
+                p_ptr += row_bytes;
+            }
+        }
+    }
     int ret = 0;
     int ret_memcmp = memcmp(img_spng, img_png, img_spng_size);
 
