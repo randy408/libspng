@@ -5,6 +5,10 @@
 #include <string.h>
 #include <math.h>
 
+
+#include <stdio.h>
+
+
 #ifdef __FRAMAC__
     #define SPNG_DISABLE_OPT
     #include "tests/framac_stubs.h"
@@ -1782,6 +1786,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
     struct decode_flags f = {0};
 
+    /* We cannot properly apply all flags on "raw" data for all data types
+    additionally the format implys no additional transforms would be applied */
     if (fmt == SPNG_FMT_RAW && flags != 0) return SPNG_EFLAGS;
 
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
@@ -1842,19 +1848,34 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     const uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
     const uint8_t mask = (uint16_t)(1 << ctx->ihdr.bit_depth) - 1;
     const uint8_t initial_shift = 8 - ctx->ihdr.bit_depth;
-    size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
+    size_t pixel_size = 0, pixel_size_bits = 0;
     size_t pixel_offset = 0;
-    unsigned char *pixel;
-    unsigned depth_target = 8; /* FMT_RGBA8 */
+    unsigned char *pixel = NULL;
     unsigned processing_depth = ctx->ihdr.bit_depth;
+    unsigned depth_target;
 
-    if(f.indexed) processing_depth = 8;
+    /* LUT is 8bit RGB so we can disregard the actual depth if being applied */
+    if(f.indexed && fmt != SPNG_FMT_RAW) processing_depth = 8;
 
-    if(fmt == SPNG_FMT_RGBA16)
+    if(fmt == SPNG_FMT_RGBA8)
+    {
+        depth_target = 8;
+        pixel_size_bits = 4 * depth_target;
+    }
+    else if(fmt == SPNG_FMT_RGBA16)
     {
         depth_target = 16;
-        pixel_size = 8;
+        pixel_size_bits = 4 * depth_target;
     }
+    else /* SPNG_FMT_RAW */
+    {
+         depth_target = processing_depth;
+         pixel_size_bits = (channels * depth_target);
+    }
+    /* pixel size can be 0 for less than 8bpp, special logic is
+    used when deinterlacing images with pixel_size == 0 but this only
+    applies when using fmt == SPNG_FMT_RAW */
+    pixel_size = pixel_size_bits / 8;
 
     if((ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
        ctx->ihdr.bit_depth == depth_target) ||
@@ -2297,13 +2318,37 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
                 const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
                 const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
+                size_t ioffset;
 
-                for(k=0; k < width; k++)
+                if (pixel_size == 0)
                 {
-                    size_t ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
-                                      ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
+                    for(k=0; k < width; k++) {
+                        /* The maximum pixel_size_bits in this branch is 4
+                        and the maximum PNG W/H is 2**31 so the maximum
+                        ioffset in bits should be (2**64)-1 which means we
+                        don't have to worry about overflow but we still check
+                        in case size_t is not 64bit int */
+                        size_t ioffset_pix = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
+                                               ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]);
+                        ioffset = ioffset_pix * pixel_size_bits;
+                        if (ioffset < ioffset_pix) return SPNG_EOVERFLOW;
+                        /* define bitmask to use based on pixel size and bit offset */
+                        unsigned char mask = ((1 << pixel_size_bits) - 1) << (8 - pixel_size_bits - ioffset % 8);
+                        //unsigned char mask =  ((1<<pixel_size_bits) - 1) << (8 - ioffset % 8);
+                        //unsigned char mask =  ((1<<pixel_size_bits) - 1) << ioffset % 8;
+                        unsigned char *ptr = (unsigned char*)out + ioffset / 8;
+                        *ptr = *ptr | (mask & *(row + (k * pixel_size_bits) / 8));
+                    }
+                }
+                else
+                {
+                    for(k=0; k < width; k++)
+                    {
+                        ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
+                                    ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
 
-                    memcpy((unsigned char*)out + ioffset, row + k * pixel_size, pixel_size);
+                        memcpy((unsigned char*)out + ioffset, row + k * pixel_size, pixel_size);
+                    }
                 }
             }
             else
