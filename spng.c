@@ -1793,6 +1793,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
+    memset(out, 0, out_size_required);
 
     out_width = out_size_required / ctx->ihdr.height;
 
@@ -2322,22 +2323,20 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
                 if (pixel_size == 0)
                 {
-                    for(k=0; k < width; k++) {
-                        /* The maximum pixel_size_bits in this branch is 4
-                        and the maximum PNG W/H is 2**31 so the maximum
-                        ioffset in bits should be (2**64)-1 which means we
-                        don't have to worry about overflow but we still check
-                        in case size_t is not 64bit int */
-                        size_t ioffset_pix = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
-                                               ctx->ihdr.width + adam7_x_start[pass] + k * adam7_x_delta[pass]);
-                        ioffset = ioffset_pix * pixel_size_bits;
-                        if (ioffset < ioffset_pix) return SPNG_EOVERFLOW;
-                        /* define bitmask to use based on pixel size and bit offset */
-                        unsigned char mask = ((1 << pixel_size_bits) - 1) << (8 - pixel_size_bits - ioffset % 8);
-                        //unsigned char mask =  ((1<<pixel_size_bits) - 1) << (8 - ioffset % 8);
-                        //unsigned char mask =  ((1<<pixel_size_bits) - 1) << ioffset % 8;
-                        unsigned char *ptr = (unsigned char*)out + ioffset / 8;
-                        *ptr = *ptr | (mask & *(row + (k * pixel_size_bits) / 8));
+                    unsigned char mask = ((1 << pixel_size_bits) - 1) << (8 - pixel_size_bits);
+                    unsigned char val, *ptr = out;
+                    size_t row_offset = 0;
+                    size_t row_bytes = (ctx->ihdr.width * pixel_size_bits + 7) >> 3;
+                    for(k=0; k < width; k++, row_offset += pixel_size_bits) {
+                        size_t xoffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size_bits;
+                        size_t ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
+                                          row_bytes + (xoffset >> 3));
+
+                        /* left shift off leading bits and extract out packed value */
+                        val = *(row + row_offset / 8) << (row_offset % 8) & mask;
+
+                        /* right shift pixel value into proper place and OR with output pointer */
+                        *(ptr + ioffset) |= (val >> xoffset % 8);
                     }
                 }
                 else
