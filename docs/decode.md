@@ -14,12 +14,21 @@ A read callback function should copy `length` bytes to `dest` and return 0 or
 ```c
 enum spng_format
 {
+    SPNG_FMT_RAW = 0,
     SPNG_FMT_RGBA8 = 1,
     SPNG_FMT_RGBA16 = 2
 };
 ```
+The `RGBA8` and `RGBA16` formats convert images of all color types to
+full RGBA format, scaling the bit depth if needed. Indexed color images
+are expanded by applying the look up table defined in the PLTE chunk.
+Additionally, images are deinterlaced if needed and 16 bit images are
+byte-swapped to host endianness.
 
-The channels are always in byte-order regardless of host endianness.
+The `RAW` format will deinterlace the image but otherwise leaves the
+data untransformed. 1, 2 and 4 bit depth data will remain in byte packed
+rows, chunks that modify image data (PLTE, tRANS, gAMA, etc.) are not
+applied and 16bit data is left in big endian byte order.
 
 # spng_decode_flags
 
@@ -76,6 +85,6 @@ Decodes the PNG file and writes the decoded image to `out`.
 `spng_decoded_image_size` with the same output format.
 
 Interlaced images are written deinterlaced to `out`,
-16-bit images are converted to host-endian.
+16-bit images are converted to host-endian (unless fmt == `SPNG_FMT_RAW`).
 
 This function can only be called once per context.

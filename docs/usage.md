@@ -4,6 +4,9 @@ libspng can decode images to 8- or 16-bit RGBA formats from any PNG file,
 whether to use ancillary chunk information when decoding is controlled
 with `SPNG_DECODE_USE_*` flags, they're ignored by default.
 
+To ouput the image data untransformed (except for deinterlacing) use
+`SPNG_FMT_RAW` instead of `SPNG_FMT_RGBA[8|16]`
+
 ```c
 
 /* Create a context */
