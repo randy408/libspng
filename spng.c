@@ -5,10 +5,6 @@
 #include <string.h>
 #include <math.h>
 
-
-#include <stdio.h>
-
-
 #ifdef __FRAMAC__
     #define SPNG_DISABLE_OPT
     #include "tests/framac_stubs.h"
@@ -2325,12 +2321,12 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
                 {
                     unsigned char mask = ((1 << pixel_size_bits) - 1) << (8 - pixel_size_bits);
                     unsigned char val, *ptr = out;
-                    size_t row_offset = 0;
+                    size_t row_offset = 0, xoffset;
                     size_t row_bytes = (ctx->ihdr.width * pixel_size_bits + 7) >> 3;
                     for(k=0; k < width; k++, row_offset += pixel_size_bits) {
-                        size_t xoffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size_bits;
-                        size_t ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
-                                          row_bytes + (xoffset >> 3));
+                        xoffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size_bits;
+                        ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
+                                   row_bytes + (xoffset >> 3));
 
                         /* left shift off leading bits and extract out packed value */
                         val = *(row + row_offset / 8) << (row_offset % 8) & mask;
@@ -2628,11 +2624,11 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     }
     else {
         pixel_size = pixel_size >> 3;
-        *out = ctx->ihdr.width * ctx->ihdr.height;
-        if (SIZE_MAX / *out < pixel_size) {
+        *out = pixel_size * ctx->ihdr.width;
+        if (SIZE_MAX / *out < ctx->ihdr.height) {
             return SPNG_EOVERFLOW;
         }
-        *out *= pixel_size;
+        *out *= ctx->ihdr.height;
     }
 
     return 0;
