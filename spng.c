@@ -2613,10 +2613,8 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
     }
     else return SPNG_EFMT;
 
-    /* For grayscale data with bit depths less than 8 the total number of
-    bytes cannot exceed SIZE_MAX==2**64-1, even with an alpha channel */
     if (pixel_size < 8) {
-        if (SIZE_MAX / ctx->ihdr.width < ctx->ihdr.height) {
+        if (SIZE_MAX / ctx->ihdr.width / pixel_size < ctx->ihdr.height) {
             return SPNG_EOVERFLOW;
         }
         *out = (ctx->ihdr.width * pixel_size + 7) >> 3;
