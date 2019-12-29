@@ -1789,7 +1789,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
-    memset(out, 0, out_size_required);
 
     out_width = out_size_required / ctx->ihdr.height;
 
@@ -1868,6 +1867,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     {
          depth_target = processing_depth;
          pixel_size_bits = (channels * depth_target);
+
+         /* Less than 8bit wide images are byte-packed which can cause
+         issues at the ends of rows and when deinterlacing if the memory
+         isn't all zeros */
+         if (processing_depth < 8) {
+             memset(out, 0, out_size_required);
+         }
     }
     /* pixel size can be 0 for less than 8bpp, special logic is
     used when deinterlacing images with pixel_size == 0 but this only
