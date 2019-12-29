@@ -122,9 +122,11 @@ enum spng_color_type
 
 enum spng_format
 {
-    SPNG_FMT_RAW = 0, /* Output data in the same format as on disk (after deinterlacing) */
     SPNG_FMT_RGBA8 = 1,
-    SPNG_FMT_RGBA16 = 2
+    SPNG_FMT_RGBA16 = 2,
+    /* SPNG_FMT_PNG = 4, TODO */
+    /* SPNG_FMT_BIG_ENDIAN = 8, TODO */
+    SPNG_FMT_RAW = (4 | 8), /* Output data in the same format as on disk */
 };
 
 enum spng_ctx_flags
