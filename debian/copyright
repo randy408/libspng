@@ -3,7 +3,7 @@ Upstream-Name: libspng
 Source: https://gitlab.com/randy408/libspng
 
 Files: *
-Copyright: 2018-2019 Randy <randy408@protonmail.com>
+Copyright: 2018-2020 Randy <randy408@protonmail.com>
 License: BSD-2-Clause
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
