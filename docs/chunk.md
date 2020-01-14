@@ -89,10 +89,10 @@ of stored text chunks.
 
 !!! note
     Due to the structure of PNG files it is recommended to call this function
-    after `spng_decode_image` to retrieve all text chunks.
+    after `spng_decode_image()` to retrieve all text chunks.
 
 !!! warning
-    Text data is freed when calling `spng_ctx_free`.
+    Text data is freed when calling `spng_ctx_free()`.
 
 # spng_get_bkgd()
 ```c
@@ -128,7 +128,7 @@ If `splt` is NULL and `n_splt` is non-NULL then `n_splt` is set to the number
 of stored sPLT chunks.
 
 !!! warning
-    Suggested palettes are freed when calling `spng_ctx_free`.
+    Suggested palettes are freed when calling `spng_ctx_free()`.
 
 # spng_get_time()
 ```c
@@ -139,7 +139,7 @@ Get modification time
 
 !!! note
     Due to the structure of PNG files it is recommended to call this function
-    after `spng_decode_image`.
+    after `spng_decode_image()`.
 
 
 # spng_get_offs()
@@ -158,10 +158,10 @@ Get EXIF data
 
 !!! note
     Due to the structure of PNG files it is recommended to call this function
-    after `spng_decode_image`.
+    after `spng_decode_image()`.
 
 !!! warning
-    `exif.data` is freed when calling `spng_ctx_free`.
+    `exif.data` is freed when calling `spng_ctx_free()`.
 
 
 
