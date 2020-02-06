@@ -236,7 +236,7 @@ struct spng_ctx
     struct spng_exif exif;
 
     struct spng_subimage subimage[7];
-    
+
     z_stream zstream;
     unsigned char *scanline, *prev_scanline, *row;
     
@@ -1814,48 +1814,102 @@ static int get_ancillary2(spng_ctx *ctx)
     return get_ancillary(ctx);
 }
 
+static int decode_err(spng_ctx *ctx, int err)
+{
+    ctx->valid_state = 0;
+
+    return err;
+}
+
 static int decode_init(spng_ctx *ctx, int fmt, int flags)
 {
+    if(ctx == NULL) return 1;
+
+    ctx->zstream.zalloc = spng__zalloc;
+    ctx->zstream.zfree = spng__zfree;
+    ctx->zstream.opaque = ctx;
+
+    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+#if ZLIB_VERNUM >= 0x1290
+    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
+#else
+    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#endif
+
+    ctx->zstream.avail_in = 0;
+    ctx->zstream.next_in = ctx->data;
+
+    ctx->decode_flags.init = 1;
+
+    return 0;
+}
+
+/* Discard extra IDAT data */
+static int discard_idat(spng_ctx *ctx)
+{
+    int ret;
+
+    if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
+    {/* discard the rest of the chunk */
+        ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+        if(ret) return decode_err(ctx, ret);
+    }
+
+    memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
+
+    return 0;
+}
+
+static int decode_finish(spng_ctx *ctx)
+{
+    int ret = discard_idat(ctx);
+    if(ret) return decode_err(ctx, ret);
+
+    ret = read_chunks_after_idat(ctx);
+    if(ret) return decode_err(ctx, ret);
+
     return 0;
 }
 
 int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 {
+    if(ctx == NULL || out == NULL) return 1;
+
+    if(ctx->state == SPNG_STATE_EOI) return SPNG_EOI;
+
     return 0;
 }
 
 int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 {
+    if(ctx == NULL || out == NULL) return 1;
+
+    
+
     return 0;
 }
 
 int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
-    if(out == NULL) return 1;
 
-    int ret;
+    int ret = 0;
     size_t out_size_required, out_width;
 
-    struct decode_flags f = {0};
+    if(!ctx->decode_flags.init) ret = decode_init(ctx, fmt, flags);
+    if(ret) return ret;
+
+    if(flags & SPNG_DECODE_PROGRESSIVE) return 0;
+
+    if(out == NULL) return 1;
 
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
     if(len < out_size_required) return SPNG_EBUFSIZ;
 
+    struct decode_flags f = {0};
+
     out_width = out_size_required / ctx->ihdr.height;
-
-    z_stream stream;
-    stream.zalloc = spng__zalloc;
-    stream.zfree = spng__zfree;
-    stream.opaque = ctx;
-
-    if(inflateInit(&stream) != Z_OK) return SPNG_EZLIB;
-#if ZLIB_VERNUM >= 0x1290
-    if(inflateValidate(&stream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
-#else
-    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
-#endif
 
     if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
     else flags &= ~SPNG_DECODE_TRNS;
@@ -2091,9 +2145,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         }
     }
 
-    stream.avail_in = 0;
-    stream.next_in = ctx->data;
-
     for(pass=0; pass < 7; pass++)
     {
         /* Skip empty passes */
@@ -2109,17 +2160,17 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
            The scanlines will be aligned with the start of the array with
            the next scanline's filter byte at the end,
            the last scanline will end up being 1 byte "shorter". */
-        ret = read_scanline_bytes(ctx, &stream, &filter, 1);
+        ret = read_scanline_bytes(ctx, &ctx->zstream, &filter, 1);
         if(ret) goto decode_err;
 
         for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++)
         {
             if(scanline_idx < (sub[pass].height - 1))
             {
-                ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width);
+                ret = read_scanline_bytes(ctx, &ctx->zstream, scanline, scanline_width);
                 memcpy(&next_filter, scanline + scanline_width - 1, 1);
             }
-            else ret = read_scanline_bytes(ctx, &stream, scanline, scanline_width - 1);
+            else ret = read_scanline_bytes(ctx, &ctx->zstream, scanline, scanline_width - 1);
 
             if(ret) goto decode_err;
 
@@ -2351,14 +2402,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
     }/* for(pass=0; pass < 7; pass++) */
 
-    if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
-    {/* discard the rest of the chunk */
-        ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
-    }
 
 decode_err:
 
-    inflateEnd(&stream);
     if(f.interlaced) spng__free(ctx, row);
     spng__free(ctx, scanline_buf);
     spng__free(ctx, prev_scanline_buf);
@@ -2369,15 +2415,18 @@ decode_err:
         return ret;
     }
 
-    memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
-
-    ret = read_chunks_after_idat(ctx);
-
-    if(ret) ctx->valid_state = 0;
-
-    return ret;
+    return decode_finish(ctx);
 }
 
+/* only after initializing with decode_init */
+int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
+{
+    if(ctx == NULL || row_info == NULL || !ctx->decode_flags.init) return 1;
+
+    memcpy(row_info, &ctx->row_info, sizeof(struct spng_row_info));
+
+    return 0;
+}
 
 spng_ctx *spng_ctx_new(int flags)
 {
@@ -2449,6 +2498,8 @@ void spng_ctx_free(spng_ctx *ctx)
         }
         spng__free(ctx, ctx->text_list);
     }
+
+    inflateEnd(&ctx->zstream);
 
     spng_free_fn *free_func = ctx->alloc.free_fn;
 
@@ -2568,33 +2619,33 @@ int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
     return 0;
 }
 
-int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
+int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
 {
-    if(ctx == NULL || out == NULL) return 1;
+    if(ctx == NULL || len == NULL) return 1;
 
     int ret = get_ancillary(ctx);
     if(ret) return ret;
 
-    size_t res;
+    size_t res = ctx->ihdr.width;
+
     if(fmt == SPNG_FMT_RGBA8)
     {
-        if(4 > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
-        res = 4 * ctx->ihdr.width;
+        if(res > SIZE_MAX / 4) return SPNG_EOVERFLOW;
 
-        if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
-        res = res * ctx->ihdr.height;
+        res = res * 4;        
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        if(8 > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
-        res = 8 * ctx->ihdr.width;
+        if(res > SIZE_MAX / 8) return SPNG_EOVERFLOW;
 
-        if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
-        res = res * ctx->ihdr.height;
+        res = res * 8;
     }
     else return SPNG_EFMT;
 
-    *out = res;
+    if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
+    res = res * ctx->ihdr.height;
+
+    *len = res;
 
     return 0;
 }
