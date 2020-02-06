@@ -236,11 +236,20 @@ struct spng_ctx
     struct spng_exif exif;
 
     struct spng_subimage subimage[7];
+    
+    z_stream zstream;
+    unsigned char *scanline, *prev_scanline, *row;
+    
     size_t scanline_width;
 
     unsigned bytes_per_pixel;
 
     uint16_t gamma_lut8[256];
+    unsigned char trns_px[8];
+    struct spng_plte_entry16 decode_plte[256];
+    struct spng_sbit decode_sb;
+    struct decode_flags decode_flags;
+    struct spng_row_info row_info;
 };
 
 static const uint32_t png_u32max = 2147483647;
@@ -1805,7 +1814,22 @@ static int get_ancillary2(spng_ctx *ctx)
     return get_ancillary(ctx);
 }
 
-int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags)
+static int decode_init(spng_ctx *ctx, int fmt, int flags)
+{
+    return 0;
+}
+
+int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
+{
+    return 0;
+}
+
+int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
+{
+    return 0;
+}
+
+int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
     if(out == NULL) return 1;
@@ -1817,7 +1841,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
     ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
     if(ret) return ret;
-    if(out_size < out_size_required) return SPNG_EBUFSIZ;
+    if(len < out_size_required) return SPNG_EBUFSIZ;
 
     out_width = out_size_required / ctx->ihdr.height;
 
@@ -3234,6 +3258,7 @@ const char *spng_strerror(int err)
         case SPNG_EFLAGS: return "invalid flags";
         case SPNG_ECHUNKAVAIL: return "chunk not available";
         case SPNG_ENCODE_ONLY: return "encode only context";
+        case SPNG_EOI: return "end of image";
         default: return "unknown error";
     }
 }

@@ -102,6 +102,7 @@ enum spng_errno
     SPNG_EFLAGS,
     SPNG_ECHUNKAVAIL,
     SPNG_ENCODE_ONLY,
+    SPNG_EOI,
 };
 
 enum spng_text_type
@@ -128,17 +129,18 @@ enum spng_format
 
 enum spng_ctx_flags
 {
-    SPNG_CTX_IGNORE_ADLER32 = 1 /* ignore checksum in DEFLATE streams */
+    SPNG_CTX_IGNORE_ADLER32 = 1 /* Ignore checksum in DEFLATE streams */
 };
 
 enum spng_decode_flags
 {
-    SPNG_DECODE_USE_TRNS = 1, /* deprecated */
-    SPNG_DECODE_USE_GAMA = 2, /* deprecated */
-    SPNG_DECODE_USE_SBIT = 8, /* undocumented */
+    SPNG_DECODE_USE_TRNS = 1, /* Deprecated */
+    SPNG_DECODE_USE_GAMA = 2, /* Deprecated */
+    SPNG_DECODE_USE_SBIT = 8, /* Undocumented */
 
-    SPNG_DECODE_TRNS = 1,
-    SPNG_DECODE_GAMMA = 2
+    SPNG_DECODE_TRNS = 1, /* Apply transparency */
+    SPNG_DECODE_GAMMA = 2, /* Apply gamma correction */
+    SPNG_DECODE_PROGRESSIVE = 256 /* Initialize for progressive reads */
 };
 
 enum spng_crc_action
@@ -165,7 +167,7 @@ struct spng_plte_entry
     uint8_t green;
     uint8_t blue;
 
-    uint8_t alpha; /* reserved for internal use */
+    uint8_t alpha; /* Reserved for internal use */
 };
 
 struct spng_plte
@@ -242,11 +244,11 @@ struct spng_text
 
 struct spng_bkgd
 {
-    uint16_t gray; /* only for gray/gray alpha */
+    uint16_t gray; /* Only for gray/gray alpha */
     uint16_t red;
     uint16_t green;
     uint16_t blue;
-    uint16_t plte_index; /* only for indexed color */
+    uint16_t plte_index; /* Only for indexed color */
 };
 
 struct spng_hist
@@ -320,6 +322,14 @@ struct spng_alloc
     spng_free_fn *free_fn;
 };
 
+struct spng_row_info
+{
+    uint32_t scanline_idx;
+    uint32_t row_num; /* deinterlaced row index */
+    int pass;
+    uint8_t filter;
+};
+
 typedef struct spng_ctx spng_ctx;
 
 typedef int spng_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length);
@@ -339,9 +349,16 @@ SPNG_API int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *ca
 
 SPNG_API int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary);
 
-SPNG_API int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out);
+SPNG_API int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len);
 
-SPNG_API int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fmt, int flags);
+/* Decode */
+SPNG_API int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags);
+
+/* Progressive decode */
+SPNG_API int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len);
+SPNG_API int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len);
+
+SPNG_API int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info);
 
 SPNG_API int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 SPNG_API int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte);
@@ -359,7 +376,7 @@ SPNG_API int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys);
 SPNG_API int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt);
 SPNG_API int spng_get_time(spng_ctx *ctx, struct spng_time *time);
 
-/* Extensions */
+/* Official extensions */
 SPNG_API int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif);
 
@@ -380,7 +397,7 @@ SPNG_API int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys);
 SPNG_API int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt);
 SPNG_API int spng_set_time(spng_ctx *ctx, struct spng_time *time);
 
-/* Extensions */
+/* Official extensions */
 SPNG_API int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif);
 
