@@ -65,19 +65,28 @@
     #define SPNG_LITTLE_ENDIAN
 #endif
 
-#define SPNG_FILTER_NONE 0
-#define SPNG_FILTER_SUB 1
-#define SPNG_FILTER_UP 2
-#define SPNG_FILTER_AVERAGE 3
-#define SPNG_FILTER_PAETH 4
+enum spng_filter
+{
+    SPNG_FILTER_NONE = 0,
+    SPNG_FILTER_SUB = 1,
+    SPNG_FILTER_UP = 2,
+    SPNG_FILTER_AVERAGE = 3,
+    SPNG_FILTER_PAETH = 4
+};
 
-#define SPNG_STATE_INVALID 0
-#define SPNG_STATE_INIT 1 /* no buffer/stream is set */
-#define SPNG_STATE_INPUT /* input PNG was set */
-#define SPNG_STATE_IHDR 2 /* IHDR was read */
-#define SPNG_STATE_FIRST_IDAT 3 /* */
-#define SPNG_STATE_LAST_IDAT 4 /* set at end of decode_image() */
-#define SPNG_STATE_IEND 5 /* reached IEND */
+enum spng_state
+{
+    SPNG_STATE_INVALID = 0,
+    SPNG_STATE_INIT = 1, /* no buffer/stream is set */
+    SPNG_STATE_INPUT, /* input PNG was set */
+    SPNG_STATE_IHDR, /* IHDR was read */
+    SPNG_STATE_FIRST_IDAT,  /* */
+    SPNG_STATE_DECODE_INIT, /* */
+    SPNG_STATE_EOI,
+    SPNG_STATE_LAST_IDAT, /* set at end of decode_image() */
+    SPNG_STATE_AFTER_IDAT,
+    SPNG_STATE_IEND, /* reached IEND */
+};
 
 #define SPNG_STR(x) _SPNG_STR(x)
 #define _SPNG_STR(x) #x
@@ -121,6 +130,8 @@ struct decode_flags
     unsigned interlaced;
     unsigned same_layout;
     unsigned zerocopy;
+    unsigned init;
+    int fmt;
 };
 
 struct spng_chunk_bitfield
@@ -224,11 +235,21 @@ struct spng_ctx
     struct spng_offs offs;
     struct spng_exif exif;
 
+    struct spng_subimage subimage[7];
+    size_t scanline_width;
+
+    unsigned bytes_per_pixel;
+
     uint16_t gamma_lut8[256];
 };
 
 static const uint32_t png_u32max = 2147483647;
 static const int32_t png_s32min = -2147483647;
+
+static const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
+static const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
+static const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
+static const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
 
 static const uint8_t type_ihdr[4] = { 73, 72, 68, 82 };
 static const uint8_t type_plte[4] = { 80, 76, 84, 69 };
@@ -338,6 +359,70 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
     }
 }
 
+static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
+{
+    if(sub == NULL || ihdr == NULL) return 1;
+
+    if(ihdr->interlace_method == 1)
+    {
+        sub[0].width = (ihdr->width + 7) >> 3;
+        sub[0].height = (ihdr->height + 7) >> 3;
+        sub[1].width = (ihdr->width + 3) >> 3;
+        sub[1].height = (ihdr->height + 7) >> 3;
+        sub[2].width = (ihdr->width + 3) >> 2;
+        sub[2].height = (ihdr->height + 3) >> 3;
+        sub[3].width = (ihdr->width + 1) >> 2;
+        sub[3].height = (ihdr->height + 3) >> 2;
+        sub[4].width = (ihdr->width + 1) >> 1;
+        sub[4].height = (ihdr->height + 1) >> 2;
+        sub[5].width = ihdr->width >> 1;
+        sub[5].height = (ihdr->height + 1) >> 1;
+        sub[6].width = ihdr->width;
+        sub[6].height = ihdr->height >> 1;
+    }
+    else
+    {
+        sub[0].width = ihdr->width;
+        sub[0].height = ihdr->height;
+    }
+
+    size_t scanline_width, widest = 0;
+
+    int i;
+    for(i=0; i < 7; i++)
+    {/* Calculate scanline width in bits, round up to the nearest byte */
+        if(sub[i].width == 0 || sub[i].height == 0) continue;
+
+        scanline_width = channels * ihdr->bit_depth;
+
+        if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
+        scanline_width = scanline_width * sub[i].width;
+
+        scanline_width += 8; /* Filter byte */
+
+        if(scanline_width < 8) return SPNG_EOVERFLOW;
+
+        /* Round up */
+        if(scanline_width % 8 != 0)
+        {
+            scanline_width = scanline_width + 8;
+            if(scanline_width < 8) return SPNG_EOVERFLOW;
+
+            scanline_width -= (scanline_width % 8);
+        }
+
+        scanline_width /= 8;
+
+        sub[i].scanline_width = scanline_width;
+
+        if(widest < scanline_width) widest = scanline_width;
+    }
+
+    *widest_scanline = widest;
+
+    return 0;
+}
+
 static int is_critical_chunk(struct spng_chunk *chunk)
 {
     if(chunk == NULL) return 0;
@@ -436,6 +521,18 @@ static inline int read_header(spng_ctx *ctx, int *discard)
     ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, chunk.type, 4);
 
     memcpy(&ctx->current_chunk, &chunk, sizeof(struct spng_chunk));
+
+    unsigned channels = 1; /* grayscale or indexed color */
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) channels = 3;
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) channels = 2;
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) channels = 4;
+
+    if(ctx->ihdr.bit_depth < 8) ctx->bytes_per_pixel = 1;
+    else ctx->bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
+
+    ret = calculate_subimages(ctx->subimage, &ctx->scanline_width, &ctx->ihdr, channels);
+    if(ret) return ret;
 
     return 0;
 }
@@ -1687,70 +1784,6 @@ static int read_chunks_after_idat(spng_ctx *ctx)
     return ret;
 }
 
-static int calculate_subimages(struct spng_subimage sub[7], size_t *widest_scanline, struct spng_ihdr *ihdr, unsigned channels)
-{
-    if(sub == NULL || ihdr == NULL) return 1;
-
-    if(ihdr->interlace_method == 1)
-    {
-        sub[0].width = (ihdr->width + 7) >> 3;
-        sub[0].height = (ihdr->height + 7) >> 3;
-        sub[1].width = (ihdr->width + 3) >> 3;
-        sub[1].height = (ihdr->height + 7) >> 3;
-        sub[2].width = (ihdr->width + 3) >> 2;
-        sub[2].height = (ihdr->height + 3) >> 3;
-        sub[3].width = (ihdr->width + 1) >> 2;
-        sub[3].height = (ihdr->height + 3) >> 2;
-        sub[4].width = (ihdr->width + 1) >> 1;
-        sub[4].height = (ihdr->height + 1) >> 2;
-        sub[5].width = ihdr->width >> 1;
-        sub[5].height = (ihdr->height + 1) >> 1;
-        sub[6].width = ihdr->width;
-        sub[6].height = ihdr->height >> 1;
-    }
-    else
-    {
-        sub[0].width = ihdr->width;
-        sub[0].height = ihdr->height;
-    }
-
-    size_t scanline_width, widest = 0;
-
-    int i;
-    for(i=0; i < 7; i++)
-    {/* Calculate scanline width in bits, round up to the nearest byte */
-        if(sub[i].width == 0 || sub[i].height == 0) continue;
-
-        scanline_width = channels * ihdr->bit_depth;
-
-        if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
-        scanline_width = scanline_width * sub[i].width;
-
-        scanline_width += 8; /* Filter byte */
-
-        if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-        /* Round up */
-        if(scanline_width % 8 != 0)
-        {
-            scanline_width = scanline_width + 8;
-            if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-            scanline_width -= (scanline_width % 8);
-        }
-
-        scanline_width /= 8;
-
-        sub[i].scanline_width = scanline_width;
-
-        if(widest < scanline_width) widest = scanline_width;
-    }
-
-    *widest_scanline = widest;
-
-    return 0;
-}
-
 static int get_ancillary(spng_ctx *ctx)
 {
     int ret = read_chunks_before_idat(ctx);
@@ -1787,17 +1820,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
     if(out_size < out_size_required) return SPNG_EBUFSIZ;
 
     out_width = out_size_required / ctx->ihdr.height;
-
-    uint8_t channels = 1; /* grayscale or indexed_color */
-
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) channels = 3;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) channels = 2;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) channels = 4;
-
-    uint8_t bytes_per_pixel;
-
-    if(ctx->ihdr.bit_depth < 8) bytes_per_pixel = 1;
-    else bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
 
     z_stream stream;
     stream.zalloc = spng__zalloc;
@@ -1861,13 +1883,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
         /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
     }
 
-    struct spng_subimage sub[7];
-    memset(sub, 0, sizeof(struct spng_subimage) * 7);
+    struct spng_subimage *sub = ctx->subimage;
 
-    size_t scanline_width;
-
-    ret = calculate_subimages(sub, &scanline_width, &ctx->ihdr, channels);
-    if(ret) return ret;
+    size_t scanline_width = ctx->scanline_width;
 
     unsigned char *row = NULL;
     unsigned char *scanline = spng__malloc(ctx, scanline_width);
@@ -2083,7 +2101,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
             if(ctx->ihdr.bit_depth == 16) u16_row_to_host(scanline, scanline_width - 1);
 
-            ret = defilter_scanline(prev_scanline, scanline, scanline_width - 1, bytes_per_pixel, filter);
+            ret = defilter_scanline(prev_scanline, scanline, scanline_width - 1, ctx->bytes_per_pixel, filter);
             if(ret) goto decode_err;
 
             filter = next_filter;
@@ -2288,11 +2306,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t out_size, int fm
 
             if(f.interlaced)
             {
-                const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
-                const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
-                const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
-                const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
-
                 for(k=0; k < width; k++)
                 {
                     size_t ioffset = ((adam7_y_start[pass] + scanline_idx * adam7_y_delta[pass]) *
