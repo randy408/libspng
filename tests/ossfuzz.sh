@@ -47,4 +47,4 @@ $CXX $CXXFLAGS -std=c++11 -I. \
 find $SRC/libspng/tests/images -name "*.png" | \
      xargs zip $OUT/spng_read_fuzzer_seed_corpus.zip
 
-cp $SRC/libspng/tests/spng_read_fuzzer.dict
+cp $SRC/libspng/tests/spng_read_fuzzer.dict $OUT/
