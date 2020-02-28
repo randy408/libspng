@@ -215,7 +215,6 @@ struct spng_ctx
     struct spng_iccp iccp;
 
     uint32_t gama;
-    uint16_t *gamma_lut;
 
     struct spng_sbit sbit;
 
@@ -245,6 +244,8 @@ struct spng_ctx
 
     unsigned bytes_per_pixel;
 
+    uint16_t *gamma_lut; /* points to either _lut8 or _lut16 */
+    uint16_t *gamma_lut16;
     uint16_t gamma_lut8[256];
     unsigned char trns_px[8];
     struct spng_plte_entry16 decode_plte[256];
@@ -1996,19 +1997,22 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
             max = 255.0f;
 
             gamma_lut = ctx->gamma_lut8;
+            ctx->gamma_lut = ctx->gamma_lut8;
         }
         else /* SPNG_FMT_RGBA16 */
         {
             lut_entries = 65536;
             max = 65535.0f;
 
-            ctx->gamma_lut = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
-            if(ctx->gamma_lut == NULL)
+            ctx->gamma_lut16 = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
+            if(ctx->gamma_lut16 == NULL)
             {
                 ret = SPNG_EMEM;
                 goto decode_err;
             }
-            gamma_lut = ctx->gamma_lut;
+            
+            gamma_lut = ctx->gamma_lut16;
+            ctx->gamma_lut = ctx->gamma_lut16;
         }
 
         float screen_gamma = 2.2f;
@@ -2474,8 +2478,6 @@ void spng_ctx_free(spng_ctx *ctx)
 
     if(ctx->iccp.profile != NULL && !ctx->user.iccp) spng__free(ctx, ctx->iccp.profile);
 
-    if(ctx->gamma_lut != NULL) spng__free(ctx, ctx->gamma_lut);
-
     if(ctx->splt_list != NULL && !ctx->user.splt)
     {
         uint32_t i;
@@ -2499,6 +2501,7 @@ void spng_ctx_free(spng_ctx *ctx)
     }
 
     inflateEnd(&ctx->zstream);
+    spng__free(ctx, ctx->gamma_lut16);
 
     spng_free_fn *free_func = ctx->alloc.free_fn;
 
