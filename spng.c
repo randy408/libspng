@@ -1848,15 +1848,11 @@ static int decode_init(spng_ctx *ctx, int fmt, int flags)
 /* Discard extra IDAT data */
 static int discard_idat(spng_ctx *ctx)
 {
-    int ret;
-
     if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
     {/* discard the rest of the chunk */
-        ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+        int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
         if(ret) return decode_err(ctx, ret);
     }
-
-    memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
 
     return 0;
 }
@@ -1865,6 +1861,8 @@ static int decode_finish(spng_ctx *ctx)
 {
     int ret = discard_idat(ctx);
     if(ret) return decode_err(ctx, ret);
+
+    memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
 
     ret = read_chunks_after_idat(ctx);
     if(ret) return decode_err(ctx, ret);
