@@ -1823,29 +1823,6 @@ static int decode_err(spng_ctx *ctx, int err)
     return err;
 }
 
-static int decode_init(spng_ctx *ctx, int fmt, int flags)
-{
-    if(ctx == NULL) return 1;
-
-    ctx->zstream.zalloc = spng__zalloc;
-    ctx->zstream.zfree = spng__zfree;
-    ctx->zstream.opaque = ctx;
-
-    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
-#if ZLIB_VERNUM >= 0x1290
-    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
-#else
-    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
-#endif
-
-    ctx->zstream.avail_in = 0;
-    ctx->zstream.next_in = ctx->data;
-
-    ctx->decode_flags.init = 1;
-
-    return 0;
-}
-
 /* Discard extra IDAT data */
 static int discard_idat(spng_ctx *ctx)
 {
@@ -1896,8 +1873,21 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     int ret = 0;
     size_t out_size_required, out_width;
 
-    if(!ctx->decode_flags.init) ret = decode_init(ctx, fmt, flags);
-    if(ret) return ret;
+    ctx->zstream.zalloc = spng__zalloc;
+    ctx->zstream.zfree = spng__zfree;
+    ctx->zstream.opaque = ctx;
+
+    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+#if ZLIB_VERNUM >= 0x1290
+    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
+#else
+    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#endif
+
+    ctx->zstream.avail_in = 0;
+    ctx->zstream.next_in = ctx->data;
+
+    ctx->decode_flags.init = 1;
 
     if(flags & SPNG_DECODE_PROGRESSIVE) return 0;
 
