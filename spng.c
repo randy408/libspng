@@ -182,7 +182,6 @@ struct spng_ctx
     int flags;
 
     unsigned state: 4;
-    unsigned valid_state: 1;
     unsigned streaming: 1;
 
     unsigned encode_only: 1;
@@ -1172,7 +1171,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
     if(ctx->data == NULL) return 1;
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(!ctx->state) return SPNG_EBADSTATE;
     if(ctx->first_idat.offset) return 0;
 
     int ret, discard = 0;
@@ -1799,7 +1798,7 @@ static int get_ancillary(spng_ctx *ctx)
 {
     int ret = read_chunks_before_idat(ctx);
 
-    if(ret) ctx->valid_state = 0;
+    if(ret) ctx->state = SPNG_STATE_INVALID;
 
     return ret;
 }
@@ -1818,7 +1817,7 @@ static int get_ancillary2(spng_ctx *ctx)
 
 static int decode_err(spng_ctx *ctx, int err)
 {
-    ctx->valid_state = 0;
+    ctx->state = SPNG_STATE_INVALID;
 
     return err;
 }
@@ -2413,7 +2412,7 @@ decode_err:
 
     if(ret)
     {
-        ctx->valid_state = 0;
+        ctx->state = SPNG_STATE_INVALID;
         return ret;
     }
 
@@ -2460,7 +2459,7 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
     ctx->max_chunk_size = png_u32max;
     ctx->chunk_cache_limit = SIZE_MAX;
 
-    ctx->valid_state = 1;
+    ctx->state = SPNG_STATE_INIT;
 
     ctx->flags = flags;
 
@@ -2525,7 +2524,7 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
 int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
 {
     if(ctx == NULL || buf == NULL) return 1;
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(!ctx->state) return SPNG_EBADSTATE;
     if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
     if(ctx->data != NULL) return SPNG_EBUF_SET;
@@ -2543,7 +2542,7 @@ int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
 int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
 {
     if(ctx == NULL || read_func == NULL) return 1;
-    if(!ctx->valid_state) return SPNG_EBADSTATE;
+    if(!ctx->state) return SPNG_EBADSTATE;
     if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
     if(ctx->stream_buf != NULL) return SPNG_EBUF_SET;
