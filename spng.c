@@ -1085,7 +1085,6 @@ static int check_offs(const struct spng_offs *offs)
 {
     if(offs == NULL) return 1;
 
-    if(offs->x < png_s32min || offs->y < png_s32min) return 1;
     if(offs->unit_specifier > 1) return 1;
 
     return 0;
