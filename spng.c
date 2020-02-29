@@ -1955,21 +1955,25 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
     size_t scanline_width = ctx->scanline_width;
 
-    unsigned char *row = NULL;
-    unsigned char *scanline = spng__malloc(ctx, scanline_width);
-    unsigned char *prev_scanline = spng__malloc(ctx, scanline_width);
-    unsigned char *scanline_buf = scanline;
-    unsigned char *prev_scanline_buf = prev_scanline;
+    ctx->scanline = spng__malloc(ctx, scanline_width);
+    ctx->prev_scanline = spng__malloc(ctx, scanline_width);
 
-    if(f.interlaced) row = spng__malloc(ctx, out_width);
+    unsigned char *row = NULL;
+    unsigned char *scanline = ctx->scanline;
+    unsigned char *prev_scanline = ctx->prev_scanline;
+
+    if(f.interlaced)
+    {
+        ctx->row = spng__malloc(ctx, out_width);
+        row = ctx->row;
+    }
     else row = out;
 
     if(f.zerocopy) scanline = row;
 
     if(scanline == NULL || prev_scanline == NULL || row == NULL)
     {
-        ret = SPNG_EMEM;
-        goto decode_err;
+        return decode_err(ctx, SPNG_EMEM);
     }
 
     uint16_t *gamma_lut = NULL;
@@ -1995,11 +1999,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
             max = 65535.0f;
 
             ctx->gamma_lut16 = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
-            if(ctx->gamma_lut16 == NULL)
-            {
-                ret = SPNG_EMEM;
-                goto decode_err;
-            }
+            if(ctx->gamma_lut16 == NULL) return decode_err(ctx, SPNG_EMEM);
             
             gamma_lut = ctx->gamma_lut16;
             ctx->gamma_lut = ctx->gamma_lut16;
@@ -2008,11 +2008,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         float screen_gamma = 2.2f;
         float exponent = file_gamma * screen_gamma;
 
-        if(FP_ZERO == fpclassify(exponent))
-        {
-            ret = SPNG_EGAMA;
-            goto decode_err;
-        }
+        if(FP_ZERO == fpclassify(exponent)) return decode_err(ctx, SPNG_EGAMA);
 
         exponent = 1.0f / exponent;
 
@@ -2081,8 +2077,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
        !sb->green_bits || sb->green_bits > processing_depth ||
        !sb->blue_bits || sb->blue_bits > processing_depth)
     {
-        ret = SPNG_ESBIT;
-        goto decode_err;
+        return decode_err(ctx, SPNG_ESBIT);
     }
 
     if(sb->red_bits == sb->green_bits &&
@@ -2146,7 +2141,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         scanline_width = sub[pass].scanline_width;
 
         /* prev_scanline is all zeros for the first scanline */
-        prev_scanline = prev_scanline_buf;
         memset(prev_scanline, 0, scanline_width);
 
         /* Read the first filter byte, offsetting all reads by 1 byte.
@@ -2154,7 +2148,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
            the next scanline's filter byte at the end,
            the last scanline will end up being 1 byte "shorter". */
         ret = read_scanline_bytes(ctx, &ctx->zstream, &filter, 1);
-        if(ret) goto decode_err;
+        if(ret) return decode_err(ctx, ret);
 
         for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++)
         {
@@ -2165,12 +2159,12 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
             }
             else ret = read_scanline_bytes(ctx, &ctx->zstream, scanline, scanline_width - 1);
 
-            if(ret) goto decode_err;
+            if(ret) return decode_err(ctx, ret);
 
             if(ctx->ihdr.bit_depth == 16) u16_row_to_host(scanline, scanline_width - 1);
 
             ret = defilter_scanline(prev_scanline, scanline, scanline_width - 1, ctx->bytes_per_pixel, filter);
-            if(ret) goto decode_err;
+            if(ret) return decode_err(ctx, ret);
 
             filter = next_filter;
 
@@ -2396,18 +2390,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     }/* for(pass=0; pass < 7; pass++) */
 
 
-decode_err:
-
-    if(f.interlaced) spng__free(ctx, row);
-    spng__free(ctx, scanline_buf);
-    spng__free(ctx, prev_scanline_buf);
-
-    if(ret)
-    {
-        ctx->state = SPNG_STATE_INVALID;
-        return ret;
-    }
-
     return decode_finish(ctx);
 }
 
@@ -2492,6 +2474,10 @@ void spng_ctx_free(spng_ctx *ctx)
 
     inflateEnd(&ctx->zstream);
     spng__free(ctx, ctx->gamma_lut16);
+
+    spng__free(ctx, ctx->row);
+    spng__free(ctx, ctx->scanline);
+    spng__free(ctx, ctx->prev_scanline);
 
     spng_free_fn *free_func = ctx->alloc.free_fn;
 
