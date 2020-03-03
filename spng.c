@@ -241,6 +241,7 @@ struct spng_ctx
     unsigned char *scanline, *prev_scanline, *row;
     
     size_t scanline_width;
+    size_t total_out_size;
 
     unsigned bytes_per_pixel;
 
@@ -1855,68 +1856,41 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     return 0;
 }
 
-int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
+static int decode_scanlines(spng_ctx *ctx, unsigned char *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
 
-    
-
-    return 0;
-}
-
-int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
-{
-    if(ctx == NULL) return 1;
-
-    int ret = 0;
-    size_t out_size_required, out_width;
-
-    ctx->zstream.zalloc = spng__zalloc;
-    ctx->zstream.zfree = spng__zfree;
-    ctx->zstream.opaque = ctx;
-
-    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
-#if ZLIB_VERNUM >= 0x1290
-    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
-#else
-    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
-#endif
-
-    ctx->zstream.avail_in = 0;
-    ctx->zstream.next_in = ctx->data;
-
-    ctx->decode_flags.init = 1;
-
-    if(flags & SPNG_DECODE_PROGRESSIVE) return 0;
-
-    if(out == NULL) return 1;
-
-    ret = spng_decoded_image_size(ctx, fmt, &out_size_required);
-    if(ret) return ret;
-    if(len < out_size_required) return SPNG_EBUFSIZ;
+    if(ctx->state == SPNG_STATE_EOI) return SPNG_EOI;
 
     struct decode_flags f = {0};
 
-    out_width = out_size_required / ctx->ihdr.height;
+    memcpy(&f, &ctx->decode_flags, sizeof(struct decode_flags));
 
-    if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
-    else flags &= ~SPNG_DECODE_TRNS;
+    int ret;
+    int fmt = f.fmt;
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA ||
-       ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) flags &= ~SPNG_DECODE_TRNS;
+    uint16_t *gamma_lut = ctx->gamma_lut;
+    unsigned char *trns_px = ctx->trns_px;
+    struct spng_sbit *sb = &ctx->decode_sb;
+    struct spng_plte_entry16 *plte = ctx->decode_plte;
+    size_t out_width = ctx->total_out_size / ctx->ihdr.height;
 
-    if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) f.apply_gamma = 1;
-    else flags &= ~SPNG_DECODE_GAMMA;
+    unsigned char *row = NULL;
+    unsigned char *scanline = ctx->scanline;
+    unsigned char *prev_scanline = ctx->prev_scanline;
 
-    if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) f.use_sbit = 1;
-    else flags &= ~SPNG_DECODE_USE_SBIT;
+    if(f.interlaced)
+    {
+        row = ctx->row;
+    }
+    else row = out;
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
+    if(f.zerocopy) scanline = row;
 
-    if(ctx->ihdr.interlace_method) f.interlaced = 1;
-
-    f.do_scaling = 1;
-    if(f.indexed) f.do_scaling = 0;
+    if(scanline == NULL || prev_scanline == NULL || row == NULL)
+    {
+        return decode_err(ctx, SPNG_EMEM);
+    }
 
     int pass;
     uint8_t filter = 0, next_filter = 0;
@@ -1952,184 +1926,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     struct spng_subimage *sub = ctx->subimage;
 
     size_t scanline_width = ctx->scanline_width;
-
-    ctx->scanline = spng__malloc(ctx, scanline_width);
-    ctx->prev_scanline = spng__malloc(ctx, scanline_width);
-
-    unsigned char *row = NULL;
-    unsigned char *scanline = ctx->scanline;
-    unsigned char *prev_scanline = ctx->prev_scanline;
-
-    if(f.interlaced)
-    {
-        ctx->row = spng__malloc(ctx, out_width);
-        row = ctx->row;
-    }
-    else row = out;
-
-    if(f.zerocopy) scanline = row;
-
-    if(scanline == NULL || prev_scanline == NULL || row == NULL)
-    {
-        return decode_err(ctx, SPNG_EMEM);
-    }
-
-    uint16_t *gamma_lut = NULL;
-
-    if(f.apply_gamma)
-    {
-        float file_gamma = (float)ctx->gama / 100000.0f;
-        float max;
-
-        uint32_t lut_entries;
-
-        if(fmt == SPNG_FMT_RGBA8)
-        {
-            lut_entries = 256;
-            max = 255.0f;
-
-            gamma_lut = ctx->gamma_lut8;
-            ctx->gamma_lut = ctx->gamma_lut8;
-        }
-        else /* SPNG_FMT_RGBA16 */
-        {
-            lut_entries = 65536;
-            max = 65535.0f;
-
-            ctx->gamma_lut16 = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
-            if(ctx->gamma_lut16 == NULL) return decode_err(ctx, SPNG_EMEM);
-            
-            gamma_lut = ctx->gamma_lut16;
-            ctx->gamma_lut = ctx->gamma_lut16;
-        }
-
-        float screen_gamma = 2.2f;
-        float exponent = file_gamma * screen_gamma;
-
-        if(FP_ZERO == fpclassify(exponent)) return decode_err(ctx, SPNG_EGAMA);
-
-        exponent = 1.0f / exponent;
-
-        for(i=0; i < lut_entries; i++)
-        {
-            float c = pow((float)i / max, exponent) * max;
-            c = fmin(c, max);
-
-            gamma_lut[i] = (uint16_t)c;
-        }
-    }
-
-    struct spng_sbit *sb = &ctx->decode_sb;
-
-    sb->red_bits = processing_depth;
-    sb->green_bits = processing_depth;
-    sb->blue_bits = processing_depth;
-    sb->alpha_bits = processing_depth;
-    sb->grayscale_bits = processing_depth;
-
-    if(f.use_sbit)
-    {
-        if(ctx->ihdr.color_type == 0)
-        {
-            sb->grayscale_bits = ctx->sbit.grayscale_bits;
-            sb->alpha_bits = ctx->ihdr.bit_depth;
-        }
-        else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
-        {
-            sb->red_bits = ctx->sbit.red_bits;
-            sb->green_bits = ctx->sbit.green_bits;
-            sb->blue_bits = ctx->sbit.blue_bits;
-            sb->alpha_bits = ctx->ihdr.bit_depth;
-        }
-        else if(ctx->ihdr.color_type == 4)
-        {
-            sb->grayscale_bits = ctx->sbit.grayscale_bits;
-            sb->alpha_bits = ctx->sbit.alpha_bits;
-        }
-        else /* == 6 */
-        {
-            sb->red_bits = ctx->sbit.red_bits;
-            sb->green_bits = ctx->sbit.green_bits;
-            sb->blue_bits = ctx->sbit.blue_bits;
-            sb->alpha_bits = ctx->sbit.alpha_bits;
-        }
-    }
-
-    if(ctx->ihdr.bit_depth == 16 && fmt == SPNG_FMT_RGBA8)
-    {/* in this case samples are scaled down by 8bits */
-        sb->red_bits -= 8;
-        sb->green_bits -= 8;
-        sb->blue_bits -= 8;
-        sb->alpha_bits -= 8;
-        sb->grayscale_bits -= 8;
-
-        processing_depth = 8;
-    }
-
-    /* Prevent infinite loops in sample_to_target() */
-    if(!depth_target || depth_target > 16 ||
-       !processing_depth || processing_depth > 16 ||
-       !sb->grayscale_bits || sb->grayscale_bits > processing_depth ||
-       !sb->alpha_bits || sb->alpha_bits > processing_depth ||
-       !sb->red_bits || sb->red_bits > processing_depth ||
-       !sb->green_bits || sb->green_bits > processing_depth ||
-       !sb->blue_bits || sb->blue_bits > processing_depth)
-    {
-        return decode_err(ctx, SPNG_ESBIT);
-    }
-
-    if(sb->red_bits == sb->green_bits &&
-       sb->green_bits == sb->blue_bits &&
-       sb->blue_bits == sb->alpha_bits &&
-       sb->alpha_bits == processing_depth &&
-       processing_depth == depth_target) f.do_scaling = 0;
-
-    struct spng_plte_entry16 *plte = ctx->decode_plte;
-
-    /* Pre-process palette entries */
-    if(f.indexed)
-    {
-        for(i=0; i < 256; i++)
-        {
-            if(f.apply_trns && i < ctx->trns.n_type3_entries)
-                ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
-            else
-                ctx->plte.entries[i].alpha = 255;
-
-            plte[i].red = sample_to_target(ctx->plte.entries[i].red, 8, sb->red_bits, depth_target);
-            plte[i].green = sample_to_target(ctx->plte.entries[i].green, 8, sb->green_bits, depth_target);
-            plte[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, sb->blue_bits, depth_target);
-            plte[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb->alpha_bits, depth_target);
-
-            if(f.apply_gamma)
-            {
-                plte[i].red = gamma_lut[plte[i].red];
-                plte[i].green = gamma_lut[plte[i].green];
-                plte[i].blue = gamma_lut[plte[i].blue];
-            }
-        }
-
-        f.apply_trns = 0;
-        f.apply_gamma = 0;
-    }
-
-    unsigned char *trns_px = ctx->trns_px;
-
-    if(f.apply_trns && ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
-    {
-        if(ctx->ihdr.bit_depth == 16)
-        {
-            memcpy(trns_px, &ctx->trns.red, 2);
-            memcpy(trns_px + 2, &ctx->trns.green, 2);
-            memcpy(trns_px + 4, &ctx->trns.blue, 2);
-        }
-        else
-        {
-            trns_px[0] = ctx->trns.red;
-            trns_px[1] = ctx->trns.green;
-            trns_px[2] = ctx->trns.blue;
-        }
-    }
 
     for(pass=0; pass < 7; pass++)
     {
@@ -2387,6 +2183,247 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         }/* for(scanline_idx=0; scanline_idx < sub[pass].height; scanline_idx++) */
     }/* for(pass=0; pass < 7; pass++) */
 
+
+    return 0;
+}
+
+int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
+{
+    if(ctx == NULL || out == NULL) return 1;
+
+    
+
+    return 0;
+}
+
+int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
+{
+    if(ctx == NULL) return 1;
+
+    int ret = spng_decoded_image_size(ctx, fmt, &ctx->total_out_size);
+    if(ret) return decode_err(ctx, ret);
+    
+    size_t out_width = ctx->total_out_size / ctx->ihdr.height;
+
+    ctx->zstream.zalloc = spng__zalloc;
+    ctx->zstream.zfree = spng__zfree;
+    ctx->zstream.opaque = ctx;
+
+    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+#if ZLIB_VERNUM >= 0x1290
+    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
+#else
+    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#endif
+
+    ctx->zstream.avail_in = 0;
+    ctx->zstream.next_in = ctx->data;
+
+    ctx->scanline = spng__malloc(ctx, ctx->scanline_width);
+    ctx->prev_scanline = spng__malloc(ctx, ctx->scanline_width);
+
+    struct decode_flags f = {0};
+
+    f.fmt = fmt;
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
+
+    unsigned processing_depth = ctx->ihdr.bit_depth;
+
+    if(f.indexed) processing_depth = 8;
+
+    if(ctx->ihdr.interlace_method)
+    {
+        f.interlaced = 1;
+        ctx->row = spng__malloc(ctx, out_width);
+    }
+
+    f.do_scaling = 1;
+    if(f.indexed) f.do_scaling = 0;
+
+    unsigned depth_target = 8; /* FMT_RGBA8 */
+    if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
+
+    if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
+    else flags &= ~SPNG_DECODE_TRNS;
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA ||
+       ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) flags &= ~SPNG_DECODE_TRNS;
+
+    if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) f.apply_gamma = 1;
+    else flags &= ~SPNG_DECODE_GAMMA;
+
+    if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) f.use_sbit = 1;
+    else flags &= ~SPNG_DECODE_USE_SBIT;
+
+    uint16_t *gamma_lut = NULL;
+
+    if(f.apply_gamma)
+    {
+        float file_gamma = (float)ctx->gama / 100000.0f;
+        float max;
+
+        uint32_t lut_entries;
+
+        if(fmt == SPNG_FMT_RGBA8)
+        {
+            lut_entries = 256;
+            max = 255.0f;
+
+            gamma_lut = ctx->gamma_lut8;
+            ctx->gamma_lut = ctx->gamma_lut8;
+        }
+        else /* SPNG_FMT_RGBA16 */
+        {
+            lut_entries = 65536;
+            max = 65535.0f;
+
+            ctx->gamma_lut16 = spng__malloc(ctx, lut_entries * sizeof(uint16_t));
+            if(ctx->gamma_lut16 == NULL) return decode_err(ctx, SPNG_EMEM);
+            
+            gamma_lut = ctx->gamma_lut16;
+            ctx->gamma_lut = ctx->gamma_lut16;
+        }
+
+        float screen_gamma = 2.2f;
+        float exponent = file_gamma * screen_gamma;
+
+        if(FP_ZERO == fpclassify(exponent)) return decode_err(ctx, SPNG_EGAMA);
+
+        exponent = 1.0f / exponent;
+        
+        int i;
+        for(i=0; i < lut_entries; i++)
+        {
+            float c = pow((float)i / max, exponent) * max;
+            c = fmin(c, max);
+
+            gamma_lut[i] = (uint16_t)c;
+        }
+    }
+
+    struct spng_sbit *sb = &ctx->decode_sb;
+
+    sb->red_bits = processing_depth;
+    sb->green_bits = processing_depth;
+    sb->blue_bits = processing_depth;
+    sb->alpha_bits = processing_depth;
+    sb->grayscale_bits = processing_depth;
+
+    if(f.use_sbit)
+    {
+        if(ctx->ihdr.color_type == 0)
+        {
+            sb->grayscale_bits = ctx->sbit.grayscale_bits;
+            sb->alpha_bits = ctx->ihdr.bit_depth;
+        }
+        else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
+        {
+            sb->red_bits = ctx->sbit.red_bits;
+            sb->green_bits = ctx->sbit.green_bits;
+            sb->blue_bits = ctx->sbit.blue_bits;
+            sb->alpha_bits = ctx->ihdr.bit_depth;
+        }
+        else if(ctx->ihdr.color_type == 4)
+        {
+            sb->grayscale_bits = ctx->sbit.grayscale_bits;
+            sb->alpha_bits = ctx->sbit.alpha_bits;
+        }
+        else /* == 6 */
+        {
+            sb->red_bits = ctx->sbit.red_bits;
+            sb->green_bits = ctx->sbit.green_bits;
+            sb->blue_bits = ctx->sbit.blue_bits;
+            sb->alpha_bits = ctx->sbit.alpha_bits;
+        }
+    }
+
+    if(ctx->ihdr.bit_depth == 16 && fmt == SPNG_FMT_RGBA8)
+    {/* in this case samples are scaled down by 8bits */
+        sb->red_bits -= 8;
+        sb->green_bits -= 8;
+        sb->blue_bits -= 8;
+        sb->alpha_bits -= 8;
+        sb->grayscale_bits -= 8;
+
+        processing_depth = 8;
+    }
+
+    /* Prevent infinite loops in sample_to_target() */
+    if(!depth_target || depth_target > 16 ||
+       !processing_depth || processing_depth > 16 ||
+       !sb->grayscale_bits || sb->grayscale_bits > processing_depth ||
+       !sb->alpha_bits || sb->alpha_bits > processing_depth ||
+       !sb->red_bits || sb->red_bits > processing_depth ||
+       !sb->green_bits || sb->green_bits > processing_depth ||
+       !sb->blue_bits || sb->blue_bits > processing_depth)
+    {
+        return decode_err(ctx, SPNG_ESBIT);
+    }
+
+    if(sb->red_bits == sb->green_bits &&
+       sb->green_bits == sb->blue_bits &&
+       sb->blue_bits == sb->alpha_bits &&
+       sb->alpha_bits == processing_depth &&
+       processing_depth == depth_target) f.do_scaling = 0;
+
+    struct spng_plte_entry16 *plte = ctx->decode_plte;
+
+    /* Pre-process palette entries */
+    if(f.indexed)
+    {
+        int i;
+        for(i=0; i < 256; i++)
+        {
+            if(f.apply_trns && i < ctx->trns.n_type3_entries)
+                ctx->plte.entries[i].alpha = ctx->trns.type3_alpha[i];
+            else
+                ctx->plte.entries[i].alpha = 255;
+
+            plte[i].red = sample_to_target(ctx->plte.entries[i].red, 8, sb->red_bits, depth_target);
+            plte[i].green = sample_to_target(ctx->plte.entries[i].green, 8, sb->green_bits, depth_target);
+            plte[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, sb->blue_bits, depth_target);
+            plte[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb->alpha_bits, depth_target);
+
+            if(f.apply_gamma)
+            {
+                plte[i].red = gamma_lut[plte[i].red];
+                plte[i].green = gamma_lut[plte[i].green];
+                plte[i].blue = gamma_lut[plte[i].blue];
+            }
+        }
+
+        f.apply_trns = 0;
+        f.apply_gamma = 0;
+    }
+
+    unsigned char *trns_px = ctx->trns_px;
+
+    if(f.apply_trns && ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+    {
+        if(ctx->ihdr.bit_depth == 16)
+        {
+            memcpy(trns_px, &ctx->trns.red, 2);
+            memcpy(trns_px + 2, &ctx->trns.green, 2);
+            memcpy(trns_px + 4, &ctx->trns.blue, 2);
+        }
+        else
+        {
+            trns_px[0] = ctx->trns.red;
+            trns_px[1] = ctx->trns.green;
+            trns_px[2] = ctx->trns.blue;
+        }
+    }
+
+    f.init = 1;
+    memcpy(&ctx->decode_flags, &f, sizeof(struct decode_flags));
+
+    if(flags & SPNG_DECODE_PROGRESSIVE) return 0;
+
+    if(out == NULL) return 1;
+
+    ret = decode_scanlines(ctx, out, 0);
+    if(ret) return decode_err(ctx, ret);
 
     return decode_finish(ctx);
 }
