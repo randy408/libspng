@@ -16,7 +16,7 @@ supported.
 ```bash
 mkdir cbuild
 cd cbuild
-cmake ..
+cmake .. # Don't forget to set optimization level!
 make
 make install
 ```
@@ -24,7 +24,7 @@ make install
 ## Meson
 
 ```bash
-meson build
+meson build --buildtype=release # Default is debug
 cd build
 ninja
 ninja install
@@ -33,19 +33,18 @@ ninja install
 ## Embedding the source code
 
 The sources `spng.c`/`spng.h` can be dropped in a project without
-any configuration, most optimizations are enabled by default.
+any configuration, intrinsics are enabled by default.
 
 # Build options
 
-Architecture-specific optimizations are enabled by default,
+Architecture-specific intrinsics are enabled by default,
 this can be disabled with the `SPNG_DISABLE_OPT` compiler option.
 
-The Meson project has an `enable_opt` option, it is enabled by default,
-the CMake equivalent is `ENABLE_OPT`.
+For the Meson project it is controlled with the `enable_opt` option,
+the CMake equivalent is `ENABLE_OPT`, they are enabled by default.
 
-Optimizations for x86 require SSE2 by default, to enable SSSE3
-optimizations add `-DSPNG_SSE=3` as a compiler option, this improves
-performance by up to 7%.
+Intrinsics for x86 require SSE2, to enable SSSE3 optimizations
+add `-DSPNG_SSE=3` as a compiler option, this improves performance by ~7%.
 
 Compiler-specific macros are used to omit the need for the `-msse2` and
 `-mssse3` compiler flags, if the code does not compile without these flags
