@@ -27,10 +27,11 @@ if get_option('default_library') == 'static'
     add_project_arguments('-DSPNG_STATIC', language : 'c')
 endif
 
-# note: currently there is no way to avoid a compile warning with clang,
-# __has_attribute() does not work for this.
+
 if host_machine.cpu_family() == 'x86_64'
-    if cc.compiles('__attribute__((target_clones("default,avx2"))) int f(int x){return x + 3;}int main(){}', name : 'have target_clones')
+# clang evaluates __has_attribute(target_clones) to true but issues a warning
+# about not supporting it when it's used.
+    if cc.get_id() != 'clang' and cc.compiles('__attribute__((target_clones("default,avx2"))) int f(int x){return x + 3;}int main(){}', name : 'have target_clones')
         add_project_arguments('-DSPNG_ENABLE_TARGET_CLONES', language : 'c')
     endif
 endif
