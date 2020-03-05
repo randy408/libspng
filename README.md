@@ -1,5 +1,5 @@
 [![Gitter](https://badges.gitter.im/libspng/community.svg)](https://gitter.im/libspng/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Windows CI](https://ci.appveyor.com/api/projects/status/raaer7ali0i1v25q?svg=true)](https://ci.appveyor.com/project/randy408/libspng)
+[![GitLab CI](https://gitlab.com/randy408/libspng-ci/badges/master/pipeline.svg)](https://gitlab.com/randy408/libspng-ci/pipelines/latest)
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/libspng.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#libspng)
 [![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
 [![codecov](https://codecov.io/gl/randy408/libspng/branch/master/graph/badge.svg)](https://codecov.io/gl/randy408/libspng)
