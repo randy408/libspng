@@ -25,14 +25,14 @@ The goal is to provide a fast PNG library with a simpler API than [libpng](https
 
 | Feature                   | libspng    | libpng   | stb_image | lodepng |
 |---------------------------|------------|----------|-----------|---------|
-| Decode to RGBA8/16        | ✔          | ✔        | ✔         | ✔       |
-| Decode from stream        | ✔          | ✔        | ✔         | ❌      |
-| Gamma correction          | ✔          | ✔        | ❌        | ❌      |
-| Fuzzed by [OSS-Fuzz][1]   | ✔          | ✔        | ❌        | ✔       |
-| Progressive read          | ❌*        | ✔        | ❌        | ❌      |
-| Doesn't require zlib      | ❌*        | ❌       | ✔         | ✔       |
-| Encoding                  | ❌*        | ✔        | ✔         | ✔       |
-| Animated PNG              | ❌*        | ✔**      | ❌        | ❌      |
+| Decode to RGBA8/16        | ✅         | ✅       | ✅        | ✅      |
+| Decode from stream        | ✅         | ✅       | ✅        | ❌      |
+| Gamma correction          | ✅         | ✅       | ❌        | ❌      |
+| Fuzzed by [OSS-Fuzz][1]   | ✅         | ✅       | ❌        | ✅      |
+| Progressive read          | ❌*        | ✅       | ❌        | ❌      |
+| Doesn't require zlib      | ❌*        | ❌       | ✅        | ✅      |
+| Encoding                  | ❌*        | ✅       | ✅        | ✅      |
+| Animated PNG              | ❌*        | ✅**     | ❌        | ❌      |
 
 [1]: https://github.com/google/oss-fuzz
 
