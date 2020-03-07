@@ -1232,6 +1232,8 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
         if(!memcmp(chunk.type, type_idat, 4))
         {
+            if(ctx->ihdr.color_type == 3 && !ctx->stored.plte) return SPNG_ENOPLTE;
+
             memcpy(&ctx->first_idat, &chunk, sizeof(struct spng_chunk));
             return 0;
         }
@@ -3323,6 +3325,7 @@ const char *spng_strerror(int err)
         case SPNG_ECHUNKAVAIL: return "chunk not available";
         case SPNG_ENCODE_ONLY: return "encode only context";
         case SPNG_EOI: return "end of image";
+        case SPNG_ENOPLTE: return "missing PLTE for indexed image";
         default: return "unknown error";
     }
 }

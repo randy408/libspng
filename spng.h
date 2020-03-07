@@ -103,6 +103,7 @@ enum spng_errno
     SPNG_ECHUNKAVAIL,
     SPNG_ENCODE_ONLY,
     SPNG_EOI,
+    SPNG_ENOPLTE,
 };
 
 enum spng_text_type
