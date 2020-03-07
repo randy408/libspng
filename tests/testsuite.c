@@ -44,16 +44,25 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
        which acts as if png_set_tRNS_to_alpha() was called, as a result
        there are no tests where transparency is not applied */
     
-    test_cases[0].fmt = SPNG_FMT_RGBA8;
-    test_cases[0].flags = SPNG_DECODE_TRNS;
-    test_cases[1].fmt = SPNG_FMT_RGBA8;
-    test_cases[1].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
-    test_cases[2].fmt = SPNG_FMT_RGBA16;
-    test_cases[2].flags = SPNG_DECODE_TRNS;
-    test_cases[3].fmt = SPNG_FMT_RGBA16;
-    test_cases[3].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
+    int n=0;
 
-    *test_cases_n = 4;
+    test_cases[n].fmt = SPNG_FMT_RGBA8;
+    test_cases[n].flags = SPNG_DECODE_TRNS;
+    test_cases[n++].test_flags = 0;
+    
+    test_cases[n].fmt = SPNG_FMT_RGBA8;
+    test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
+    test_cases[n++].test_flags = 0;
+
+    test_cases[n].fmt = SPNG_FMT_RGBA16;
+    test_cases[n].flags = SPNG_DECODE_TRNS;
+    test_cases[n++].test_flags = 0;
+
+    test_cases[n].fmt = SPNG_FMT_RGBA16;
+    test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
+    test_cases[n++].test_flags = 0;
+
+    *test_cases_n = n;
 }
 
 
