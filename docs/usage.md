@@ -24,3 +24,23 @@ spng_ctx_free(ctx);
 ```
 
 For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.6.0/examples/example.c)
+
+
+## Decoding arbitrary files
+
+To decode arbitrary files safely it is required to at least:
+
+* Set an upper image width and height limit with `spng_set_image_limits()`.
+
+* Use `spng_decoded_image_size()` to calculate the output image size
+ and check it against a constant limit.
+
+* Set a chunk size and chunk cache limit with `spng_set_chunks_limits()` to avoid
+ running out of memory.
+
+### Notes on memory use
+
+The library allocates 2 to 3 times the width of the PNG image for decoding.
+
+Gamma correction requires an additional 128KB for a lookup table if
+the output format has 16-bits per channel (e.g. `SPNG_FMT_RGBA16`).
