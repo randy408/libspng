@@ -19,6 +19,8 @@ test:
     - ninja
     - meson test info -v
     - ninja test
+    - meson configure -Db_sanitize=memory
+    - ninja test
     - ninja coverage-text
     - cat meson-logs/coverage.txt
     - cd ..
