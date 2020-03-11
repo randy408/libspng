@@ -8,44 +8,16 @@
 #endif
 
 #include <png.h>
-#include "spng.h"
+#include "test_spng.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-struct buf_state
-{
-    unsigned char *data;
-    size_t bytes_left;
-};
-
-void libpng_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
-{
-    struct buf_state *state = png_get_io_ptr(png_ptr);
-
-#if defined(TEST_SPNG_STREAM_READ_INFO)
-    printf("libpng bytes read: %lu\n", length);
-#endif
-
-    if(length > state->bytes_left)
-    {
-        png_error(png_ptr, "read_fn error");
-    }
-
-    memcpy(data, state->data, length);
-    state->bytes_left -= length;
-    state->data += length;
-}
-
-unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size, int fmt, int flags)
+unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
 {
     png_infop info_ptr;
     png_structp png_ptr;
-    struct buf_state state;
-
-    state.data = buf;
-    state.bytes_left = size;
 
     unsigned char *image = NULL;
     png_bytep *row_pointers = NULL;
@@ -73,13 +45,7 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
         return NULL;
     }
 
-    png_set_read_fn(png_ptr, &state, libpng_read_fn);
-
-    if(png_sig_cmp(buf, 0, 8))
-    {
-        printf("libpng: invalid signature\n");
-        return NULL;
-    }
+    png_init_io(png_ptr, file);
 
     png_read_info(png_ptr, info_ptr);
 
@@ -130,7 +96,6 @@ unsigned char *getimage_libpng(unsigned char *buf, size_t size, size_t *out_size
 
     size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
 
-    /* avoid calling malloc() for each row */
     size_t image_size = height * rowbytes;
     memcpy(out_size, &image_size, sizeof(size_t));
 

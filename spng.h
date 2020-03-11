@@ -18,6 +18,7 @@ extern "C" {
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define SPNG_VERSION_MAJOR 0
 #define SPNG_VERSION_MINOR 6
@@ -341,6 +342,7 @@ SPNG_API void spng_ctx_free(spng_ctx *ctx);
 
 SPNG_API int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size);
 SPNG_API int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user);
+SPNG_API int spng_set_png_file(spng_ctx *ctx, FILE *file);
 
 SPNG_API int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height);
 SPNG_API int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height);

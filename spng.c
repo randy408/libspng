@@ -2535,6 +2535,17 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
     return 0;
 }
 
+static int file_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
+{
+    if(fread(data, n, 1, user) != 1)
+    {
+        if(feof(user)) return SPNG_IO_EOF;
+        else return SPNG_IO_ERROR;
+    }
+
+    return 0;
+}
+
 int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
 {
     if(ctx == NULL || buf == NULL) return 1;
@@ -2573,6 +2584,13 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
     ctx->streaming = 1;
 
     return 0;
+}
+
+int spng_set_png_file(spng_ctx *ctx, FILE *file)
+{  
+    if(file == NULL) return 1;
+    
+    return spng_set_png_stream(ctx, file_read_fn, file);
 }
 
 int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height)

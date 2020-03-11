@@ -14,10 +14,6 @@ struct spng_test_case
     int test_flags;
 };
 
-int should_fail = 0;
-int info_printed = 0;
-
-
 void print_test_args(struct spng_test_case *test_case)
 {
     printf("Decode and compare ");
@@ -211,23 +207,25 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     return 0;
 }
 
-int decode_and_compare(unsigned char *pngbuf, size_t siz_pngbuf, int fmt, int flags)
+int decode_and_compare(FILE *file, int fmt, int flags)
 {
     struct spng_ihdr ihdr;
     size_t img_spng_size;
     unsigned char *img_spng =  NULL;
 
-    img_spng = getimage_libspng(pngbuf, siz_pngbuf, &img_spng_size, fmt, flags, &ihdr);
+    img_spng = getimage_libspng(file, &img_spng_size, fmt, flags, &ihdr);
     if(img_spng==NULL)
     {
         printf("getimage_libspng() failed\n");
         return 1;
     }
 
+    rewind(file);
+
     size_t img_png_size;
     unsigned char *img_png = NULL;
 
-    img_png = getimage_libpng(pngbuf, siz_pngbuf, &img_png_size, fmt, flags);
+    img_png = getimage_libpng(file, &img_png_size, fmt, flags);
     if(img_png==NULL)
     {
         printf("getimage_libpng() failed\n");
@@ -273,8 +271,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    FILE *png;
-    unsigned char *pngbuf;
+    FILE *file;
     char *filename = argv[1];
 
     if(!strcmp(filename, "info"))
@@ -292,33 +289,11 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    png = fopen(filename, "rb");
+    file = fopen(filename, "rb");
 
-    /* all images beginning with "x" are invalid */
-    if(strstr(filename, "/x") != NULL) should_fail = 1;
-
-    if(png==NULL)
+    if(file==NULL)
     {
         printf("error opening input file %s\n", filename);
-        return 1;
-    }
-
-    fseek(png, 0, SEEK_END);
-    long siz_pngbuf = ftell(png);
-    rewind(png);
-
-    if(siz_pngbuf < 1) return 1;
-
-    pngbuf = malloc(siz_pngbuf);
-    if(pngbuf==NULL)
-    {
-        printf("malloc() failed\n");
-        return 1;
-    }
-
-    if(fread(pngbuf, siz_pngbuf, 1, png) != 1)
-    {
-        printf("fread() failed\n");
         return 1;
     }
 
@@ -333,11 +308,10 @@ int main(int argc, char **argv)
     {
         print_test_args(&test_cases[i]);
 
-        int e = decode_and_compare(pngbuf, siz_pngbuf, test_cases[i].fmt, test_cases[i].flags);
+        int e = decode_and_compare(file, test_cases[i].fmt, test_cases[i].flags);
         if(!ret) ret = e;
+        rewind(file);
     }
-
-    free(pngbuf);
 
     return ret;
 }

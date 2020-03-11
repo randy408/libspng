@@ -54,6 +54,13 @@ Set input PNG stream, this can only be done once per context.
 !!! info
     PNG's are read up to the file end marker, this is identical behavior to libpng.
 
+# spng_set_png_file()
+```c
+int spng_set_png_file(spng_ctx *ctx, FILE *file)
+```
+
+Set input PNG file, this can only be done once per context.
+
 # spng_decoded_image_size()
 ```c
 int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *out)
