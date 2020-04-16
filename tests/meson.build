@@ -1,4 +1,4 @@
-add_languages('cpp')
+add_languages('cpp', native : false)
 cpp = meson.get_compiler('cpp')
 
 repro_exe = executable('fuzz_repro', 'fuzz_main.c', link_with : spng_lib)
