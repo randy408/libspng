@@ -65,3 +65,12 @@ pkg.generate(name : 'spng',
 if get_option('dev_build') == true
     subdir('tests')
 endif
+
+if get_option('benchmarks') == true
+    if meson.version().version_compare('>= 0.54.0')
+        meson.override_dependency('spng', spng_dep)
+        spngt = subproject('spngt')
+    else
+        warning('benchmarks require Meson >= 0.54.0')
+    endif
+endif
