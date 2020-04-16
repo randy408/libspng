@@ -2,3 +2,4 @@ option('dev_build', type : 'boolean', value : false, description : 'Enable the t
 option('enable_opt', type : 'boolean', value : true, description : 'Enable architecture-specific optimizations')
 option('static_zlib', type : 'boolean', value : false, description : 'Link the static verison of zlib')
 option('multithreading', type : 'boolean', value : false, description : 'Enable experimental multithreading features')
+option('benchmarks', type : 'boolean', value : false, description : 'Enable benchmarks, requires Git LFS')
