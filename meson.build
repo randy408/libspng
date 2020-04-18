@@ -23,10 +23,11 @@ if get_option('enable_opt') == false
     add_project_arguments('-DSPNG_DISABLE_OPT', language : 'c')
 endif
 
+static_subproject = false
 if get_option('default_library') == 'static'
+    static_subproject = meson.is_subproject()
     add_project_arguments('-DSPNG_STATIC', language : 'c')
 endif
-
 
 if host_machine.cpu_family() == 'x86_64'
 # clang evaluates __has_attribute(target_clones) to true but issues a warning
@@ -36,7 +37,9 @@ if host_machine.cpu_family() == 'x86_64'
     endif
 endif
 
-install_headers('spng.h')
+if not static_subproject
+    install_headers('spng.h')
+endif
 
 spng_src = files('spng.c')
 
@@ -44,7 +47,7 @@ spng_lib = library('spng', spng_src,
                    dependencies : spng_deps,
                    version : meson.project_version(),
                    soversion : '0.6.0',
-                   install : true)
+                   install : not static_subproject)
 
 spng_dep = declare_dependency(link_with : spng_lib,
                               dependencies : spng_deps,
@@ -55,12 +58,14 @@ example_src = files('examples/example.c')
 
 example_exe = executable('example', example_src, dependencies : spng_dep)
 
-pkg = import('pkgconfig')
-pkg.generate(name : 'spng',
-             libraries : spng_lib,
-             version : meson.project_version(),
-             description : 'PNG decoding and encoding library',
-             libraries_private : [ '-lm', '-lz' ])
+if not static_subproject
+    pkg = import('pkgconfig')
+    pkg.generate(name : 'spng',
+                 libraries : spng_lib,
+                 version : meson.project_version(),
+                 description : 'PNG decoding and encoding library',
+                 libraries_private : [ '-lm', '-lz' ])
+endif
 
 if get_option('dev_build') == true
     subdir('tests')
