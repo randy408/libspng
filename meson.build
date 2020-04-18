@@ -37,34 +37,35 @@ if host_machine.cpu_family() == 'x86_64'
     endif
 endif
 
-if not static_subproject
-    install_headers('spng.h')
-endif
-
 spng_src = files('spng.c')
 
-spng_lib = library('spng', spng_src,
-                   dependencies : spng_deps,
-                   version : meson.project_version(),
-                   soversion : '0.6.0',
-                   install : not static_subproject)
+spng_lib = library(
+    'spng', spng_src,
+    dependencies : spng_deps,
+    version : meson.project_version(),
+    soversion : '0.6.0',
+    install : not static_subproject)
 
-spng_dep = declare_dependency(link_with : spng_lib,
-                              dependencies : spng_deps,
-                              include_directories : spng_inc,
-                              version : meson.project_version())
+spng_dep = declare_dependency(
+    link_with : spng_lib,
+    dependencies : spng_deps,
+    include_directories : spng_inc,
+    version : meson.project_version())
 
 example_src = files('examples/example.c')
 
 example_exe = executable('example', example_src, dependencies : spng_dep)
 
 if not static_subproject
+    install_headers('spng.h')
+
     pkg = import('pkgconfig')
-    pkg.generate(name : 'spng',
-                 libraries : spng_lib,
-                 version : meson.project_version(),
-                 description : 'PNG decoding and encoding library',
-                 libraries_private : [ '-lm', '-lz' ])
+    pkg.generate(
+        name : 'spng',
+        libraries : spng_lib,
+        version : meson.project_version(),
+        description : 'PNG decoding and encoding library',
+        libraries_private : [ '-lm', '-lz' ])
 endif
 
 if get_option('dev_build') == true
