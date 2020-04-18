@@ -1,5 +1,9 @@
 option('dev_build', type : 'boolean', value : false, description : 'Enable the testsuite, requires libpng')
 option('enable_opt', type : 'boolean', value : true, description : 'Enable architecture-specific optimizations')
 option('static_zlib', type : 'boolean', value : false, description : 'Link the static verison of zlib')
-option('multithreading', type : 'boolean', value : false, description : 'Enable experimental multithreading features')
 option('benchmarks', type : 'boolean', value : false, description : 'Enable benchmarks, requires Git LFS')
+
+
+# Not for end-users
+option('multithreading', type : 'boolean', value : false, description : 'Enable experimental multithreading features')
+option('oss_fuzz', type : 'boolean', value : false, description : 'Enable OSS-Fuzz tests')
