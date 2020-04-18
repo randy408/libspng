@@ -88,12 +88,12 @@ output format and flag combinations and compared against libpng for correctness.
 
 ## Versioning
 
-Releases follow the [semantic versioning](https://semver.org/) scheme with a few exceptions:
+Releases follow the [semantic versioning](https://semver.org/) scheme with additional guarantees:
 
 * Releases from 0.4.0 to 0.8.x are stable
-* 0.8.x will be maintained as a separate release branch from 1.0.0
+* If 1.0.0 will introduce breaking changes then 0.8.x will be maintained as a separate stable branch
 
-Note that 1.0.0 will introduce little to no breaking changes.
+Currently 1.0.0 is planned to be [compatible](https://github.com/randy408/libspng/issues/3).
 
 ## Documentation
 
