@@ -1095,6 +1095,7 @@ static int check_offs(const struct spng_offs *offs)
 static int check_exif(const struct spng_exif *exif)
 {
     if(exif == NULL) return 1;
+    if(exif->data == NULL) return 1;
 
     if(exif->length < 4) return SPNG_ECHUNK_SIZE;
     if(exif->length > png_u32max) return SPNG_ECHUNK_SIZE;
