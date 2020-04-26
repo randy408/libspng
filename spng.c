@@ -1695,7 +1695,7 @@ static int read_chunks_after_idat(spng_ctx *ctx)
         {
             if(!memcmp(chunk.type, type_iend, 4))
             {
-                if(chunk.length) return SPNG_ECHUNK_CRC;
+                if(chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ret = read_and_check_crc(ctx);
                 if(ret == -SPNG_CRC_DISCARD) ret = 0;
