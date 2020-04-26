@@ -656,17 +656,17 @@ static int read_scanline_bytes(spng_ctx *ctx, z_stream *stream, unsigned char *d
     stream->avail_out = len;
     stream->next_out = dest;
 
-    if(!stream->avail_in)
+    while(stream->avail_out != 0)
     {
-        ret = read_idat_bytes(ctx, &bytes_read);
-        if(ret) return ret;
+        if(stream->avail_in == 0) /* Need more IDAT bytes */
+        {
+            ret = read_idat_bytes(ctx, &bytes_read);
+            if(ret) return ret;
 
-        stream->avail_in = bytes_read;
-        stream->next_in = ctx->data;
-    }
+            stream->avail_in = bytes_read;
+            stream->next_in = ctx->data;
+        }
 
-    do
-    {
         ret = inflate(stream, Z_SYNC_FLUSH);
 
         if(ret != Z_OK)
@@ -677,18 +677,7 @@ static int read_scanline_bytes(spng_ctx *ctx, z_stream *stream, unsigned char *d
             }
             else if(ret != Z_BUF_ERROR) return SPNG_EIDAT_STREAM;
         }
-
-        /* Read more IDAT bytes */
-        if(stream->avail_out != 0 && stream->avail_in == 0)
-        {
-            ret = read_idat_bytes(ctx, &bytes_read);
-            if(ret) return ret;
-
-            stream->avail_in = bytes_read;
-            stream->next_in = ctx->data;
-        }
-
-    }while(stream->avail_out != 0);
+    }
 
     return 0;
 }
