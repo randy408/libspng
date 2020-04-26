@@ -547,18 +547,6 @@ static inline int read_header(spng_ctx *ctx, int *discard)
 
     memcpy(&ctx->current_chunk, &chunk, sizeof(struct spng_chunk));
 
-    unsigned channels = 1; /* grayscale or indexed color */
-
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) channels = 3;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) channels = 2;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) channels = 4;
-
-    if(ctx->ihdr.bit_depth < 8) ctx->bytes_per_pixel = 1;
-    else ctx->bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
-
-    ret = calculate_subimages(ctx, &ctx->scanline_width, channels);
-    if(ret) return ret;
-
     return 0;
 }
 
@@ -584,6 +572,15 @@ skip_crc:
     ctx->cur_chunk_bytes_left -= bytes;
 
     return ret;
+}
+
+static int read_fixed_size_chunk(spng_ctx *ctx, uint32_t size)
+{
+    if(ctx == NULL) return 1;
+
+    if(ctx->current_chunk.length != size) return SPNG_ECHUNK_SIZE;
+
+    return read_chunk_bytes(ctx, size);
 }
 
 static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
@@ -1167,6 +1164,23 @@ static int chunk_fits_in_cache(spng_ctx *ctx, size_t *new_usage)
     return 1;
 }
 
+/* Returns non-zero for standard chunks which are stored without allocating memory */
+int is_small_chunk(uint8_t type[4])
+{
+    if(!memcmp(type, type_plte, 4)) return 1;
+    else if(!memcmp(type, type_chrm, 4)) return 1;
+    else if(!memcmp(type, type_gama, 4)) return 1;
+    else if(!memcmp(type, type_sbit, 4)) return 1;
+    else if(!memcmp(type, type_srgb, 4)) return 1;
+    else if(!memcmp(type, type_bkgd, 4)) return 1;
+    else if(!memcmp(type, type_trns, 4)) return 1;
+    else if(!memcmp(type, type_hist, 4)) return 1;
+    else if(!memcmp(type, type_phys, 4)) return 1;
+    else if(!memcmp(type, type_time, 4)) return 1;
+    else if(!memcmp(type, type_offs, 4)) return 1;
+    else return 0;
+}
+
 /*
     Read and validate all critical and relevant ancillary chunks up to the first IDAT
     Returns zero and sets ctx->first_idat on success
@@ -1220,6 +1234,18 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     ctx->file.ihdr = 1;
     ctx->stored.ihdr = 1;
 
+    unsigned channels = 1; /* grayscale or indexed color */
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) channels = 3;
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) channels = 2;
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) channels = 4;
+
+    if(ctx->ihdr.bit_depth < 8) ctx->bytes_per_pixel = 1;
+    else ctx->bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
+
+    ret = calculate_subimages(ctx, &ctx->scanline_width, channels);
+    if(ret) return ret;
+
     struct spng_chunk_bitfield stored;
     memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
 
@@ -1242,15 +1268,11 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             return 0;
         }
 
-        if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
-        {
-            ret = discard_chunk_bytes(ctx, chunk.length);
+        if(is_small_chunk(chunk.type))
+        {/* The largest of these chunks is PLTE with 256 entries */
+            ret = read_chunk_bytes(ctx, chunk.length > 768 ? 768 : chunk.length);
             if(ret) return ret;
-            continue;
         }
-
-        ret = read_chunk_bytes(ctx, chunk.length);
-        if(ret) return ret;
 
         data = ctx->data;
 
@@ -1316,14 +1338,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
             ctx->file.gama = 1;
             ctx->stored.gama = 1;
-        }
-        else if(!memcmp(chunk.type, type_iccp, 4))
-        {
-            if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
-            if(ctx->file.iccp) return SPNG_EDUP_ICCP;
-            if(!chunk.length) return SPNG_ECHUNK_SIZE;
-
-            continue;
         }
         else if(!memcmp(chunk.type, type_sbit, 4))
         {
@@ -1524,143 +1538,173 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             ctx->file.offs = 1;
             ctx->stored.offs = 1;
         }
-        else if(!memcmp(chunk.type, type_splt, 4))
+        else /* Arbitrary-length chunk */
         {
-            if(ctx->user.splt) continue; /* XXX: should check profile names for uniqueness */
-            if(!chunk.length) return SPNG_ECHUNK_SIZE;
-
-            ctx->file.splt = 1;
-
-            if(!ctx->stored.splt)
-            {
-                ctx->n_splt = 1;
-                ctx->splt_list = spng__calloc(ctx, 1, sizeof(struct spng_splt));
-                if(ctx->splt_list == NULL) return SPNG_EMEM;
-            }
-            else
-            {
-                ctx->n_splt++;
-                if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
-                if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
-
-                void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
-                if(buf == NULL) return SPNG_EMEM;
-                ctx->splt_list = buf;
-                memset(&ctx->splt_list[ctx->n_splt - 1], 0, sizeof(struct spng_splt));
-            }
-
-            uint32_t i = ctx->n_splt - 1;
-
-            size_t keyword_len = chunk.length > 80 ? 80 : chunk.length;
-            char *keyword_nul = memchr(data, '\0', keyword_len);
-            if(keyword_nul == NULL) return SPNG_ESPLT_NAME;
-
-            memcpy(&ctx->splt_list[i].name, data, keyword_len);
-
-            if(check_png_keyword(ctx->splt_list[i].name)) return SPNG_ESPLT_NAME;
-
-            keyword_len = strlen(ctx->splt_list[i].name);
-
-            if( (chunk.length - keyword_len - 1) ==  0) return SPNG_ECHUNK_SIZE;
-
-            memcpy(&ctx->splt_list[i].sample_depth, data + keyword_len + 1, 1);
-
-            if(ctx->n_splt > 1)
-            {
-                uint32_t j;
-                for(j=0; j < i; j++)
-                {
-                    if(!strcmp(ctx->splt_list[j].name, ctx->splt_list[i].name)) return SPNG_ESPLT_DUP_NAME;
-                }
-            }
-
-            if(ctx->splt_list[i].sample_depth == 16)
-            {
-                if( (chunk.length - keyword_len - 2) % 10 != 0) return SPNG_ECHUNK_SIZE;
-                ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 10;
-            }
-            else if(ctx->splt_list[i].sample_depth == 8)
-            {
-                if( (chunk.length - keyword_len - 2) % 6 != 0) return SPNG_ECHUNK_SIZE;
-                ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 6;
-            }
-            else return SPNG_ESPLT_DEPTH;
-
-            if(ctx->splt_list[i].n_entries == 0) return SPNG_ECHUNK_SIZE;
-            if(sizeof(struct spng_splt_entry) > SIZE_MAX / ctx->splt_list[i].n_entries) return SPNG_EOVERFLOW;
-
-            ctx->splt_list[i].entries = spng__malloc(ctx, sizeof(struct spng_splt_entry) * ctx->splt_list[i].n_entries);
-            if(ctx->splt_list[i].entries == NULL) return SPNG_EMEM;
-
-            const unsigned char *splt = data + keyword_len + 2;
-
-            size_t k;
-            if(ctx->splt_list[i].sample_depth == 16)
-            {
-                for(k=0; k < ctx->splt_list[i].n_entries; k++)
-                {
-                    ctx->splt_list[i].entries[k].red = read_u16(splt + k * 10);
-                    ctx->splt_list[i].entries[k].green = read_u16(splt + k * 10 + 2);
-                    ctx->splt_list[i].entries[k].blue = read_u16(splt + k * 10 + 4);
-                    ctx->splt_list[i].entries[k].alpha = read_u16(splt + k * 10 + 6);
-                    ctx->splt_list[i].entries[k].frequency = read_u16(splt + k * 10 + 8);
-                }
-            }
-            else if(ctx->splt_list[i].sample_depth == 8)
-            {
-                for(k=0; k < ctx->splt_list[i].n_entries; k++)
-                {
-                    uint8_t red, green, blue, alpha;
-                    memcpy(&red,   splt + k * 6, 1);
-                    memcpy(&green, splt + k * 6 + 1, 1);
-                    memcpy(&blue,  splt + k * 6 + 2, 1);
-                    memcpy(&alpha, splt + k * 6 + 3, 1);
-                    ctx->splt_list[i].entries[k].frequency = read_u16(splt + k * 6 + 4);
-
-                    ctx->splt_list[i].entries[k].red = red;
-                    ctx->splt_list[i].entries[k].green = green;
-                    ctx->splt_list[i].entries[k].blue = blue;
-                    ctx->splt_list[i].entries[k].alpha = alpha;
-                }
-            }
-
-            ctx->stored.splt = 1;
-        }
-        else if(!memcmp(chunk.type, type_text, 4) ||
-                !memcmp(chunk.type, type_ztxt, 4) ||
-                !memcmp(chunk.type, type_itxt, 4))
-        {
-            ctx->file.text = 1;
+            ret = discard_chunk_bytes(ctx, chunk.length);
+            if(ret) return ret;
 
             continue;
-        }
-        else if(!memcmp(chunk.type, type_exif, 4))
-        {
-            if(ctx->file.exif) return SPNG_EDUP_EXIF;
 
-            ctx->file.exif = 1;
-
-            if(!chunk.length) return SPNG_EEXIF;
-
-            struct spng_exif exif;
-
-            exif.data = spng__malloc(ctx, chunk.length);
-            if(exif.data == NULL) return SPNG_EMEM;
-
-            memcpy(exif.data, data, chunk.length);
-            exif.length = chunk.length;
-
-            if(check_exif(&exif))
+            if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
             {
-                spng__free(ctx, exif.data);
-                return SPNG_EEXIF;
+                ret = discard_chunk_bytes(ctx, chunk.length);
+                if(ret) return ret;
+                continue;
             }
 
-            if(!ctx->user.exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-            else spng__free(ctx, exif.data);
+            ret = read_chunk_bytes(ctx, chunk.length);
+            if(ret) return ret;
+            
+            data = ctx->data;
 
-            ctx->stored.exif = 1;
+            if(!memcmp(chunk.type, type_splt, 4))
+            {
+                if(ctx->user.splt) continue; /* XXX: should check profile names for uniqueness */
+                if(!chunk.length) return SPNG_ECHUNK_SIZE;
+
+                ctx->file.splt = 1;
+
+                if(!ctx->stored.splt)
+                {
+                    ctx->n_splt = 1;
+                    ctx->splt_list = spng__calloc(ctx, 1, sizeof(struct spng_splt));
+                    if(ctx->splt_list == NULL) return SPNG_EMEM;
+                }
+                else
+                {
+                    ctx->n_splt++;
+                    if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
+                    if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
+
+                    void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
+                    if(buf == NULL) return SPNG_EMEM;
+                    ctx->splt_list = buf;
+                    memset(&ctx->splt_list[ctx->n_splt - 1], 0, sizeof(struct spng_splt));
+                }
+
+                uint32_t i = ctx->n_splt - 1;
+
+                size_t keyword_len = chunk.length > 80 ? 80 : chunk.length;
+                char *keyword_nul = memchr(data, '\0', keyword_len);
+                if(keyword_nul == NULL) return SPNG_ESPLT_NAME;
+
+                memcpy(&ctx->splt_list[i].name, data, keyword_len);
+
+                if(check_png_keyword(ctx->splt_list[i].name)) return SPNG_ESPLT_NAME;
+
+                keyword_len = strlen(ctx->splt_list[i].name);
+
+                if( (chunk.length - keyword_len - 1) ==  0) return SPNG_ECHUNK_SIZE;
+
+                memcpy(&ctx->splt_list[i].sample_depth, data + keyword_len + 1, 1);
+
+                if(ctx->n_splt > 1)
+                {
+                    uint32_t j;
+                    for(j=0; j < i; j++)
+                    {
+                        if(!strcmp(ctx->splt_list[j].name, ctx->splt_list[i].name)) return SPNG_ESPLT_DUP_NAME;
+                    }
+                }
+
+                if(ctx->splt_list[i].sample_depth == 16)
+                {
+                    if( (chunk.length - keyword_len - 2) % 10 != 0) return SPNG_ECHUNK_SIZE;
+                    ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 10;
+                }
+                else if(ctx->splt_list[i].sample_depth == 8)
+                {
+                    if( (chunk.length - keyword_len - 2) % 6 != 0) return SPNG_ECHUNK_SIZE;
+                    ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 6;
+                }
+                else return SPNG_ESPLT_DEPTH;
+
+                if(ctx->splt_list[i].n_entries == 0) return SPNG_ECHUNK_SIZE;
+                if(sizeof(struct spng_splt_entry) > SIZE_MAX / ctx->splt_list[i].n_entries) return SPNG_EOVERFLOW;
+
+                ctx->splt_list[i].entries = spng__malloc(ctx, sizeof(struct spng_splt_entry) * ctx->splt_list[i].n_entries);
+                if(ctx->splt_list[i].entries == NULL) return SPNG_EMEM;
+
+                const unsigned char *splt = data + keyword_len + 2;
+
+                size_t k;
+                if(ctx->splt_list[i].sample_depth == 16)
+                {
+                    for(k=0; k < ctx->splt_list[i].n_entries; k++)
+                    {
+                        ctx->splt_list[i].entries[k].red = read_u16(splt + k * 10);
+                        ctx->splt_list[i].entries[k].green = read_u16(splt + k * 10 + 2);
+                        ctx->splt_list[i].entries[k].blue = read_u16(splt + k * 10 + 4);
+                        ctx->splt_list[i].entries[k].alpha = read_u16(splt + k * 10 + 6);
+                        ctx->splt_list[i].entries[k].frequency = read_u16(splt + k * 10 + 8);
+                    }
+                }
+                else if(ctx->splt_list[i].sample_depth == 8)
+                {
+                    for(k=0; k < ctx->splt_list[i].n_entries; k++)
+                    {
+                        uint8_t red, green, blue, alpha;
+                        memcpy(&red,   splt + k * 6, 1);
+                        memcpy(&green, splt + k * 6 + 1, 1);
+                        memcpy(&blue,  splt + k * 6 + 2, 1);
+                        memcpy(&alpha, splt + k * 6 + 3, 1);
+                        ctx->splt_list[i].entries[k].frequency = read_u16(splt + k * 6 + 4);
+
+                        ctx->splt_list[i].entries[k].red = red;
+                        ctx->splt_list[i].entries[k].green = green;
+                        ctx->splt_list[i].entries[k].blue = blue;
+                        ctx->splt_list[i].entries[k].alpha = alpha;
+                    }
+                }
+
+                ctx->stored.splt = 1;
+            }
+            else if(!memcmp(chunk.type, type_text, 4) ||
+                    !memcmp(chunk.type, type_ztxt, 4) ||
+                    !memcmp(chunk.type, type_itxt, 4))
+            {
+                ctx->file.text = 1;
+
+                continue;
+            }
+            else if(!memcmp(chunk.type, type_iccp, 4))
+            {
+                if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+                if(ctx->file.iccp) return SPNG_EDUP_ICCP;
+                if(!chunk.length) return SPNG_ECHUNK_SIZE;
+
+                
+                continue;
+            }
+            else if(!memcmp(chunk.type, type_exif, 4))
+            {
+                if(ctx->file.exif) return SPNG_EDUP_EXIF;
+
+                ctx->file.exif = 1;
+
+                if(!chunk.length) return SPNG_EEXIF;
+
+                struct spng_exif exif;
+
+                exif.data = spng__malloc(ctx, chunk.length);
+                if(exif.data == NULL) return SPNG_EMEM;
+
+                memcpy(exif.data, data, chunk.length);
+                exif.length = chunk.length;
+
+                if(check_exif(&exif))
+                {
+                    spng__free(ctx, exif.data);
+                    return SPNG_EEXIF;
+                }
+
+                if(!ctx->user.exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+                else spng__free(ctx, exif.data);
+
+                ctx->stored.exif = 1;
+            }
         }
+        
     }
 
     return ret;
@@ -1712,18 +1756,6 @@ static int read_chunks_after_idat(spng_ctx *ctx)
             else return SPNG_ECHUNK_POS; /* Critical chunk after last IDAT that isn't IEND */
         }
 
-        if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
-        {
-            ret = discard_chunk_bytes(ctx, chunk.length);
-            if(ret) return ret;
-            continue;
-        }
-
-        ret = read_chunk_bytes(ctx, chunk.length);
-        if(ret) return ret;
-
-        data = ctx->data;
-
         prev_was_idat = 0;
 
         if(!memcmp(chunk.type, type_chrm, 4)) return SPNG_ECHUNK_POS;
@@ -1741,9 +1773,14 @@ static int read_chunks_after_idat(spng_ctx *ctx)
         {
            if(ctx->file.time) return SPNG_EDUP_TIME;
 
-           if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
+            ret = read_chunk_bytes(ctx, 7);
+            if(ret) return ret;
+
+            if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
 
             struct spng_time time;
+
+            data = ctx->data;
 
             time.year = read_u16(data);
             memcpy(&time.month, data + 2, 1);
@@ -1760,40 +1797,60 @@ static int read_chunks_after_idat(spng_ctx *ctx)
 
             ctx->stored.time = 1;
         }
-        else if(!memcmp(chunk.type, type_exif, 4))
+        else /* Arbitrary-length chunk */
         {
-            if(ctx->file.exif) return SPNG_EDUP_EXIF;
-
-            ctx->file.exif = 1;
-
-            if(!chunk.length) return SPNG_EEXIF;
-
-            struct spng_exif exif;
-
-            exif.data = spng__malloc(ctx, chunk.length);
-            if(exif.data == NULL) return SPNG_EMEM;
-
-            memcpy(exif.data, data, chunk.length);
-            exif.length = chunk.length;
-
-            if(check_exif(&exif))
-            {
-                spng__free(ctx, exif.data);
-                return SPNG_EEXIF;
-            }
-
-            if(!ctx->user.exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-            else spng__free(ctx, exif.data);
-
-            ctx->stored.exif = 1;
-        }
-        else if(!memcmp(chunk.type, type_text, 4) ||
-                !memcmp(chunk.type, type_ztxt, 4) ||
-                !memcmp(chunk.type, type_itxt, 4))
-        {
-            ctx->file.text = 1;
+            ret = discard_chunk_bytes(ctx, chunk.length);
+            if(ret) return ret;
 
             continue;
+
+            if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
+            {
+                ret = discard_chunk_bytes(ctx, chunk.length);
+                if(ret) return ret;
+                continue;
+            }
+
+            ret = read_chunk_bytes(ctx, chunk.length);
+            if(ret) return ret;
+
+            if(!memcmp(chunk.type, type_exif, 4))
+            {
+                if(ctx->file.exif) return SPNG_EDUP_EXIF;
+
+                ctx->file.exif = 1;
+
+                if(!chunk.length) return SPNG_EEXIF;
+
+                struct spng_exif exif;
+
+                exif.data = spng__malloc(ctx, chunk.length);
+                if(exif.data == NULL) return SPNG_EMEM;
+
+                memcpy(exif.data, data, chunk.length);
+                exif.length = chunk.length;
+
+                if(check_exif(&exif))
+                {
+                    spng__free(ctx, exif.data);
+                    return SPNG_EEXIF;
+                }
+
+                if(!ctx->user.exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+                else spng__free(ctx, exif.data);
+
+                ctx->stored.exif = 1;
+            }
+            else if(!memcmp(chunk.type, type_text, 4) ||
+                    !memcmp(chunk.type, type_ztxt, 4) ||
+                    !memcmp(chunk.type, type_itxt, 4))
+            {
+                ctx->file.text = 1;
+            }
+            else /* Unknown chunk */
+            {
+                ret = discard_chunk_bytes(ctx, chunk.length);
+            }
         }
     }
 
