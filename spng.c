@@ -702,7 +702,7 @@ static void defilter_up(size_t bytes, unsigned char *row, const unsigned char *p
 
 /* Defilter *scanline in-place.
    *prev_scanline and *scanline should point to the first pixel,
-   scanline_width is the width of the scanline without the filter byte.
+   scanline_width is the width of the scanline including the filter byte.
 */
 static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *scanline,
                              size_t scanline_width, unsigned bytes_per_pixel, unsigned filter)
@@ -710,6 +710,7 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
     if(prev_scanline == NULL || scanline == NULL || !scanline_width) return 1;
 
     size_t i;
+    scanline_width--;
 
     if(filter == 0) return 0;
 
@@ -806,14 +807,14 @@ static uint16_t sample_to_target(uint16_t sample, unsigned bit_depth, unsigned s
 {
     if(bit_depth == sbits)
     {
-        if(target == sbits) return sample; /* no scaling */
+        if(target == sbits) return sample; /* No scaling */
     }/* bit_depth > sbits */
-    else sample = sample >> (bit_depth - sbits); /* shift significant bits to bottom */
+    else sample = sample >> (bit_depth - sbits); /* Shift significant bits to bottom */
 
-    /* downscale */
+    /* Downscale */
     if(target < sbits) return sample >> (sbits - target);
 
-    /* upscale using left bit replication */
+    /* Upscale using left bit replication */
     int8_t shift_amount = target - sbits;
     uint16_t sample_bits = sample;
     sample = 0;
@@ -1110,11 +1111,11 @@ static int check_png_keyword(const char str[80])
     if(str == NULL) return 1;
     char *end = memchr(str, '\0', 80);
 
-    if(end == NULL) return 1; /* unterminated string */
-    if(end == str) return 1; /* zero-length string */
-    if(str[0] == ' ') return 1; /* leading space */
-    if(end[-1] == ' ') return 1; /* trailing space */
-    if(strstr(str, "  ") != NULL) return 1; /* consecutive spaces */
+    if(end == NULL) return 1; /* Unterminated string */
+    if(end == str) return 1; /* Zero-length string */
+    if(str[0] == ' ') return 1; /* Leading space */
+    if(end[-1] == ' ') return 1; /* Trailing space */
+    if(strstr(str, "  ") != NULL) return 1; /* Consecutive spaces */
 
     uint8_t c;
     while(str != end)
@@ -1122,7 +1123,7 @@ static int check_png_keyword(const char str[80])
         memcpy(&c, str, 1);
 
         if( (c >= 32 && c <= 126) || (c >= 161) ) str++;
-        else return 1; /* invalid character */
+        else return 1; /* Invalid character */
     }
 
     return 0;
@@ -1140,7 +1141,7 @@ static int check_png_text(const char *str, size_t len)
         memcpy(&c, str + i, 1);
 
         if( (c >= 32 && c <= 126) || (c >= 161) || c == 10) i++;
-        else return 1; /* invalid character */
+        else return 1; /* Invalid character */
     }
 
     return 0;
@@ -1152,7 +1153,7 @@ static int chunk_fits_in_cache(spng_ctx *ctx, size_t *new_usage)
 
     size_t usage = ctx->chunk_cache_usage + (size_t)ctx->current_chunk.length;
 
-    if(usage < ctx->chunk_cache_usage) return 0; /* overflow */
+    if(usage < ctx->chunk_cache_usage) return 0; /* Overflow */
 
     if(usage > ctx->chunk_cache_limit) return 0;
 
@@ -1697,13 +1698,13 @@ static int read_chunks_after_idat(spng_ctx *ctx)
                 return ret;
             }
             else if(!memcmp(chunk.type, type_idat, 4) && prev_was_idat)
-            {/* ignore extra IDATs */
+            {/* Ignore extra IDAT's */
                 ret = discard_chunk_bytes(ctx, chunk.length);
                 if(ret) return ret;
 
                 continue;
             }
-            else return SPNG_ECHUNK_POS; /* critical chunk after last IDAT that isn't IEND */
+            else return SPNG_ECHUNK_POS; /* Critical chunk after last IDAT that isn't IEND */
         }
 
         if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
@@ -1826,7 +1827,7 @@ static int decode_err(spng_ctx *ctx, int err)
 static int discard_idat(spng_ctx *ctx)
 {
     if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
-    {/* discard the rest of the chunk */
+    {/* Discard the rest of the chunk */
         int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
         if(ret) return decode_err(ctx, ret);
     }
@@ -1931,7 +1932,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 
     if(ctx->ihdr.bit_depth == 16) u16_row_to_host(ctx->scanline, scanline_width - 1);
 
-    ret = defilter_scanline(ctx->prev_scanline, ctx->scanline, scanline_width - 1, ctx->bytes_per_pixel, ri->filter);
+    ret = defilter_scanline(ctx->prev_scanline, ctx->scanline, scanline_width, ctx->bytes_per_pixel, ri->filter);
     if(ret) return decode_err(ctx, ret);
 
     ri->filter = next_filter;
@@ -2124,7 +2125,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 
     if(f.apply_gamma) gamma_correct_row(out, width, fmt, gamma_lut);
 
-    /* prev_scanline is always defiltered */
+    /* the previous scanline is always defiltered */
     void *t = ctx->prev_scanline;
     ctx->prev_scanline = ctx->scanline;
     ctx->scanline = t;
