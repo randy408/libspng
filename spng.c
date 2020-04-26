@@ -414,18 +414,9 @@ static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline, un
         if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
         scanline_width = scanline_width * sub[i].width;
 
-        scanline_width += 8; /* Filter byte */
+        scanline_width += 15; /* Filter byte + 7 for rounding */
 
-        if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-        /* Round up */
-        if(scanline_width % 8 != 0)
-        {
-            scanline_width = scanline_width + 8;
-            if(scanline_width < 8) return SPNG_EOVERFLOW;
-
-            scanline_width -= (scanline_width % 8);
-        }
+        if(scanline_width < 15) return SPNG_EOVERFLOW;
 
         scanline_width /= 8;
 
