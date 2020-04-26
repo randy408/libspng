@@ -2574,9 +2574,9 @@ void spng_ctx_free(spng_ctx *ctx)
 
     if(ctx->streaming && ctx->stream_buf != NULL) spng__free(ctx, ctx->stream_buf);
 
-    if(ctx->exif.data != NULL && !ctx->user.exif) spng__free(ctx, ctx->exif.data);
+    if(!ctx->user.exif) spng__free(ctx, ctx->exif.data);
 
-    if(ctx->iccp.profile != NULL && !ctx->user.iccp) spng__free(ctx, ctx->iccp.profile);
+    if(!ctx->user.iccp) spng__free(ctx, ctx->iccp.profile);
 
     if(ctx->splt_list != NULL && !ctx->user.splt)
     {
@@ -2601,6 +2601,7 @@ void spng_ctx_free(spng_ctx *ctx)
     }
 
     inflateEnd(&ctx->zstream);
+    
     spng__free(ctx, ctx->gamma_lut16);
 
     spng__free(ctx, ctx->row_buf);
