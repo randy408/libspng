@@ -1608,15 +1608,17 @@ static int read_chunks_before_idat(spng_ctx *ctx)
                     }
                 }
 
+                uint32_t entries_len = chunk.length - keyword_len - 2;
+
                 if(ctx->splt_list[i].sample_depth == 16)
                 {
-                    if( (chunk.length - keyword_len - 2) % 10 != 0) return SPNG_ECHUNK_SIZE;
-                    ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 10;
+                    if(entries_len % 10 != 0) return SPNG_ECHUNK_SIZE;
+                    ctx->splt_list[i].n_entries = entries_len / 10;
                 }
                 else if(ctx->splt_list[i].sample_depth == 8)
                 {
-                    if( (chunk.length - keyword_len - 2) % 6 != 0) return SPNG_ECHUNK_SIZE;
-                    ctx->splt_list[i].n_entries = (chunk.length - keyword_len - 2) / 6;
+                    if(entries_len % 6 != 0) return SPNG_ECHUNK_SIZE;
+                    ctx->splt_list[i].n_entries = entries_len / 6;
                 }
                 else return SPNG_ESPLT_DEPTH;
 
@@ -1683,26 +1685,23 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
                 ctx->file.exif = 1;
 
-                if(!chunk.length) return SPNG_EEXIF;
-
                 struct spng_exif exif;
 
-                exif.data = spng__malloc(ctx, chunk.length);
-                if(exif.data == NULL) return SPNG_EMEM;
-
-                memcpy(exif.data, data, chunk.length);
+                exif.data = data;
                 exif.length = chunk.length;
 
-                if(check_exif(&exif))
+                if(!check_exif(&exif))
                 {
-                    spng__free(ctx, exif.data);
-                    return SPNG_EEXIF;
+                    if(ctx->user.exif) continue;
+
+                    exif.data = spng__malloc(ctx, chunk.length);
+                    if(exif.data == NULL) return SPNG_EMEM;
+
+                    memcpy(exif.data, data, chunk.length);
+                    memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+                    ctx->stored.exif = 1;
                 }
-
-                if(!ctx->user.exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-                else spng__free(ctx, exif.data);
-
-                ctx->stored.exif = 1;
+                else return SPNG_EEXIF;    
             }
         }
         
@@ -1821,26 +1820,23 @@ static int read_chunks_after_idat(spng_ctx *ctx)
 
                 ctx->file.exif = 1;
 
-                if(!chunk.length) return SPNG_EEXIF;
-
                 struct spng_exif exif;
 
-                exif.data = spng__malloc(ctx, chunk.length);
-                if(exif.data == NULL) return SPNG_EMEM;
-
-                memcpy(exif.data, data, chunk.length);
+                exif.data = data;
                 exif.length = chunk.length;
 
-                if(check_exif(&exif))
+                if(!check_exif(&exif))
                 {
-                    spng__free(ctx, exif.data);
-                    return SPNG_EEXIF;
+                    if(ctx->user.exif) continue;
+
+                    exif.data = spng__malloc(ctx, chunk.length);
+                    if(exif.data == NULL) return SPNG_EMEM;
+
+                    memcpy(exif.data, data, chunk.length);
+                    memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+                    ctx->stored.exif = 1;
                 }
-
-                if(!ctx->user.exif) memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-                else spng__free(ctx, exif.data);
-
-                ctx->stored.exif = 1;
+                else return SPNG_EEXIF;    
             }
             else if(!memcmp(chunk.type, type_text, 4) ||
                     !memcmp(chunk.type, type_ztxt, 4) ||
