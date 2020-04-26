@@ -324,6 +324,22 @@ static void spng__zfree(void *opqaue, void *ptr)
     spng__free(ctx, ptr);
 }
 
+static int spng__inflate_init(spng_ctx *ctx)
+{
+    ctx->zstream.zalloc = spng__zalloc;
+    ctx->zstream.zfree = spng__zfree;
+    ctx->zstream.opaque = ctx;
+
+    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+#if ZLIB_VERNUM >= 0x1290
+    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
+#else
+    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#endif
+
+    return 0;
+}
+
 static inline uint16_t read_u16(const void *_data)
 {
     const unsigned char *data = _data;
@@ -2223,16 +2239,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     
     ctx->out_width = ctx->total_out_size / ctx->ihdr.height;
 
-    ctx->zstream.zalloc = spng__zalloc;
-    ctx->zstream.zfree = spng__zfree;
-    ctx->zstream.opaque = ctx;
-
-    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
-#if ZLIB_VERNUM >= 0x1290
-    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
-#else
-    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
-#endif
+    ret = spng__inflate_init(ctx);
+    if(ret) return decode_err(ctx, ret);
 
     ctx->zstream.avail_in = 0;
     ctx->zstream.next_in = ctx->data;
