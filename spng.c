@@ -326,11 +326,14 @@ static void spng__zfree(void *opqaue, void *ptr)
 
 static int spng__inflate_init(spng_ctx *ctx)
 {
+    if(ctx->zstream.state) inflateEnd(&ctx->zstream);
+
     ctx->zstream.zalloc = spng__zalloc;
     ctx->zstream.zfree = spng__zfree;
     ctx->zstream.opaque = ctx;
 
     if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+
 #if ZLIB_VERNUM >= 0x1290
     if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
 #else
@@ -574,15 +577,6 @@ skip_crc:
     return ret;
 }
 
-static int read_fixed_size_chunk(spng_ctx *ctx, uint32_t size)
-{
-    if(ctx == NULL) return 1;
-
-    if(ctx->current_chunk.length != size) return SPNG_ECHUNK_SIZE;
-
-    return read_chunk_bytes(ctx, size);
-}
-
 static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
@@ -610,6 +604,95 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
     }
 
     return 0;
+}
+
+/* Inflate a zlib stream from current position - offset to the end,
+   allocating and writing the inflated stream to *out,
+   final buffer length is *len.
+   Takes into account the chunk cache limit
+*/
+static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t offset)
+{
+    int ret = spng__inflate_init(ctx);
+    if(ret) return ret;
+
+    uint32_t read_size;
+    size_t size = 1 << 13; /* 8192 */
+    void *t, *buf = spng__malloc(ctx, size);
+    if(buf == NULL) return SPNG_EMEM;
+
+    size_t max = ctx->chunk_cache_limit - ctx->chunk_cache_usage;
+
+    z_stream *stream = &ctx->zstream;
+
+    stream->avail_in = ctx->last_read_size - offset;
+    stream->next_in = ctx->data + offset;
+
+    stream->avail_out = size;
+    stream->next_out = buf;
+
+    do
+    {
+        ret = inflate(stream, Z_SYNC_FLUSH);
+
+        if(ret != Z_OK && ret != Z_STREAM_END && ret != Z_BUF_ERROR)
+        {
+            spng__free(ctx, buf);
+            return SPNG_EZLIB;
+        }
+
+        if(!stream->avail_out)
+        {
+            if(2 > SIZE_MAX / size)
+            {
+                spng__free(ctx, buf);
+                return SPNG_EOVERFLOW;
+            }
+
+            size *= 2;
+
+            if(size > max)
+            {
+                spng__free(ctx, buf);
+                return SPNG_EMEM; /* chunk cache limit */
+            }
+
+            t = spng__realloc(ctx, buf, size);
+            if(t == NULL) goto mem;
+            
+            stream->avail_out = size / 2;
+            stream->next_out = buf + size / 2;
+        }
+
+        if(!stream->avail_in) /* Read more chunk bytes */
+        {
+            read_size = ctx->cur_chunk_bytes_left;
+            if(read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
+
+            ret = read_chunk_bytes(ctx, read_size);
+            if(ret) return ret;
+
+            stream->avail_in = read_size;
+            stream->next_in = ctx->data;
+        }
+
+        ret = inflate(stream, Z_SYNC_FLUSH);
+        
+    }while(ret != Z_STREAM_END);
+
+    size = stream->total_out;
+
+    t = spng__realloc(ctx, buf, size);
+    if(t == NULL) goto mem;
+
+    *out = buf;
+    *len = size;
+
+    return 0;
+
+mem:
+    spng__free(ctx, buf);
+    return SPNG_EMEM;
 }
 
 /* Read at least one byte from the IDAT stream */
@@ -1166,7 +1249,7 @@ static int chunk_fits_in_cache(spng_ctx *ctx, size_t *new_usage)
 }
 
 /* Returns non-zero for standard chunks which are stored without allocating memory */
-int is_small_chunk(uint8_t type[4])
+static int is_small_chunk(uint8_t type[4])
 {
     if(!memcmp(type, type_plte, 4)) return 1;
     else if(!memcmp(type, type_chrm, 4)) return 1;
@@ -1546,6 +1629,32 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
             continue;
 
+            if(!memcmp(chunk.type, type_iccp, 4))
+            {
+                if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+                if(ctx->file.iccp) return SPNG_EDUP_ICCP;
+                if(!chunk.length) return SPNG_ECHUNK_SIZE;
+
+                uint32_t keyword_len = 81 > chunk.length ? chunk.length : 81;
+                ret = read_chunk_bytes(ctx, 81);
+
+                unsigned char *keyword_nul = memchr(ctx->data, '\0', keyword_len);
+                if(keyword_nul == NULL) return SPNG_EICCP_NAME;
+
+                memcpy(ctx->iccp.profile_name, ctx->data, keyword_nul - ctx->data);
+
+                if(check_png_keyword(ctx->iccp.profile_name)) return SPNG_EICCP_NAME;
+
+                if(chunk.length - keyword_len - 1) return SPNG_ECHUNK_SIZE;
+
+                if(ctx->data[keyword_len + 1] != 0) return SPNG_EICCP_COMPRESSION_METHOD;
+                
+                ctx->last_read_size = keyword_len;
+                ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, keyword_len + 1);
+
+                continue;
+            }
+
             if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
             {
                 ret = discard_chunk_bytes(ctx, chunk.length);
@@ -1668,15 +1777,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             {
                 ctx->file.text = 1;
 
-                continue;
-            }
-            else if(!memcmp(chunk.type, type_iccp, 4))
-            {
-                if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
-                if(ctx->file.iccp) return SPNG_EDUP_ICCP;
-                if(!chunk.length) return SPNG_ECHUNK_SIZE;
-
-                
                 continue;
             }
             else if(!memcmp(chunk.type, type_exif, 4))
