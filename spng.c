@@ -464,16 +464,8 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
     if(ctx == NULL) return 1;
     if(!bytes) return 0;
 
-    if(ctx->streaming && (bytes > ctx->data_size))
-    {
-        void *buf = spng__realloc(ctx, ctx->stream_buf, bytes);
-        if(buf == NULL) return SPNG_EMEM;
-
-        ctx->stream_buf = buf;
-        ctx->data = ctx->stream_buf;
-        ctx->data_size = bytes;
-    }
-
+    if(ctx->streaming && (bytes > SPNG_READ_SIZE)) return 1;
+    
     int ret;
     ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->stream_buf, bytes);
     if(ret) return ret;
