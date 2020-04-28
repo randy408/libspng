@@ -1043,14 +1043,13 @@ static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t
 
             break;
         }
-    default: return SPNG_ECOLOR_TYPE;
+        default: return SPNG_ECOLOR_TYPE;
     }
 
     if(ihdr->compression_method) return SPNG_ECOMPRESSION_METHOD;
     if(ihdr->filter_method) return SPNG_EFILTER_METHOD;
 
-    if( !(ihdr->interlace_method == 0 || ihdr->interlace_method == 1) )
-        return SPNG_EINTERLACE_METHOD;
+    if(ihdr->interlace_method > 1) return SPNG_EINTERLACE_METHOD;
 
     return 0;
 }
