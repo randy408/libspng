@@ -2344,7 +2344,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 
     if(len < (pixel_size * width)) return SPNG_EBUFSIZ;
 
-    if(ctx->ihdr.interlace_method)
+    if(ctx->ihdr.interlace_method && pass != 6)
     {
         ret = spng_decode_scanline(ctx, ctx->row, len); // XXX: should be row length
 
@@ -2357,9 +2357,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
             memcpy(out + ioffset, ctx->row + k * pixel_size, pixel_size);
         }
     }
-    else ret = spng_decode_scanline(ctx, out, len);
-
-    if(ret) return ret;
+    else return spng_decode_scanline(ctx, out, len);
 
     return 0;
 }
