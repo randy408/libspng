@@ -103,7 +103,7 @@ This function requires the decoder to be initialized by calling
 
 The widest scanline is the decoded image size divided by `ihdr.height`.
 
-A return value of `SPNG_EOI` indicates the end of the image.
+For the last scanline and subsequent calls the return value is `SPNG_EOI`.
 
 # spng_decode_row()
 ```c
@@ -117,7 +117,7 @@ This function requires the decoder to be initialized by calling
 
 The width of the row is the decoded image size divided by `ihdr.height`.
 
-A return value of `SPNG_EOI` indicates the end of the image.
+For the last row and subsequent calls the return value is `SPNG_EOI`.
 
 # spng_get_row_info()
 ```c
