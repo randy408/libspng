@@ -29,7 +29,7 @@ The goal is to provide a fast PNG library with a simpler API than [libpng](https
 | Decode from stream        | ✅         | ✅       | ✅        | ❌      |
 | Gamma correction          | ✅         | ✅       | ❌        | ❌      |
 | Fuzzed by [OSS-Fuzz][1]   | ✅         | ✅       | ❌        | ✅      |
-| Progressive read          | ❌*        | ✅       | ❌        | ❌      |
+| Progressive read          | ✅         | ✅       | ❌        | ❌      |
 | Doesn't require zlib      | ❌*        | ❌       | ✅        | ✅      |
 | Encoding                  | ❌*        | ✅       | ✅        | ✅      |
 | Animated PNG              | ❌*        | ✅**     | ❌        | ❌      |

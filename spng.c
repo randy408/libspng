@@ -132,7 +132,6 @@ struct decode_flags
     unsigned interlaced;
     unsigned same_layout;
     unsigned zerocopy;
-    int fmt;
 };
 
 struct spng_chunk_bitfield
@@ -179,6 +178,7 @@ struct spng_ctx
     struct spng_alloc alloc;
 
     int flags;
+    int fmt;
 
     unsigned state: 4;
     unsigned streaming: 1;
@@ -2009,7 +2009,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     memcpy(&f, &ctx->decode_flags, sizeof(struct decode_flags));
 
     int ret;
-    int fmt = f.fmt;
+    int fmt = ctx->fmt;
 
     struct spng_row_info *ri = &ctx->row_info;
     struct spng_subimage *sub = ctx->subimage;
@@ -2025,7 +2025,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     uint8_t next_filter = 0;
     size_t scanline_width = sub[pass].scanline_width;
     uint32_t k; 
-    uint32_t scanline_idx = ctx->row_info.scanline_idx;
+    uint32_t scanline_idx = ri->scanline_idx;
     uint32_t width = sub[pass].width;
     uint8_t r_8, g_8, b_8, a_8, gray_8;
     uint16_t r_16, g_16, b_16, a_16, gray_16;
@@ -2038,45 +2038,29 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
     size_t pixel_offset = 0;
     unsigned char *pixel;
-    unsigned depth_target = 8; /* FMT_RGBA8 */
     unsigned processing_depth = ctx->ihdr.bit_depth;
 
     if(f.indexed) processing_depth = 8;
 
-    if(fmt == SPNG_FMT_RGBA16)
-    {
-        depth_target = 16;
-        pixel_size = 8;
-    }
+    if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
 
     if(len < (width * pixel_size)) return SPNG_EBUFSIZ;
-
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
-       ctx->ihdr.bit_depth == depth_target)
-    {
-        f.same_layout = 1;
-        /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
-    }
 
     if(!scanline_idx)
     {
         /* prev_scanline is all zeros for the first scanline */
         memset(ctx->prev_scanline, 0, scanline_width);
-
-        /* Read the first filter byte, offsetting all reads by 1 byte.
-        The scanlines will be aligned with the start of the array with
-        the next scanline's filter byte at the end,
-        the last scanline will end up being 1 byte "shorter". */
-        ret = read_scanline_bytes(ctx, &ctx->zstream, &ri->filter, 1);
-        if(ret) return decode_err(ctx, ret);
     }
 
-    if(scanline_idx < (sub[pass].height - 1))
+    if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
+    {
+        ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width - 1);
+    }
+    else
     {
         ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width);
         memcpy(&next_filter, ctx->scanline + scanline_width - 1, 1);
     }
-    else ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width - 1);
 
     if(ret) return decode_err(ctx, ret);
 
@@ -2267,7 +2251,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
             memcpy(pixel + 4, &b_16, 2);
             memcpy(pixel + 6, &a_16, 2);
         }
-    }/* for(k=0; k < sub[pass].width; k++) */
+    }/* for(k=0; k < width; k++) */
 
     if(f.apply_trns) trns_row(out, scanline, trns_px, width, fmt, ctx->ihdr.color_type, ctx->ihdr.bit_depth);
 
@@ -2280,76 +2264,48 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     ctx->prev_scanline = ctx->scanline;
     ctx->scanline = t;
 
-    ctx->row_info.row_num++;
-    return 0;
-}
-
-static int decode_scanlines(spng_ctx *ctx, unsigned char *out)
-{
-    if(ctx == NULL || out == NULL) return 1;
-
-    struct decode_flags f = {0};
-
-    memcpy(&f, &ctx->decode_flags, sizeof(struct decode_flags));
-
-    if(f.zerocopy) ctx->scanline = out;
-
-    int pass, ret;
-    size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
-
-    if(f.fmt == SPNG_FMT_RGBA16) pixel_size = 8;
-
-    struct spng_subimage *sub = ctx->subimage;
-    struct spng_row_info *ri = &ctx->row_info;
-
-    while(ri->pass <= ctx->last_pass)
+    if(ri->scanline_idx == (sub[pass].height - 1)) /* Last scanline */
     {
-        /* Skip empty passes */
-        while( (!sub[ri->pass].width || !sub[ri->pass].height) && (ri->pass < ctx->last_pass)) ri->pass++;
-
-        pass = ri->pass;
-
-        size_t ioffset, len;
-
-        if(f.interlaced) len = pixel_size * sub[pass].width;
-        else len = ctx->out_width;
-
-        for(ri->scanline_idx=0; ri->scanline_idx < sub[pass].height; ri->scanline_idx++)
+        if(ri->pass == ctx->last_pass)
         {
-            if(f.interlaced) ri->row_num = adam7_y_start[pass] + ri->scanline_idx * adam7_y_delta[pass];
-
-            ioffset = ri->row_num * ctx->out_width;
-
-            ret = spng_decode_row(ctx, out + ioffset, len);
-            if(ret) return ret;
+            ctx->state = SPNG_STATE_EOI;
+            return SPNG_EOI;
         }
 
+        ri->scanline_idx = 0;
         ri->pass++;
+
+        /* Skip empty passes */
+        while( (!sub[ri->pass].width || !sub[ri->pass].height) && (ri->pass < ctx->last_pass)) ri->pass++;
+    }
+    else
+    {
+        ri->row_num++;
+        ri->scanline_idx++;
     }
 
-
+    if(f.interlaced) ri->row_num = adam7_y_start[ri->pass] + ri->scanline_idx * adam7_y_delta[ri->pass];
+    
     return 0;
 }
 
 int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
-    if(ctx->state >= SPNG_STATE_EOI) return 1;
+    if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(len < ctx->out_width) return SPNG_EBUFSIZ;
 
-    int ret, k, pass = ctx->row_info.pass;
-    uint32_t width = ctx->subimage[pass].width;
-    //uint32_t scanline_idx = ctx->row_info.scanline_idx;
-    unsigned pixel_size = ctx->decode_flags.fmt == SPNG_FMT_RGBA8 ? 4 : 8;
-
-    if(len < (pixel_size * width)) return SPNG_EBUFSIZ;
+    int ret, pass = ctx->row_info.pass;
 
     if(ctx->ihdr.interlace_method && pass != 6)
     {
         ret = spng_decode_scanline(ctx, ctx->row, len); // XXX: should be row length
+        if(ret && ret != SPNG_EOI) return ret;
 
-        if(ret) return ret;
+        uint32_t k;
+        unsigned pixel_size = ctx->fmt == SPNG_FMT_RGBA8 ? 4 : 8;
 
-        for(k=0; k < width; k++)
+        for(k=0; k < ctx->subimage[pass].width; k++)
         {
             size_t ioffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
 
@@ -2358,13 +2314,13 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
     }
     else return spng_decode_scanline(ctx, out, len);
 
-    return 0;
+    return ret;
 }
 
 int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
-     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
 
     int ret = spng_decoded_image_size(ctx, fmt, &ctx->total_out_size);
     if(ret) return decode_err(ctx, ret);
@@ -2384,7 +2340,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
     struct decode_flags f = {0};
 
-    f.fmt = fmt;
+    ctx->fmt = fmt;
 
     if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
 
@@ -2423,6 +2379,13 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
     if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) f.use_sbit = 1;
     else flags &= ~SPNG_DECODE_USE_SBIT;
+
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
+       ctx->ihdr.bit_depth == depth_target)
+    {
+        f.same_layout = 1;
+        /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
+    }
 
     uint16_t *gamma_lut = NULL;
 
@@ -2594,17 +2557,29 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
     if(f.interlaced) ri->row_num = adam7_y_start[ri->pass];
 
+    /* Read the first filter byte, offsetting all reads by 1 byte.
+    The scanlines will be aligned with the start of the array with
+    the next scanline's filter byte at the end,
+    the last scanline will end up being 1 byte "shorter". */
+    ret = read_scanline_bytes(ctx, &ctx->zstream, &ri->filter, 1);
+    if(ret) return decode_err(ctx, ret);
+
     if(flags & SPNG_DECODE_PROGRESSIVE)
     {
         return 0;
     }
 
+    if(out == NULL) return 1;
     if(len < ctx->total_out_size) return SPNG_EBUFSIZ;
 
-    if(out == NULL) return 1;
+    do
+    {
+        size_t ioffset = ri->row_num * ctx->out_width;
 
-    ret = decode_scanlines(ctx, out);
-    if(ret) return decode_err(ctx, ret);
+        ret = spng_decode_row(ctx, out + ioffset, ctx->out_width);
+    }while(!ret);
+
+    if(ret != SPNG_EOI) return decode_err(ctx, ret);
 
     return decode_finish(ctx);
 }
