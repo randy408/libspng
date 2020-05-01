@@ -7,7 +7,6 @@ int main(int argc, char **argv)
 {
     int r = 0;
     FILE *png;
-    char *pngbuf = NULL;
     spng_ctx *ctx = NULL;
     unsigned char *out = NULL;
 
@@ -24,26 +23,6 @@ int main(int argc, char **argv)
         goto err;
     }
 
-    fseek(png, 0, SEEK_END);
-
-    long siz_pngbuf = ftell(png);
-    rewind(png);
-
-    if(siz_pngbuf < 1) goto err;
-
-    pngbuf = malloc(siz_pngbuf);
-    if(pngbuf == NULL)
-    {
-        printf("malloc() failed\n");
-        goto err;
-    }
-
-    if(fread(pngbuf, siz_pngbuf, 1, png) != 1)
-    {
-        printf("fread() failed\n");
-        goto err;
-    }
-
     ctx = spng_ctx_new(0);
     if(ctx == NULL)
     {
@@ -51,21 +30,9 @@ int main(int argc, char **argv)
         goto err;
     }
 
-    r = spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+    spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
 
-    if(r)
-    {
-        printf("spng_set_crc_action() error: %s\n", spng_strerror(r));
-        goto err;
-    }
-
-    r = spng_set_png_buffer(ctx, pngbuf, siz_pngbuf);
-
-    if(r)
-    {
-        printf("spng_set_png_buffer() error: %s\n", spng_strerror(r));
-        goto err;
-    }
+    spng_set_png_file(ctx, png);
 
     struct spng_ihdr ihdr;
     r = spng_get_ihdr(ctx, &ihdr);
@@ -97,7 +64,7 @@ int main(int argc, char **argv)
            ihdr.compression_method, ihdr.filter_method,
            ihdr.interlace_method);
 
-    size_t out_size;
+    size_t out_size, out_width;
 
     r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
 
@@ -106,19 +73,44 @@ int main(int argc, char **argv)
     out = malloc(out_size);
     if(out == NULL) goto err;
 
-    r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
+    /* This is required to initialize for progressive decoding */
+    r = spng_decode_image(ctx, NULL, 0, SPNG_FMT_RGBA8, SPNG_DECODE_PROGRESSIVE);
+    if(r)
+    {
+        printf("progressive spng_decode_image() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
+    /* ihdr.height will always be non-zero if spng_get_ihdr() succeeds */
+    out_width = out_size / ihdr.height; 
+
+    struct spng_row_info row_info = {0};
+
+    do
+    {
+        r = spng_get_row_info(ctx, &row_info);
+        if(r) break;
+
+        r = spng_decode_row(ctx, out + row_info.row_num * out_width, out_width);
+    }
+    while(!r);
+
+    if(r != SPNG_EOI)
+    {
+        printf("progressive decode error: %s\n", spng_strerror(r));
+    }
+
+    /* r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 
     if(r)
     {
         printf("spng_decode_image() error: %s\n", spng_strerror(r));
         goto err;
-    }
+    } */
 
 err:
     spng_ctx_free(ctx);
-    
     free(out);
-    free(pngbuf);
 
     return r;
 }
