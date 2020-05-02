@@ -1,8 +1,6 @@
 #ifndef TEST_SPNG_H
 #define TEST_SPNG_H
 
-#define SPNG_UNTESTED
-
 #include <spng.h>
 
 #include <stdio.h>
@@ -17,7 +15,7 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
 
     spng_ctx *ctx = spng_ctx_new(0);
 
-    if(ctx==NULL)
+    if(ctx == NULL)
     {
         printf("spng_ctx_new() failed\n");
         return NULL;
@@ -63,7 +61,7 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
     *out_size = siz;
 
     out = malloc(siz);
-    if(out==NULL) goto err;
+    if(out == NULL) goto err;
 
     r = spng_decode_image(ctx, out, siz,  fmt, flags);
 
@@ -79,7 +77,7 @@ goto skip_err;
 
 err:
     spng_ctx_free(ctx);
-    if(out !=NULL) free(out);
+    if(out != NULL) free(out);
     return NULL;
 
 skip_err:

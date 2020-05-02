@@ -1,5 +1,3 @@
-/*#define TEST_SPNG_STREAM_READ_INFO*/
-
 #include <inttypes.h>
 
 #include "test_spng.h"
@@ -36,10 +34,11 @@ void print_test_args(struct spng_test_case *test_case)
 
 void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
 {
-/* With libpng it's not possible to request 8/16-bit images regardless of
-       PNG format without calling functions that alias to png_set_expand(_16),
-       which acts as if png_set_tRNS_to_alpha() was called, as a result
-       there are no tests where transparency is not applied */
+/*  With libpng it's not possible to request 8/16-bit images regardless of
+    PNG format without calling functions that alias to png_set_expand(_16),
+    which acts as if png_set_tRNS_to_alpha() was called, as a result
+    there are no tests where transparency is not applied
+*/
     
     int n=0;
 
@@ -219,7 +218,7 @@ int decode_and_compare(FILE *file, int fmt, int flags)
     unsigned char *img_spng =  NULL;
 
     img_spng = getimage_libspng(file, &img_spng_size, fmt, flags, &ihdr);
-    if(img_spng==NULL)
+    if(img_spng == NULL)
     {
         printf("getimage_libspng() failed\n");
         return 1;
@@ -231,7 +230,7 @@ int decode_and_compare(FILE *file, int fmt, int flags)
     unsigned char *img_png = NULL;
 
     img_png = getimage_libpng(file, &img_png_size, fmt, flags);
-    if(img_png==NULL)
+    if(img_png == NULL)
     {
         printf("getimage_libpng() failed\n");
         free(img_spng);
@@ -248,13 +247,12 @@ int decode_and_compare(FILE *file, int fmt, int flags)
     }
 
     int ret = 0;
-    int ret_memcmp = memcmp(img_spng, img_png, img_spng_size);
 
-    if(!ret_memcmp) goto identical;
+    if(!memcmp(img_spng, img_png, img_spng_size)) goto identical;
 
     ret = compare_images(&ihdr, fmt, flags, img_spng, img_png);
 
-    if( !(flags & SPNG_DECODE_GAMMA) && !ret)
+    if(!ret && !(flags & SPNG_DECODE_GAMMA))
     {/* in case compare_images() has some edge case */
         printf("compare_images() returned 0 but images are not identical\n");
         ret = 1;
@@ -296,7 +294,7 @@ int main(int argc, char **argv)
 
     file = fopen(filename, "rb");
 
-    if(file==NULL)
+    if(file == NULL)
     {
         printf("error opening input file %s\n", filename);
         return 1;
