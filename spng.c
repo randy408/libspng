@@ -124,14 +124,14 @@ struct spng_plte_entry16
 
 struct decode_flags
 {
-    unsigned apply_trns;
-    unsigned apply_gamma;
-    unsigned use_sbit;
-    unsigned indexed;
-    unsigned do_scaling;
-    unsigned interlaced;
-    unsigned same_layout;
-    unsigned zerocopy;
+    unsigned apply_trns:  1;
+    unsigned apply_gamma: 1;
+    unsigned use_sbit:    1;
+    unsigned indexed:     1;
+    unsigned do_scaling:  1;
+    unsigned interlaced:  1;
+    unsigned same_layout: 1;
+    unsigned zerocopy:    1;
 };
 
 struct spng_chunk_bitfield
@@ -258,6 +258,8 @@ struct spng_ctx
 };
 
 static const uint32_t png_u32max = 2147483647;
+
+static const uint8_t png_signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
 static const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
 static const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
@@ -839,7 +841,7 @@ no_opt:
             memcpy(&b, prev_scanline + i, 1);
             memcpy(&c, prev_scanline + i - bytes_per_pixel, 1);
         }
-        else /* first pixel in row */
+        else /* First pixel in row */
         {
             a = 0;
             memcpy(&b, prev_scanline + i, 1);
@@ -1280,8 +1282,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
     data = ctx->data;
 
-    uint8_t signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
-    if(memcmp(data, signature, sizeof(signature))) return SPNG_ESIGNATURE;
+    if(memcmp(data, png_signature, sizeof(png_signature))) return SPNG_ESIGNATURE;
 
     chunk.length = read_u32(data + 8);
     memcpy(&chunk.type, data + 12, 4);
@@ -2259,7 +2260,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 
     if(f.apply_gamma) gamma_correct_row(out, width, fmt, gamma_lut);
 
-    /* the previous scanline is always defiltered */
+    /* The previous scanline is always defiltered */
     void *t = ctx->prev_scanline;
     ctx->prev_scanline = ctx->scanline;
     ctx->scanline = t;
