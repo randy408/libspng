@@ -102,29 +102,29 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
 
                 size_t px_ofs = (x + (y * w)) * bytes_per_pixel;
 
-                    memcpy(&s_red, img_spng + px_ofs, 2);
-                    memcpy(&s_green, img_spng + px_ofs + 2, 2);
-                    memcpy(&s_blue, img_spng + px_ofs + 4, 2);
+                memcpy(&s_red, img_spng + px_ofs, 2);
+                memcpy(&s_green, img_spng + px_ofs + 2, 2);
+                memcpy(&s_blue, img_spng + px_ofs + 4, 2);
 
-                    memcpy(&p_red, img_png + px_ofs, 2);
-                    memcpy(&p_green, img_png + px_ofs + 2, 2);
-                    memcpy(&p_blue, img_png + px_ofs + 4, 2);
+                memcpy(&p_red, img_png + px_ofs, 2);
+                memcpy(&p_green, img_png + px_ofs + 2, 2);
+                memcpy(&p_blue, img_png + px_ofs + 4, 2);
 
-                    if(have_alpha)
-                    {
-                        memcpy(&s_alpha, img_spng + px_ofs + 6, 2);
-                        memcpy(&p_alpha, img_png + px_ofs + 6, 2);
-                        spng_alpha = s_alpha;
-                        png_alpha = p_alpha;
-                    }
+                if(have_alpha)
+                {
+                    memcpy(&s_alpha, img_spng + px_ofs + 6, 2);
+                    memcpy(&p_alpha, img_png + px_ofs + 6, 2);
+                    spng_alpha = s_alpha;
+                    png_alpha = p_alpha;
+                }
 
-                    spng_red = s_red;
-                    spng_green = s_green;
-                    spng_blue = s_blue;
+                spng_red = s_red;
+                spng_green = s_green;
+                spng_blue = s_blue;
 
-                    png_red = p_red;
-                    png_green = p_green;
-                    png_blue = p_blue;
+                png_red = p_red;
+                png_green = p_green;
+                png_blue = p_blue;
             }
             else /* FMT_RGBA8 */
             {
