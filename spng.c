@@ -235,6 +235,7 @@ struct spng_ctx
     size_t total_out_size;
     size_t out_width; /* total_out_size / ihdr.height */
 
+    unsigned channels;
     unsigned bytes_per_pixel;
     int last_pass; /* last non-empty pass */
 
@@ -384,7 +385,7 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
     }
 }
 
-static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline, unsigned channels)
+static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline)
 {
     if(ctx == NULL) return 1;
 
@@ -421,7 +422,7 @@ static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline, un
     {/* Calculate scanline width in bits, round up to the nearest byte */
         if(sub[i].width == 0 || sub[i].height == 0) continue;
 
-        scanline_width = channels * ihdr->bit_depth;
+        scanline_width = ctx->channels * ihdr->bit_depth;
 
         if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
         scanline_width = scanline_width * sub[i].width;
@@ -1299,16 +1300,16 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     ctx->file.ihdr = 1;
     ctx->stored.ihdr = 1;
 
-    unsigned channels = 1; /* grayscale or indexed color */
+    ctx->channels = 1; /* grayscale or indexed color */
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) channels = 3;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) channels = 2;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) channels = 4;
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) ctx->channels = 3;
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) ctx->channels = 2;
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) ctx->channels = 4;
 
     if(ctx->ihdr.bit_depth < 8) ctx->bytes_per_pixel = 1;
-    else ctx->bytes_per_pixel = channels * (ctx->ihdr.bit_depth / 8);
+    else ctx->bytes_per_pixel = ctx->channels * (ctx->ihdr.bit_depth / 8);
 
-    ret = calculate_subimages(ctx, &ctx->scanline_width, channels);
+    ret = calculate_subimages(ctx, &ctx->scanline_width);
     if(ret) return ret;
 
     struct spng_chunk_bitfield stored;
