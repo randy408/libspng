@@ -2048,8 +2048,10 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     else
     {
         ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width);
+        if(ret) return decode_err(ctx, ret);
+
         memcpy(&next_filter, ctx->scanline + scanline_width - 1, 1);
-        if(next_filter > 4) return SPNG_EFILTER;
+        if(next_filter > 4) ret = SPNG_EFILTER;
     }
 
     if(ret) return decode_err(ctx, ret);
@@ -2315,6 +2317,12 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     int ret = spng_decoded_image_size(ctx, fmt, &ctx->total_out_size);
     if(ret) return decode_err(ctx, ret);
     
+    if( !(flags & SPNG_DECODE_PROGRESSIVE) )
+    {
+        if(out == NULL) return 1;
+        if(len < ctx->total_out_size) return SPNG_EBUFSIZ;
+    }
+
     ctx->out_width = ctx->total_out_size / ctx->ihdr.height;
 
     ret = spng__inflate_init(ctx);
@@ -2562,15 +2570,12 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     ret = read_scanline_bytes(ctx, &ctx->zstream, &ri->filter, 1);
     if(ret) return decode_err(ctx, ret);
 
-    if(ri->filter > 4) return SPNG_EFILTER;
+    if(ri->filter > 4) return decode_err(ctx, SPNG_EFILTER);
 
     if(flags & SPNG_DECODE_PROGRESSIVE)
     {
         return 0;
     }
-
-    if(out == NULL) return 1;
-    if(len < ctx->total_out_size) return SPNG_EBUFSIZ;
 
     do
     {
