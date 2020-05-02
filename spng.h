@@ -123,6 +123,15 @@ enum spng_color_type
     SPNG_COLOR_TYPE_TRUECOLOR_ALPHA = 6
 };
 
+enum spng_filter
+{
+    SPNG_FILTER_NONE = 0,
+    SPNG_FILTER_SUB = 1,
+    SPNG_FILTER_UP = 2,
+    SPNG_FILTER_AVERAGE = 3,
+    SPNG_FILTER_PAETH = 4
+};
+
 enum spng_interlace_method
 {
     SPNG_INTERLACE_NONE = 0,

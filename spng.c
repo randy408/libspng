@@ -67,15 +67,6 @@
     #define SPNG_LITTLE_ENDIAN
 #endif
 
-enum spng_filter
-{
-    SPNG_FILTER_NONE = 0,
-    SPNG_FILTER_SUB = 1,
-    SPNG_FILTER_UP = 2,
-    SPNG_FILTER_AVERAGE = 3,
-    SPNG_FILTER_PAETH = 4
-};
-
 enum spng_state
 {
     SPNG_STATE_INVALID = 0,
