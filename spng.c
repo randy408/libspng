@@ -2289,24 +2289,23 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 
     int ret, pass = ctx->row_info.pass;
 
-    if(ctx->ihdr.interlace_method && pass != 6)
+    if(!ctx->ihdr.interlace_method || pass == 6) return spng_decode_scanline(ctx, out, len); 
+
+    ret = spng_decode_scanline(ctx, ctx->row, ctx->out_width);
+    if(ret && ret != SPNG_EOI) return ret;
+
+    uint32_t k;
+    unsigned pixel_size = 4; /* RGBA8 */
+    if(ctx->fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+
+    for(k=0; k < ctx->subimage[pass].width; k++)
     {
-        ret = spng_decode_scanline(ctx, ctx->row, len); // XXX: should be row length
-        if(ret && ret != SPNG_EOI) return ret;
+        size_t ioffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
 
-        uint32_t k;
-        unsigned pixel_size = ctx->fmt == SPNG_FMT_RGBA8 ? 4 : 8;
-
-        for(k=0; k < ctx->subimage[pass].width; k++)
-        {
-            size_t ioffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
-
-            memcpy(out + ioffset, ctx->row + k * pixel_size, pixel_size);
-        }
+        memcpy(out + ioffset, ctx->row + k * pixel_size, pixel_size);
     }
-    else return spng_decode_scanline(ctx, out, len);
 
-    return ret;
+    return 0;
 }
 
 int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
