@@ -231,12 +231,12 @@ struct spng_ctx
     unsigned char *scanline_buf, *prev_scanline_buf, *row_buf;
     unsigned char *scanline, *prev_scanline, *row;
     
-    size_t scanline_width;
     size_t total_out_size;
     size_t out_width; /* total_out_size / ihdr.height */
 
     unsigned channels;
     unsigned bytes_per_pixel;
+    int widest_pass;
     int last_pass; /* last non-empty pass */
 
     uint16_t *gamma_lut; /* points to either _lut8 or _lut16 */
@@ -385,7 +385,7 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
     }
 }
 
-static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline)
+static int calculate_subimages(struct spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
 
@@ -415,9 +415,9 @@ static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline)
         sub[0].height = ihdr->height;
     }
 
-    size_t scanline_width, widest = 0;
-
     int i;
+    size_t scanline_width;
+
     for(i=0; i < 7; i++)
     {/* Calculate scanline width in bits, round up to the nearest byte */
         if(sub[i].width == 0 || sub[i].height == 0) continue;
@@ -435,12 +435,10 @@ static int calculate_subimages(struct spng_ctx *ctx, size_t *widest_scanline)
 
         sub[i].scanline_width = scanline_width;
 
-        if(widest < scanline_width) widest = scanline_width;
+        if(sub[ctx->widest_pass].scanline_width < scanline_width) ctx->widest_pass = i;
 
         ctx->last_pass = i;
     }
-
-    *widest_scanline = widest;
 
     return 0;
 }
@@ -1309,7 +1307,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     if(ctx->ihdr.bit_depth < 8) ctx->bytes_per_pixel = 1;
     else ctx->bytes_per_pixel = ctx->channels * (ctx->ihdr.bit_depth / 8);
 
-    ret = calculate_subimages(ctx, &ctx->scanline_width);
+    ret = calculate_subimages(ctx);
     if(ret) return ret;
 
     struct spng_chunk_bitfield stored;
@@ -2325,8 +2323,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     ctx->zstream.avail_in = 0;
     ctx->zstream.next_in = ctx->data;
 
-    ctx->scanline_buf = spng__malloc(ctx, ctx->scanline_width);
-    ctx->prev_scanline_buf = spng__malloc(ctx, ctx->scanline_width);
+    ctx->scanline_buf = spng__malloc(ctx, ctx->subimage[ctx->widest_pass].scanline_width);
+    ctx->prev_scanline_buf = spng__malloc(ctx, ctx->subimage[ctx->widest_pass].scanline_width);
     ctx->scanline = ctx->scanline_buf;
     ctx->prev_scanline = ctx->prev_scanline_buf;
 
