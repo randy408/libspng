@@ -123,6 +123,12 @@ enum spng_color_type
     SPNG_COLOR_TYPE_TRUECOLOR_ALPHA = 6
 };
 
+enum spng_interlace_method
+{
+    SPNG_INTERLACE_NONE = 0,
+    SPNG_INTERLACE_ADAM7 = 1
+};
+
 enum spng_format
 {
     SPNG_FMT_RGBA8 = 1,
