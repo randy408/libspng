@@ -814,8 +814,6 @@ static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *
 no_opt:
 #endif
 
-    if(filter > 4) return SPNG_EFILTER;
-
     if(filter == SPNG_FILTER_UP)
     {
         defilter_up(scanline_width, scanline, prev_scanline);
@@ -2052,6 +2050,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     {
         ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width);
         memcpy(&next_filter, ctx->scanline + scanline_width - 1, 1);
+        if(next_filter > 4) return SPNG_EFILTER;
     }
 
     if(ret) return decode_err(ctx, ret);
@@ -2555,6 +2554,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     the last scanline will end up being 1 byte "shorter". */
     ret = read_scanline_bytes(ctx, &ctx->zstream, &ri->filter, 1);
     if(ret) return decode_err(ctx, ret);
+
+    if(ri->filter > 4) return SPNG_EFILTER;
 
     if(flags & SPNG_DECODE_PROGRESSIVE)
     {
