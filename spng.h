@@ -138,6 +138,7 @@ enum spng_interlace_method
     SPNG_INTERLACE_ADAM7 = 1
 };
 
+/* All formats are in host-endian, channels are in byte-order */
 enum spng_format
 {
     SPNG_FMT_RGBA8 = 1,
