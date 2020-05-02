@@ -70,15 +70,15 @@
 enum spng_state
 {
     SPNG_STATE_INVALID = 0,
-    SPNG_STATE_INIT = 1, /* no buffer/stream is set */
-    SPNG_STATE_INPUT, /* input PNG was set */
+    SPNG_STATE_INIT = 1, /* No buffer/stream is set */
+    SPNG_STATE_INPUT, /* Input PNG was set */
     SPNG_STATE_IHDR, /* IHDR was read */
-    SPNG_STATE_FIRST_IDAT,  /* */
-    SPNG_STATE_DECODE_INIT, /* */
-    SPNG_STATE_EOI,
-    SPNG_STATE_LAST_IDAT, /* set at end of decode_image() */
-    SPNG_STATE_AFTER_IDAT,
-    SPNG_STATE_IEND, /* reached IEND */
+    SPNG_STATE_FIRST_IDAT,  /*  */
+    SPNG_STATE_DECODE_INIT, /* Decoder is ready for progressive reads */
+    SPNG_STATE_EOI, /* Reached the last scanline/row */
+    SPNG_STATE_LAST_IDAT, /* Reached last IDAT, set at end of decode_image() */
+    SPNG_STATE_AFTER_IDAT, /*  */
+    SPNG_STATE_IEND, /* Reached IEND */
 };
 
 #define SPNG_STR(x) _SPNG_STR(x)
