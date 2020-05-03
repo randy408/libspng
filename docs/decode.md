@@ -34,6 +34,14 @@ enum spng_decode_flags
 };
 ```
 
+# Supported format, flag combinations
+
+
+| PNG Format | Output format     | Flags | Notes                                       |
+|------------|-------------------|-------|---------------------------------------------|
+| Any format | `SPNG_FMT_RGBA8`  | All   | Convert from any PNG format and bit depth   |
+| Any format | `SPNG_FMT_RGBA16` | All   | Convert from any PNG format and bit depth   |
+
 
 # API
 
@@ -88,6 +96,9 @@ Interlaced images are deinterlaced, 16-bit images are converted to host-endian.
 If the `SPNG_DECODE_PROGRESSIVE` flag is set the decoder will be
 initialized with `fmt`, `flags` for progressive decoding,
 the image is not decoded and the values of `out`, `len` are ignored.
+
+The `SPNG_DECODE_TNRS` flag is ignored if the PNG has an alpha channel
+or does not contain a tRNS chunk, it is also ignored for gray 1/2/4-bit images.
 
 This function can only be called once per context.
 
