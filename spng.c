@@ -2365,13 +2365,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     unsigned depth_target = 8; /* FMT_RGBA8 */
     if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
 
-    if(fmt == SPNG_FMT_PNG)
-    {
-        if(flags) return decode_err(ctx, SPNG_EFLAGS); /* For now */
-        f.same_layout = 1;
-        f.do_scaling = 0;
-    }
-
     if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
     else flags &= ~SPNG_DECODE_TRNS;
 
@@ -2388,9 +2381,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
        ctx->ihdr.bit_depth == depth_target)
     {
         f.same_layout = 1;
+        /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
     }
-
-    /*if(f.same_layout && !flags && !f.interlaced) f.zerocopy = 1;*/
 
     uint16_t *gamma_lut = NULL;
 
@@ -2832,10 +2824,6 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
         if(res > SIZE_MAX / 8) return SPNG_EOVERFLOW;
 
         res = res * 8;
-    }
-    else if(fmt == SPNG_FMT_PNG)
-    {
-        res = ctx->subimage[ctx->widest_pass].scanline_width - 1;
     }
     else return SPNG_EFMT;
 

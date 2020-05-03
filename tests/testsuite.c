@@ -15,8 +15,7 @@ struct spng_test_case
 void print_test_args(struct spng_test_case *test_case)
 {
     printf("Decode and compare ");
-    if(test_case->fmt == SPNG_FMT_PNG) printf("PNG, ");
-    else if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
+    if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
     else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
 
     printf("FLAGS: ");
@@ -57,10 +56,6 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
     test_cases[n].fmt = SPNG_FMT_RGBA16;
     test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
     test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_PNG;
-    test_cases[n].flags = 0;
-  //  test_cases[n++].test_flags = 0;
 
     *test_cases_n = n;
 }
