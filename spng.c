@@ -385,6 +385,29 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
     }
 }
 
+static int calculate_scaline_width(struct spng_ctx *ctx, struct spng_subimage *sub)
+{
+    if(sub->width == 0 || sub->height == 0) return 1;
+
+    struct spng_ihdr *ihdr = &ctx->ihdr;
+    size_t scanline_width;
+
+    scanline_width = ctx->channels * ihdr->bit_depth;
+
+    if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
+    scanline_width = scanline_width * sub->width;
+
+    scanline_width += 15; /* Filter byte + 7 for rounding */
+
+    if(scanline_width < 15) return SPNG_EOVERFLOW;
+
+    scanline_width /= 8;
+
+    sub->scanline_width = scanline_width;
+
+    return 0;
+}
+
 static int calculate_subimages(struct spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
@@ -416,26 +439,14 @@ static int calculate_subimages(struct spng_ctx *ctx)
     }
 
     int i;
-    size_t scanline_width;
-
     for(i=0; i < 7; i++)
     {/* Calculate scanline width in bits, round up to the nearest byte */
         if(sub[i].width == 0 || sub[i].height == 0) continue;
 
-        scanline_width = ctx->channels * ihdr->bit_depth;
+        int ret = calculate_scaline_width(ctx, &sub[i]);
+        if(ret) return ret;
 
-        if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
-        scanline_width = scanline_width * sub[i].width;
-
-        scanline_width += 15; /* Filter byte + 7 for rounding */
-
-        if(scanline_width < 15) return SPNG_EOVERFLOW;
-
-        scanline_width /= 8;
-
-        sub[i].scanline_width = scanline_width;
-
-        if(sub[ctx->widest_pass].scanline_width < scanline_width) ctx->widest_pass = i;
+        if(sub[ctx->widest_pass].scanline_width < sub[i].scanline_width) ctx->widest_pass = i;
 
         ctx->last_pass = i;
     }
