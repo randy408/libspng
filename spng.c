@@ -2034,13 +2034,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
 
     if(len < (width * pixel_size)) return SPNG_EBUFSIZ;
-
-    if(!scanline_idx)
-    {
-        /* prev_scanline is all zeros for the first scanline */
-        memset(ctx->prev_scanline, 0, scanline_width);
-    }
-
+    
     if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
     {
         ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width - 1);
@@ -2055,6 +2049,12 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     }
 
     if(ret) return decode_err(ctx, ret);
+
+    if(!scanline_idx && ri->filter > 1)
+    {
+        /* prev_scanline is all zeros for the first scanline */
+        memset(ctx->prev_scanline, 0, scanline_width);
+    }
 
     if(ctx->ihdr.bit_depth == 16) u16_row_to_host(ctx->scanline, scanline_width - 1);
 
