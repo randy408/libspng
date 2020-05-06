@@ -70,7 +70,7 @@
 enum spng_state
 {
     SPNG_STATE_INVALID = 0,
-    SPNG_STATE_INIT = 1, /* No buffer/stream is set */
+    SPNG_STATE_INIT = 1, /* No PNG buffer/stream is set */
     SPNG_STATE_INPUT, /* Input PNG was set */
     SPNG_STATE_IHDR, /* IHDR was read */
     SPNG_STATE_FIRST_IDAT,  /*  */
@@ -90,12 +90,13 @@ enum spng_state
 
 #define SPNG_GET_CHUNK_BOILERPLATE(chunk) \
     if(ctx == NULL || chunk == NULL) return 1; \
-    int ret = get_ancillary(ctx); \
+    int ret = read_chunks(ctx, 0); \
     if(ret) return ret;
 
 #define SPNG_SET_CHUNK_BOILERPLATE(chunk) \
     if(ctx == NULL || chunk == NULL) return 1; \
-    int ret = get_ancillary2(ctx); \
+    if(ctx->data == NULL) ctx->encode_only = 1; \
+    int ret = read_chunks(ctx, 0); \
     if(ret) return ret;
 
 struct spng_subimage
@@ -1257,20 +1258,11 @@ static int is_small_chunk(uint8_t type[4])
     else return 0;
 }
 
-/*
-    Read and validate all critical and relevant ancillary chunks up to the first IDAT
-    Returns zero and sets ctx->first_idat on success
-*/
-static int read_chunks_before_idat(spng_ctx *ctx)
+static int read_ihdr(spng_ctx *ctx)
 {
-    if(ctx == NULL) return 1;
-    if(ctx->data == NULL) return 1;
-    if(!ctx->state) return SPNG_EBADSTATE;
-    if(ctx->first_idat.offset) return 0;
-
-    int ret, discard = 0;
-    const unsigned char *data;
+    int ret;
     struct spng_chunk chunk;
+    const unsigned char *data;
 
     chunk.offset = 8;
     chunk.length = 13;
@@ -1321,6 +1313,19 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     ret = calculate_subimages(ctx);
     if(ret) return ret;
 
+    return 0;
+}
+
+/*
+    Read and validate all critical and relevant ancillary chunks up to the first IDAT
+    Returns zero and sets ctx->first_idat on success
+*/
+static int read_chunks_before_idat(spng_ctx *ctx)
+{
+    int ret, discard = 0;
+    struct spng_chunk chunk;
+    const unsigned char *data;
+    
     struct spng_chunk_bitfield stored;
     memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
 
@@ -1803,8 +1808,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
 static int read_chunks_after_idat(spng_ctx *ctx)
 {
-    if(ctx == NULL) return 1;
-
     int ret, discard = 0;
     int prev_was_idat = 1;
     struct spng_chunk chunk;
@@ -1945,25 +1948,45 @@ static int read_chunks_after_idat(spng_ctx *ctx)
     return ret;
 }
 
-static int get_ancillary(spng_ctx *ctx)
+/* Read chunks before or after the IDAT chunks depending on state */
+static int read_chunks(spng_ctx *ctx, int only_ihdr)
 {
-    int ret = read_chunks_before_idat(ctx);
+    if(ctx == NULL) return 1;
+    if(!ctx->state) return SPNG_EBADSTATE;
+    if(ctx->data == NULL)
+    {
+        if(ctx->encode_only) return 0;
+        else return 1;
+    }
+    
+    int ret = 0;
+
+    if(ctx->state == SPNG_STATE_INPUT)
+    {
+        ret = read_ihdr(ctx);
+        if(ret)
+        {
+            ctx->state = SPNG_STATE_INVALID;
+            return ret;
+        }
+
+        ctx->state = SPNG_STATE_IHDR;
+    }
+
+    if(only_ihdr) return 0;
+
+    if(ctx->state < SPNG_STATE_FIRST_IDAT)
+    {
+        ret = read_chunks_before_idat(ctx);
+    }
+    else if(ctx->state == SPNG_STATE_LAST_IDAT)
+    {
+        ret = read_chunks_after_idat(ctx);
+    }
 
     if(ret) ctx->state = SPNG_STATE_INVALID;
 
     return ret;
-}
-
-/* Same as above except it returns 0 if no buffer is set */
-static int get_ancillary2(spng_ctx *ctx)
-{
-    if(ctx->data == NULL)
-    {
-        ctx->encode_only = 1;
-        return 0;
-    }
-
-    return get_ancillary(ctx);
 }
 
 static int decode_err(spng_ctx *ctx, int err)
@@ -2326,6 +2349,9 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
     int ret = spng_decoded_image_size(ctx, fmt, &ctx->total_out_size);
     if(ret) return decode_err(ctx, ret);
+
+    ret = read_chunks(ctx, 0);
+    if(ret) return ret;
     
     if( !(flags & SPNG_DECODE_PROGRESSIVE) )
     {
@@ -2724,6 +2750,8 @@ int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
 
     ctx->read_fn = buffer_read_fn;
 
+    ctx->state = SPNG_STATE_INPUT;
+
     return 0;
 }
 
@@ -2745,6 +2773,8 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
     ctx->read_user_ptr = user;
 
     ctx->streaming = 1;
+
+    ctx->state = SPNG_STATE_INPUT;
 
     return 0;
 }
@@ -2819,7 +2849,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
 {
     if(ctx == NULL || len == NULL) return 1;
 
-    int ret = get_ancillary(ctx);
+    int ret = read_chunks(ctx, 1);
     if(ret) return ret;
 
     size_t res = ctx->ihdr.width;
@@ -2848,7 +2878,10 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
 
 int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
-    SPNG_GET_CHUNK_BOILERPLATE(ihdr);
+    if(ctx == NULL || ihdr == NULL) return 1;
+
+    int ret = read_chunks(ctx, 1);
+    if(ret) return ret;
 
     memcpy(ihdr, &ctx->ihdr, sizeof(struct spng_ihdr));
 
@@ -2960,7 +2993,7 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
         return 0;
     }
 
-    int ret = get_ancillary(ctx);
+    int ret = read_chunks(ctx, 0);
     if(ret) return ret;
 
     if(*n_text < ctx->n_text) return 1;
@@ -3015,7 +3048,7 @@ int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
         return 0;
     }
 
-    int ret = get_ancillary(ctx);
+    int ret = read_chunks(ctx, 0);
     if(ret) return ret;
 
     if(*n_splt < ctx->n_splt) return 1;
@@ -3231,10 +3264,8 @@ int spng_set_srgb(spng_ctx *ctx, uint8_t rendering_intent)
 
 int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
 {
-    if(ctx == NULL || text == NULL || !n_text) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    if(!n_text) return 1;
+    SPNG_SET_CHUNK_BOILERPLATE(text);
 
     uint32_t i;
     for(i=0; i < n_text; i++)
@@ -3350,10 +3381,8 @@ int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys)
 
 int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt)
 {
-    if(ctx == NULL || splt == NULL || !n_splt) return 1;
-
-    int ret = get_ancillary2(ctx);
-    if(ret) return ret;
+    if(!n_splt) return 1;
+    SPNG_SET_CHUNK_BOILERPLATE(splt);
 
     uint32_t i;
     for(i=0; i < n_splt; i++)
