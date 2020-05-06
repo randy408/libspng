@@ -15,7 +15,8 @@ A read callback function should copy `length` bytes to `dest` and return 0 or
 enum spng_format
 {
     SPNG_FMT_RGBA8 = 1,
-    SPNG_FMT_RGBA16 = 2
+    SPNG_FMT_RGBA16 = 2,
+    SPNG_FMT_RGB8 = 4
 };
 ```
 
@@ -37,12 +38,15 @@ enum spng_decode_flags
 # Supported format, flag combinations
 
 
-| PNG Format  | Output format     | Flags | Notes                                     |
-|-------------|-------------------|-------|-------------------------------------------|
-| Any format* | `SPNG_FMT_RGBA8`  | All   | Convert from any PNG format and bit depth |
-| Any format* | `SPNG_FMT_RGBA16` | All   | Convert from any PNG format and bit depth |
+| PNG Format  | Output format     | Flags  | Notes                                     |
+|-------------|-------------------|--------|-------------------------------------------|
+| Any format* | `SPNG_FMT_RGBA8`  | All    | Convert from any PNG format and bit depth |
+| Any format* | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth |
+| Any format* | `SPNG_FMT_RGB8`   | None** | Convert from any PNG format and bit depth |
 
 \* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
+
+\*\* Gamma correction is not implemented
 
 # API
 

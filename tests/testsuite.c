@@ -17,6 +17,7 @@ void print_test_args(struct spng_test_case *test_case)
     printf("Decode and compare ");
     if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
     else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
+    else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8, ");
 
     printf("FLAGS: ");
 
@@ -57,6 +58,14 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
     test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
     test_cases[n++].test_flags = 0;
 
+    test_cases[n].fmt = SPNG_FMT_RGB8;
+    test_cases[n].flags = 0;
+    test_cases[n++].test_flags = 0;
+
+    test_cases[n].fmt = SPNG_FMT_RGB8;
+    test_cases[n].flags = SPNG_DECODE_GAMMA;
+  /*  test_cases[n++].test_flags = 0;*/ /* libpng produces higher values for whatever reason */
+
     *test_cases_n = n;
 }
 
@@ -83,6 +92,11 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     else if(fmt == SPNG_FMT_RGBA16)
     {
         bytes_per_pixel = 8;
+    }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        bytes_per_pixel = 3;
+        have_alpha = 0;
     }
 
     for(y=0; y < h; y++)
@@ -120,7 +134,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                 png_green = p_green;
                 png_blue = p_blue;
             }
-            else /* FMT_RGBA8 */
+            else /* FMT_RGB(A)8 */
             {
                 uint8_t s_red, s_green, s_blue, s_alpha;
                 uint8_t p_red, p_green, p_blue, p_alpha;

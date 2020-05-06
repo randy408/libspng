@@ -917,16 +917,14 @@ static inline void gamma_correct_row(unsigned char *row, uint32_t pixels, int fm
 
     if(fmt == SPNG_FMT_RGBA8)
     {
+        unsigned char *px;
         for(i=0; i < pixels; i++)
         {
-            unsigned char px[4];
-            memcpy(px, row + i * 4, 4);
+            px = row + i * 4;
 
             px[0] = gamma_lut[px[0]];
             px[1] = gamma_lut[px[1]];
             px[2] = gamma_lut[px[2]];
-
-            memcpy(row + i * 4, px, 4);
         }
     }
     else if(fmt == SPNG_FMT_RGBA16)
@@ -941,6 +939,18 @@ static inline void gamma_correct_row(unsigned char *row, uint32_t pixels, int fm
             px[2] = gamma_lut[px[2]];
 
             memcpy(row + i * 8, px, 8);
+        }
+    }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        unsigned char *px;
+        for(i=0; i < pixels; i++)
+        {
+            px = row + i * 3;
+            
+            px[0] = gamma_lut[px[0]];
+            px[1] = gamma_lut[px[1]];
+            px[2] = gamma_lut[px[2]];
         }
     }
 }
@@ -1008,6 +1018,20 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
             px[3] = sample_to_target(px[3], depth, sbit->alpha_bits, 16);
 
             memcpy(row + i * 8, px, 8);
+        }
+    }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        unsigned char px[4];
+        for(i=0; i < pixels; i++)
+        {
+            memcpy(px, row + i * 3, 3);
+
+            px[0] = sample_to_target(px[0], depth, sbit->red_bits, 8);
+            px[1] = sample_to_target(px[1], depth, sbit->green_bits, 8);
+            px[2] = sample_to_target(px[2], depth, sbit->blue_bits, 8);
+            
+            memcpy(row + i * 3, px, 3);
         }
     }
 }
@@ -1930,6 +1954,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     if(f.indexed) processing_depth = 8;
 
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+    else if(fmt == SPNG_FMT_RGB8) pixel_size = 3;
 
     if(len < (width * pixel_size)) return SPNG_EBUFSIZ;
     
@@ -2018,12 +2043,12 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
                 shift_amount -= ctx->ihdr.bit_depth;
             }
 
-            if(fmt == SPNG_FMT_RGBA8)
+            if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
             {
                 pixel[0] = plte[entry].red;
                 pixel[1] = plte[entry].green;
                 pixel[2] = plte[entry].blue;
-                pixel[3] = plte[entry].alpha;
+                if(fmt == SPNG_FMT_RGBA8) pixel[3] = plte[entry].alpha;
 
                 continue;
             }
@@ -2111,7 +2136,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
         }
 
 
-        if(fmt == SPNG_FMT_RGBA8)
+        if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
         {
             if(ctx->ihdr.bit_depth == 16)
             {
@@ -2124,7 +2149,8 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
             memcpy(pixel, &r_8, 1);
             memcpy(pixel + 1, &g_8, 1);
             memcpy(pixel + 2, &b_8, 1);
-            memcpy(pixel + 3, &a_8, 1);
+            
+            if(fmt == SPNG_FMT_RGBA8) memcpy(pixel + 3, &a_8, 1);
         }
         else if(fmt == SPNG_FMT_RGBA16)
         {
@@ -2204,6 +2230,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
     uint32_t k;
     unsigned pixel_size = 4; /* RGBA8 */
     if(ctx->fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+    else if(ctx->fmt == SPNG_FMT_RGB8) pixel_size = 3;
 
     for(k=0; k < ctx->subimage[pass].width; k++)
     {
@@ -2287,12 +2314,20 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     if(flags & SPNG_DECODE_USE_SBIT && ctx->stored.sbit) f.use_sbit = 1;
     else flags &= ~SPNG_DECODE_USE_SBIT;
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
-       ctx->ihdr.bit_depth == depth_target)
+    if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGBA16))
     {
-        f.same_layout = 1;
-        /*if(!flags && !f.interlaced) f.zerocopy = 1;*/
+        if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
+           ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
     }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR &&
+           ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
+
+        f.apply_trns = 0;
+    }
+
+    /*if(f.same_layout && !flags && !f.interlaced) f.zerocopy = 1;*/
 
     uint16_t *gamma_lut = NULL;
 
@@ -2303,7 +2338,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
         uint32_t lut_entries;
 
-        if(fmt == SPNG_FMT_RGBA8)
+        if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
         {
             lut_entries = 256;
             max = 255.0f;
@@ -2376,8 +2411,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         }
     }
 
-    if(ctx->ihdr.bit_depth == 16 && fmt == SPNG_FMT_RGBA8)
-    {/* in this case samples are scaled down by 8bits */
+    if(ctx->ihdr.bit_depth == 16 && fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
+    {/* in this case samples are scaled down by 8 bits */
         sb->red_bits -= 8;
         sb->green_bits -= 8;
         sb->blue_bits -= 8;
@@ -2738,6 +2773,12 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
         if(res > SIZE_MAX / 8) return SPNG_EOVERFLOW;
 
         res = res * 8;
+    }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        if(res > SIZE_MAX / 3) return SPNG_EOVERFLOW;
+
+        res = res * 3;
     }
     else return SPNG_EFMT;
 

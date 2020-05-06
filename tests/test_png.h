@@ -90,6 +90,14 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
 
         png_set_strip_16(png_ptr);
     }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        png_set_gray_to_rgb(png_ptr);
+
+        png_set_strip_alpha(png_ptr);
+        
+        png_set_strip_16(png_ptr);
+    }
 
     png_set_interlace_handling(png_ptr);
     png_read_update_info(png_ptr, info_ptr);

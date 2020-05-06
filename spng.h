@@ -142,7 +142,8 @@ enum spng_interlace_method
 enum spng_format
 {
     SPNG_FMT_RGBA8 = 1,
-    SPNG_FMT_RGBA16 = 2
+    SPNG_FMT_RGBA16 = 2,
+    SPNG_FMT_RGB8 = 4
 };
 
 enum spng_ctx_flags
