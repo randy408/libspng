@@ -73,7 +73,7 @@ enum spng_state
     SPNG_STATE_INIT = 1, /* No PNG buffer/stream is set */
     SPNG_STATE_INPUT, /* Input PNG was set */
     SPNG_STATE_IHDR, /* IHDR was read */
-    SPNG_STATE_FIRST_IDAT,  /*  */
+    SPNG_STATE_FIRST_IDAT,  /* Reached first IDAT */
     SPNG_STATE_DECODE_INIT, /* Decoder is ready for progressive reads */
     SPNG_STATE_EOI, /* Reached the last scanline/row */
     SPNG_STATE_LAST_IDAT, /* Reached last IDAT, set at end of decode_image() */
@@ -1316,13 +1316,10 @@ static int read_ihdr(spng_ctx *ctx)
     return 0;
 }
 
-/*
-    Read and validate all critical and relevant ancillary chunks up to the first IDAT
-    Returns zero and sets ctx->first_idat on success
-*/
-static int read_chunks_before_idat(spng_ctx *ctx)
+static int read_non_idat_chunks(spng_ctx *ctx)
 {
     int ret, discard = 0;
+    int prev_was_idat = ctx->state == SPNG_STATE_AFTER_IDAT ? 1 : 0;
     struct spng_chunk chunk;
     const unsigned char *data;
     
@@ -1342,11 +1339,26 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
         if(!memcmp(chunk.type, type_idat, 4))
         {
-            if(ctx->ihdr.color_type == 3 && !ctx->stored.plte) return SPNG_ENOPLTE;
+            if(ctx->state < SPNG_STATE_FIRST_IDAT)
+            {
+                if(ctx->ihdr.color_type == 3 && !ctx->stored.plte) return SPNG_ENOPLTE;
 
-            memcpy(&ctx->first_idat, &chunk, sizeof(struct spng_chunk));
-            return 0;
+                memcpy(&ctx->first_idat, &chunk, sizeof(struct spng_chunk));
+                return 0;
+            }
+
+            if(prev_was_idat)
+            {
+                /* Ignore extra IDAT's */
+                ret = discard_chunk_bytes(ctx, chunk.length);
+                if(ret) return ret;
+
+                continue;
+            }
+            else return SPNG_ECHUNK_POS; /* IDAT chunk not at the end of the IDAT sequence */
         }
+
+        prev_was_idat = 0;
 
         if(is_small_chunk(chunk.type))
         {/* The largest of these chunks is PLTE with 256 entries */
@@ -1379,13 +1391,26 @@ static int read_chunks_before_idat(spng_ctx *ctx)
                 ctx->file.plte = 1;
                 ctx->stored.plte = 1;
             }
-            else if(!memcmp(chunk.type, type_iend, 4)) return SPNG_ECHUNK_POS;
+            else if(!memcmp(chunk.type, type_iend, 4))
+            {
+                if(ctx->state == SPNG_STATE_AFTER_IDAT)
+                {
+                    if(chunk.length) return SPNG_ECHUNK_SIZE;
+
+                    ret = read_and_check_crc(ctx);
+                    if(ret == -SPNG_CRC_DISCARD) ret = 0;
+
+                    return ret;
+                }
+                else return SPNG_ECHUNK_POS;
+            } 
             else if(!memcmp(chunk.type, type_ihdr, 4)) return SPNG_ECHUNK_POS;
             else return SPNG_ECHUNK_UNKNOWN_CRITICAL;
         }
         else if(!memcmp(chunk.type, type_chrm, 4)) /* Ancillary chunks */
         {
             if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.chrm) return SPNG_EDUP_CHRM;
 
             if(chunk.length != 32) return SPNG_ECHUNK_SIZE;
@@ -1407,6 +1432,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_gama, 4))
         {
             if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.gama) return SPNG_EDUP_GAMA;
 
             if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
@@ -1422,6 +1448,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_sbit, 4))
         {
             if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.sbit) return SPNG_EDUP_SBIT;
 
             if(ctx->ihdr.color_type == 0)
@@ -1463,6 +1490,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_srgb, 4))
         {
             if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.srgb) return SPNG_EDUP_SRGB;
 
             if(chunk.length != 1) return SPNG_ECHUNK_SIZE;
@@ -1477,6 +1505,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_bkgd, 4))
         {
             if(ctx->file.plte && chunk.offset < ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.bkgd) return SPNG_EDUP_BKGD;
 
             uint16_t mask = ~0;
@@ -1511,6 +1540,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_trns, 4))
         {
             if(ctx->file.plte && chunk.offset < ctx->plte_offset) return SPNG_ECHUNK_POS;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.trns) return SPNG_EDUP_TRNS;
             if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
@@ -1551,6 +1581,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         else if(!memcmp(chunk.type, type_hist, 4))
         {
             if(!ctx->file.plte) return SPNG_EHIST_NO_PLTE;
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(chunk.offset < ctx->plte_offset) return SPNG_ECHUNK_POS;
             if(ctx->file.hist) return SPNG_EDUP_HIST;
 
@@ -1567,6 +1598,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         }
         else if(!memcmp(chunk.type, type_phys, 4))
         {
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.phys) return SPNG_EDUP_PHYS;
 
             if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
@@ -1605,6 +1637,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
         }
         else if(!memcmp(chunk.type, type_offs, 4))
         {
+            if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.offs) return SPNG_EDUP_OFFS;
 
             if(chunk.length != 9) return SPNG_ECHUNK_SIZE;
@@ -1628,6 +1661,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
             if(!memcmp(chunk.type, type_iccp, 4))
             {
                 if(ctx->file.plte && chunk.offset > ctx->plte_offset) return SPNG_ECHUNK_POS;
+                if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
                 if(ctx->file.iccp) return SPNG_EDUP_ICCP;
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
@@ -1665,6 +1699,7 @@ static int read_chunks_before_idat(spng_ctx *ctx)
 
             if(!memcmp(chunk.type, type_splt, 4))
             {
+                if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
                 if(ctx->user.splt) continue; /* XXX: should check profile names for uniqueness */
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
@@ -1806,148 +1841,6 @@ static int read_chunks_before_idat(spng_ctx *ctx)
     return ret;
 }
 
-static int read_chunks_after_idat(spng_ctx *ctx)
-{
-    int ret, discard = 0;
-    int prev_was_idat = 1;
-    struct spng_chunk chunk;
-    const unsigned char *data;
-    struct spng_chunk_bitfield stored;
-
-    memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
-
-    memcpy(&chunk, &ctx->last_idat, sizeof(struct spng_chunk));
-
-    while( !(ret = read_header(ctx, &discard)))
-    {
-        if(discard)
-        {
-            memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
-        }
-
-        memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
-
-        memcpy(&chunk, &ctx->current_chunk, sizeof(struct spng_chunk));
-
-        if(is_critical_chunk(&chunk))
-        {
-            if(!memcmp(chunk.type, type_iend, 4))
-            {
-                if(chunk.length) return SPNG_ECHUNK_SIZE;
-
-                ret = read_and_check_crc(ctx);
-                if(ret == -SPNG_CRC_DISCARD) ret = 0;
-
-                return ret;
-            }
-            else if(!memcmp(chunk.type, type_idat, 4) && prev_was_idat)
-            {/* Ignore extra IDAT's */
-                ret = discard_chunk_bytes(ctx, chunk.length);
-                if(ret) return ret;
-
-                continue;
-            }
-            else return SPNG_ECHUNK_POS; /* Critical chunk after last IDAT that isn't IEND */
-        }
-
-        prev_was_idat = 0;
-
-        if(!memcmp(chunk.type, type_chrm, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_gama, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_iccp, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_sbit, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_srgb, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_bkgd, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_hist, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_trns, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_phys, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_splt, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_offs, 4)) return SPNG_ECHUNK_POS;
-        else if(!memcmp(chunk.type, type_time, 4))
-        {
-           if(ctx->file.time) return SPNG_EDUP_TIME;
-
-            ret = read_chunk_bytes(ctx, 7);
-            if(ret) return ret;
-
-            if(chunk.length != 7) return SPNG_ECHUNK_SIZE;
-
-            struct spng_time time;
-
-            data = ctx->data;
-
-            time.year = read_u16(data);
-            memcpy(&time.month, data + 2, 1);
-            memcpy(&time.day, data + 3, 1);
-            memcpy(&time.hour, data + 4, 1);
-            memcpy(&time.minute, data + 5, 1);
-            memcpy(&time.second, data + 6, 1);
-
-            if(check_time(&time)) return SPNG_ETIME;
-
-            ctx->file.time = 1;
-
-            if(!ctx->user.time) memcpy(&ctx->time, &time, sizeof(struct spng_time));
-
-            ctx->stored.time = 1;
-        }
-        else /* Arbitrary-length chunk */
-        {
-            ret = discard_chunk_bytes(ctx, chunk.length);
-            if(ret) return ret;
-
-            continue;
-
-            if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
-            {
-                ret = discard_chunk_bytes(ctx, chunk.length);
-                if(ret) return ret;
-                continue;
-            }
-
-            ret = read_chunk_bytes(ctx, chunk.length);
-            if(ret) return ret;
-
-            if(!memcmp(chunk.type, type_exif, 4))
-            {
-                if(ctx->file.exif) return SPNG_EDUP_EXIF;
-
-                ctx->file.exif = 1;
-
-                struct spng_exif exif;
-
-                exif.data = data;
-                exif.length = chunk.length;
-
-                if(!check_exif(&exif))
-                {
-                    if(ctx->user.exif) continue;
-
-                    exif.data = spng__malloc(ctx, chunk.length);
-                    if(exif.data == NULL) return SPNG_EMEM;
-
-                    memcpy(exif.data, data, chunk.length);
-                    memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-                    ctx->stored.exif = 1;
-                }
-                else return SPNG_EEXIF;    
-            }
-            else if(!memcmp(chunk.type, type_text, 4) ||
-                    !memcmp(chunk.type, type_ztxt, 4) ||
-                    !memcmp(chunk.type, type_itxt, 4))
-            {
-                ctx->file.text = 1;
-            }
-            else /* Unknown chunk */
-            {
-                ret = discard_chunk_bytes(ctx, chunk.length);
-            }
-        }
-    }
-
-    return ret;
-}
-
 /* Read chunks before or after the IDAT chunks depending on state */
 static int read_chunks(spng_ctx *ctx, int only_ihdr)
 {
@@ -1975,14 +1868,10 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
 
     if(only_ihdr) return 0;
 
-    if(ctx->state < SPNG_STATE_FIRST_IDAT)
-    {
-        ret = read_chunks_before_idat(ctx);
-    }
-    else if(ctx->state == SPNG_STATE_LAST_IDAT)
-    {
-        ret = read_chunks_after_idat(ctx);
-    }
+    if(ctx->state == SPNG_STATE_EOI) ctx->state = SPNG_STATE_AFTER_IDAT;
+
+    if(ctx->state < SPNG_STATE_FIRST_IDAT ||
+       ctx->state == SPNG_STATE_AFTER_IDAT) ret = read_non_idat_chunks(ctx);
 
     if(ret) ctx->state = SPNG_STATE_INVALID;
 
