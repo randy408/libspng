@@ -1996,31 +1996,6 @@ static int decode_err(spng_ctx *ctx, int err)
     return err;
 }
 
-/* Discard extra IDAT data */
-static int discard_idat(spng_ctx *ctx)
-{
-    if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
-    {/* Discard the rest of the chunk */
-        int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
-        if(ret) return decode_err(ctx, ret);
-    }
-
-    return 0;
-}
-
-static int decode_finish(spng_ctx *ctx)
-{
-    int ret = discard_idat(ctx);
-    if(ret) return decode_err(ctx, ret);
-
-    memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
-
-    ret = read_chunks_after_idat(ctx);
-    if(ret) return decode_err(ctx, ret);
-
-    return 0;
-}
-
 int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
@@ -2295,6 +2270,15 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
         if(ri->pass == ctx->last_pass)
         {
             ctx->state = SPNG_STATE_EOI;
+            
+            if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
+            {/* Discard the rest of the chunk */
+                int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+                if(ret) return decode_err(ctx, ret);
+            }
+
+            memcpy(&ctx->last_idat, &ctx->current_chunk, sizeof(struct spng_chunk));
+
             return SPNG_EOI;
         }
 
@@ -2614,7 +2598,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
     if(ret != SPNG_EOI) return decode_err(ctx, ret);
 
-    return decode_finish(ctx);
+    return 0;
 }
 
 int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
