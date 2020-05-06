@@ -1036,6 +1036,37 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
     }
 }
 
+/* Expand to *row using 8-bit palette indices from *scanline */
+void expand_row(unsigned char *row, unsigned char *scanline, struct spng_plte_entry16 *plte, uint32_t width, int fmt)
+{
+    uint32_t i;
+    unsigned char *px;
+    unsigned char entry;
+    if(fmt == SPNG_FMT_RGBA8)
+    {
+        for(i=0; i < width; i++)
+        {
+            px = row + i * 4;
+            entry = scanline[i];
+            px[0] = plte[entry].red;
+            px[1] = plte[entry].green;
+            px[2] = plte[entry].blue;
+            px[3] = plte[entry].alpha;
+        }
+    }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        for(i=0; i < width; i++)
+        {
+            px = row + i * 3;
+            entry = scanline[i];
+            px[0] = plte[entry].red;
+            px[1] = plte[entry].green;
+            px[2] = plte[entry].blue;
+        }
+    }
+}
+
 static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
     if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
@@ -2030,6 +2061,12 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 
             if(ctx->ihdr.bit_depth == 8)
             {
+                if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
+                {
+                    expand_row(out, scanline, plte, width, fmt);
+                    break;
+                }
+                
                 memcpy(&entry, scanline + k, 1);
             }
             else /* < 8 */
@@ -2052,7 +2089,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 
                 continue;
             }
-            else
+            else /* RGBA16 */
             {
                 r_16 = plte[entry].red;
                 g_16 = plte[entry].green;
