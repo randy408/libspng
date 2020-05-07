@@ -722,34 +722,34 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
     return ret;
 }
 
-static int read_scanline_bytes(spng_ctx *ctx, z_stream *stream, unsigned char *dest, size_t len)
+static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 {
-    if(ctx == NULL || stream == NULL || dest == NULL) return 1;
+    if(ctx == NULL || dest == NULL) return 1;
 
     int ret;
     uint32_t bytes_read;
 
-    stream->avail_out = len;
-    stream->next_out = dest;
+    ctx->zstream.avail_out = len;
+    ctx->zstream.next_out = dest;
 
-    while(stream->avail_out != 0)
+    while(ctx->zstream.avail_out != 0)
     {
-        if(stream->avail_in == 0) /* Need more IDAT bytes */
+        if(ctx->zstream.avail_in == 0) /* Need more IDAT bytes */
         {
             ret = read_idat_bytes(ctx, &bytes_read);
             if(ret) return ret;
 
-            stream->avail_in = bytes_read;
-            stream->next_in = ctx->data;
+            ctx->zstream.avail_in = bytes_read;
+            ctx->zstream.next_in = ctx->data;
         }
 
-        ret = inflate(stream, Z_SYNC_FLUSH);
+        ret = inflate(&ctx->zstream, Z_SYNC_FLUSH);
 
         if(ret != Z_OK)
         {
             if(ret == Z_STREAM_END) /* zlib reached an end-marker */
             {
-                if(stream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
+                if(ctx->zstream.avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
             }
             else if(ret != Z_BUF_ERROR) return SPNG_EIDAT_STREAM;
         }
@@ -1991,11 +1991,11 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     
     if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
     {
-        ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width - 1);
+        ret = read_scanline_bytes(ctx, ctx->scanline, scanline_width - 1);
     }
     else
     {
-        ret = read_scanline_bytes(ctx, &ctx->zstream, ctx->scanline, scanline_width);
+        ret = read_scanline_bytes(ctx, ctx->scanline, scanline_width);
         if(ret) return decode_err(ctx, ret);
 
         memcpy(&next_filter, ctx->scanline + scanline_width - 1, 1);
@@ -2540,7 +2540,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     The scanlines will be aligned with the start of the array with
     the next scanline's filter byte at the end,
     the last scanline will end up being 1 byte "shorter". */
-    ret = read_scanline_bytes(ctx, &ctx->zstream, &ri->filter, 1);
+    ret = read_scanline_bytes(ctx, &ri->filter, 1);
     if(ret) return decode_err(ctx, ret);
 
     if(ri->filter > 4) return decode_err(ctx, SPNG_EFILTER);
