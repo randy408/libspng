@@ -2798,26 +2798,24 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     if(ret) return ret;
 
     size_t res = ctx->ihdr.width;
+    unsigned bytes_per_pixel;
 
     if(fmt == SPNG_FMT_RGBA8)
     {
-        if(res > SIZE_MAX / 4) return SPNG_EOVERFLOW;
-
-        res = res * 4;        
+        bytes_per_pixel = 4;
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        if(res > SIZE_MAX / 8) return SPNG_EOVERFLOW;
-
-        res = res * 8;
+        bytes_per_pixel = 8;
     }
     else if(fmt == SPNG_FMT_RGB8)
     {
-        if(res > SIZE_MAX / 3) return SPNG_EOVERFLOW;
-
-        res = res * 3;
+        bytes_per_pixel = 3;
     }
     else return SPNG_EFMT;
+
+    if(res > SIZE_MAX / bytes_per_pixel) return SPNG_EOVERFLOW;
+    res = res * bytes_per_pixel;
 
     if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
     res = res * ctx->ihdr.height;
