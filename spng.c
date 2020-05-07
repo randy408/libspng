@@ -2362,6 +2362,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
            ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
 
         f.apply_trns = 0;
+        f.apply_gamma = 0; /* inconsistent with libpng */
     }
 
     /*if(f.same_layout && !flags && !f.interlaced) f.zerocopy = 1;*/
