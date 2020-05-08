@@ -42,6 +42,22 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_ctx *ctx = spng_ctx_new(SPNG_CTX_IGNORE_ADLER32);
     if(ctx == NULL) return 0;
 
+    struct spng_plte plte;
+    struct spng_trns trns;
+    struct spng_chrm chrm;
+    struct spng_chrm_int chrm_int;
+    double gamma;
+    struct spng_iccp iccp;
+    struct spng_sbit sbit;
+    uint8_t srgb_rendering_intent;
+    struct spng_text text[4];
+    struct spng_bkgd bkgd;
+    struct spng_hist hist;
+    struct spng_phys phys;
+    struct spng_splt splt[4];
+    struct spng_time time;
+    uint32_t n_text = 4, n_splt = 4;
+
     struct buf_state state;
     state.data = data;
     state.bytes_left = size;
@@ -64,6 +80,21 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     out = (unsigned char*)malloc(out_size);
     if(out == NULL) goto err;
+
+    spng_get_plte(ctx, &plte);
+    spng_get_trns(ctx, &trns);
+    spng_get_chrm(ctx, &chrm);
+    spng_get_chrm_int(ctx, &chrm_int);
+    spng_get_gama(ctx, &gamma);
+    spng_get_iccp(ctx, &iccp);
+    spng_get_sbit(ctx, &sbit);
+    spng_get_srgb(ctx, &srgb_rendering_intent);
+    spng_get_text(ctx, text, &n_text);
+    spng_get_bkgd(ctx, &bkgd);
+    spng_get_hist(ctx, &hist);
+    spng_get_phys(ctx, &phys);
+    spng_get_splt(ctx, splt, &n_splt);
+    spng_get_time(ctx, &time);
 
     if(spng_decode_image(ctx, out, out_size, fmt, flags)) goto err;
 
