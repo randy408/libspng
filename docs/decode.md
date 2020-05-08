@@ -135,6 +135,9 @@ The width of the row is the decoded image size divided by `ihdr.height`.
 
 For the last row and subsequent calls the return value is `SPNG_EOI`.
 
+If the image is not interlaced this function's behavior is identical to
+`spng_decode_scanline()`.
+
 # spng_get_row_info()
 ```c
 int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
