@@ -65,7 +65,7 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
 
     test_cases[n].fmt = SPNG_FMT_RGB8;
     test_cases[n].flags = SPNG_DECODE_GAMMA;
-  /*  test_cases[n++].test_flags = 0;*/ /* libpng produces higher values for whatever reason */
+    test_cases[n++].test_flags = 0; /* libpng produces higher values for whatever reason */
 
     test_cases[n].fmt = SPNG_FMT_PNG;
     test_cases[n].flags = 0;
@@ -80,6 +80,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
 {
     uint32_t w, h;
     uint32_t x, y;
+    uint32_t max_diff=0, diff_div = 50; /* allow up to ~2% difference for each channel */
     uint8_t have_alpha = 1;
     uint8_t alpha_mismatch = 0;
     uint8_t pixel_diff = 0;
@@ -91,6 +92,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     size_t row_width, px_ofs;
     unsigned channels;
 
+    uint32_t red_diff = 0, green_diff = 0, blue_diff = 0, sample_diff = 0;
     uint16_t spng_red = 0, spng_green = 0, spng_blue = 0, spng_alpha = 0, spng_sample = 0;
     uint16_t png_red = 0, png_green = 0, png_blue = 0, png_alpha = 0, png_sample = 0;
 
@@ -125,20 +127,24 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     if(fmt == SPNG_FMT_RGBA8)
     {
         bytes_per_pixel = 4;
+        max_diff = 256 / diff_div;
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
         bytes_per_pixel = 8;
+        max_diff = 65536 / diff_div;
     }
     else if(fmt == SPNG_FMT_RGB8)
     {
         bytes_per_pixel = 3;
         have_alpha = 0;
+        max_diff = 256 / diff_div;
     }
     else if(fmt == SPNG_FMT_RGB16)
     {
         bytes_per_pixel = 6;
         have_alpha = 0;
+        max_diff = 65536 / diff_div;
     }
 
     for(y=0; y < h; y++)
@@ -257,20 +263,14 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                 }
             }
 
-            if(spng_red != png_red || spng_green != png_green || spng_blue != png_blue)
+            if(spng_red != png_red || spng_green != png_green || spng_blue != png_blue || spng_sample != png_sample)
             {
                 if(flags & SPNG_DECODE_GAMMA)
                 {
-                    uint32_t red_diff, green_diff, blue_diff;
-                    uint32_t max_diff=0;
-
-                    /* allow up to ~2% difference for each channel */
-                    if(fmt == SPNG_FMT_RGBA8) max_diff = 256 / 50;
-                    else if(fmt == SPNG_FMT_RGBA16) max_diff = 65536 / 50;
-
                     red_diff = abs(spng_red - png_red);
                     green_diff = abs(spng_green - png_green);
                     blue_diff = abs(spng_blue - png_blue);
+                    sample_diff = abs(spng_sample - png_sample);
 
                     if(red_diff > max_diff || green_diff > max_diff || blue_diff > max_diff)
                     {
@@ -282,27 +282,36 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                                png_red, png_green, png_blue);
                         pixel_diff = 1;
                     }
+                    else if(sample_diff > max_diff)
+                    {
+                        printf("invalid gamma correction at x: %" PRIu32 " y: %" PRIu32 ", "
+                               "spng: %" PRIu16 " png: %" PRIu16 "\n", x, y, spng_sample, png_sample);
+                        pixel_diff = 1;
+                    }
                 }
                 else
                 {
-                    printf("color difference at x: %" PRIu32 " y: %" PRIu32 ", "
-                           "spng: %" PRIu16 " %" PRIu16 " %" PRIu16 " "
-                           "png: %" PRIu16 " %" PRIu16 " %" PRIu16 "\n",
-                           x, y,
-                           spng_red, spng_green, spng_blue,
-                           png_red, png_green, png_blue);
+                    if(spng_sample != png_sample)
+                    {
+                        char *issue_str = "";
+                        if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) issue_str = "index mismatch";
+                        else issue_str = "grayscale difference";
+
+                        printf("%s at x: %u y: %u spng: %u png: %u\n",
+                            issue_str, x, y, spng_sample, png_sample);
+                    }
+                    else
+                    {
+                        printf("color difference at x: %" PRIu32 " y: %" PRIu32 ", "
+                               "spng: %" PRIu16 " %" PRIu16 " %" PRIu16 " "
+                               "png: %" PRIu16 " %" PRIu16 " %" PRIu16 "\n",
+                               x, y,
+                               spng_red, spng_green, spng_blue,
+                               png_red, png_green, png_blue);
+                    }
+                    
                     pixel_diff = 1;
                 }
-            }
-            else if(spng_sample != png_sample)
-            {
-                char *issue_str = "";
-                if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) issue_str = "index mismatch";
-                else issue_str = "grayscale difference";
-
-                printf("%s at x: %u y: %u spng: %u png: %u\n",
-                       issue_str, x, y, spng_sample, png_sample);
-                pixel_diff = 1;
             }
 
             if(have_alpha && spng_alpha != png_alpha)
