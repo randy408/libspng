@@ -121,6 +121,8 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
             else bytes_per_pixel = channels * (ihdr->bit_depth / 8);
 
             row_width = (channels * ihdr->bit_depth * w + 7) / 8;
+
+            if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) flags &= ~SPNG_DECODE_GAMMA;
         }
     }
 
