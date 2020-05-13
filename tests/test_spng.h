@@ -9,9 +9,10 @@
 unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags, struct spng_ihdr *info)
 {
     int r;
-    size_t siz;
+    size_t siz, out_width;
     unsigned char *out = NULL;
     struct spng_ihdr ihdr;
+    struct spng_row_info row_info;
 
     spng_ctx *ctx = spng_ctx_new(0);
 
@@ -59,17 +60,32 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
     if(r) goto err;
 
     *out_size = siz;
+    out_width = siz / ihdr.height;
 
     /* Neither library does zero-padding for <8-bit images,
     but we want the images to be bit-identical for memcmp() */
     out = calloc(1, siz);
     if(out == NULL) goto err;
 
-    r = spng_decode_image(ctx, out, siz,  fmt, flags);
+    r = spng_decode_image(ctx, NULL, 0, fmt, flags | SPNG_DECODE_PROGRESSIVE);
 
     if(r)
     {
-        printf("spng_decode_image() error: %s\n", spng_strerror(r));
+        printf("progressive spng_decode_image() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
+    do
+    {
+        r = spng_get_row_info(ctx, &row_info);
+        if(r) break;
+
+        r = spng_decode_row(ctx, out + row_info.row_num * out_width, out_width);
+    }while (!r);
+
+    if(r != SPNG_EOI)
+    {
+        printf("progressive decode error: %s\n", spng_strerror(r));
         goto err;
     }
 
