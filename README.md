@@ -15,7 +15,8 @@ not compatible.
 
 ## Motivation
 
-The goal is to provide a fast PNG library with a simpler API than [libpng](https://github.com/glennrp/libpng/blob/libpng16/png.h).
+The goal is to provide a fast PNG library with a simpler API than [libpng](https://github.com/glennrp/libpng/blob/libpng16/png.h),
+it outperforms the reference implementation in common use cases.
 
 ## Performance
 
@@ -23,22 +24,22 @@ The goal is to provide a fast PNG library with a simpler API than [libpng](https
 
 ## Features
 
-| Feature                   | libspng    | libpng   | stb_image | lodepng |
-|---------------------------|------------|----------|-----------|---------|
-| Decode to RGBA8/16        | ✅         | ✅       | ✅        | ✅      |
-| Decode from stream        | ✅         | ✅       | ✅        | ❌      |
-| Gamma correction          | ✅         | ✅       | ❌        | ❌      |
-| Fuzzed by [OSS-Fuzz][1]   | ✅         | ✅       | ❌        | ✅      |
-| Progressive read          | ✅         | ✅       | ❌        | ❌      |
-| Doesn't require zlib      | ❌*        | ❌       | ✅        | ✅      |
-| Encoding                  | ❌*        | ✅       | ✅        | ✅      |
-| Animated PNG              | ❌*        | ✅**     | ❌        | ❌      |
+| Feature                    | libspng    | libpng   | stb_image | lodepng |
+|----------------------------|------------|----------|-----------|---------|
+| Decode from stream         | ✅        | ✅       | ✅        | ❌     |
+| Gamma correction           | ✅        | ✅       | ❌        | ❌     |
+| No known security bugs*    | ✅        | ✅       | ❌        | ✅     |
+| Progressive image read     | ✅        | ✅       | ❌        | ❌     |
+| Parses all standard chunks | ❌*       | ✅       | ❌        | ❌     |
+| Doesn't require zlib       | ❌*       | ❌       | ✅        | ✅     |
+| Encoding                   | ❌*       | ✅       | ✅        | ✅     |
+| Animated PNG               | ❌*       | ✅***    | ❌        | ❌     |
 
-[1]: https://github.com/google/oss-fuzz
+\* The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
 
 \* Work in progress
 
-\*\* With a 3rd party patch
+\*\*\* With a 3rd party patch
 
 ## Getting spng
 
