@@ -66,7 +66,15 @@ int main(int argc, char **argv)
 
     size_t out_size, out_width;
 
-    r = spng_decoded_image_size(ctx, SPNG_FMT_RGBA8, &out_size);
+    /* Output format, does not depend on source PNG format except for
+       SPNG_FMT_PNG, which is the PNG's format in host-endian */
+    int fmt = SPNG_FMT_PNG;
+
+    /* For this format indexed color images are output as palette indices,
+       if you want to expand them pick another format */
+    if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
+
+    r = spng_decoded_image_size(ctx, fmt, &out_size);
 
     if(r) goto err;
 
@@ -74,7 +82,7 @@ int main(int argc, char **argv)
     if(out == NULL) goto err;
 
     /* This is required to initialize for progressive decoding */
-    r = spng_decode_image(ctx, NULL, 0, SPNG_FMT_RGBA8, SPNG_DECODE_PROGRESSIVE);
+    r = spng_decode_image(ctx, NULL, 0, fmt, SPNG_DECODE_PROGRESSIVE);
     if(r)
     {
         printf("progressive spng_decode_image() error: %s\n", spng_strerror(r));
