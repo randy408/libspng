@@ -2138,7 +2138,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
             {
                 memcpy(&gray_8, scanline + k / samples_per_byte, 1);
 
-                if(shift_amount > 8) shift_amount = initial_shift;
+                if(shift_amount > 7) shift_amount = initial_shift;
 
                 gray_8 = (gray_8 >> shift_amount) & mask;
 
@@ -2284,7 +2284,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 
                 memcpy(&sample, ctx->row + k / samples_per_byte, 1);
 
-                if(shift_amount > 8) shift_amount = initial_shift;
+                if(shift_amount > 7) shift_amount = initial_shift;
 
                 sample = (sample >> shift_amount) & mask;
                 sample = sample << (initial_shift - ioffset * ctx->ihdr.bit_depth % 8);

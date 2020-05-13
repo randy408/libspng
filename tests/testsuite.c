@@ -218,7 +218,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                     memcpy(&s_sample, img_spng + px_ofs, 1);
                     memcpy(&p_sample, img_png + px_ofs, 1);
 
-                    if(shift_amount > 8) shift_amount = initial_shift;
+                    if(shift_amount > 7) shift_amount = initial_shift;
 
                     s_sample = (s_sample >> shift_amount) & mask;
                     p_sample = (p_sample >> shift_amount) & mask;
