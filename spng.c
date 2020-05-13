@@ -2398,7 +2398,6 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     }
     else if(fmt == SPNG_FMT_PNG)
     {
-        if(flags) return decode_err(ctx, SPNG_EFLAGS); /* For now */
         f.same_layout = 1;
         f.do_scaling = 0;
         f.apply_gamma = 0; /* for now */
