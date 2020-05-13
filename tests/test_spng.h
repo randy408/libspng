@@ -60,7 +60,9 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
 
     *out_size = siz;
 
-    out = malloc(siz);
+    /* Neither library does zero-padding for <8-bit images,
+    but we want the images to be bit-identical for memcmp() */
+    out = calloc(1, siz);
     if(out == NULL) goto err;
 
     r = spng_decode_image(ctx, out, siz,  fmt, flags);

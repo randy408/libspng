@@ -385,16 +385,14 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
     }
 }
 
-static int calculate_scaline_width(struct spng_ctx *ctx, struct spng_subimage *sub)
+/* Calculate scanline width in bits, round up to the nearest byte */
+static int calculate_scanline_width(struct spng_ctx *ctx, struct spng_subimage *sub)
 {
-    if(sub->width == 0 || sub->height == 0) return 1;
+    if(!sub->width || !sub->height) return 1;
 
-    struct spng_ihdr *ihdr = &ctx->ihdr;
-    size_t scanline_width;
+    size_t scanline_width = ctx->channels * ctx->ihdr.bit_depth;
 
-    scanline_width = ctx->channels * ihdr->bit_depth;
-
-    if(scanline_width > SIZE_MAX / ihdr->width) return SPNG_EOVERFLOW;
+    if(scanline_width > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
     scanline_width = scanline_width * sub->width;
 
     scanline_width += 15; /* Filter byte + 7 for rounding */
@@ -440,10 +438,10 @@ static int calculate_subimages(struct spng_ctx *ctx)
 
     int i;
     for(i=0; i < 7; i++)
-    {/* Calculate scanline width in bits, round up to the nearest byte */
+    {
         if(sub[i].width == 0 || sub[i].height == 0) continue;
 
-        int ret = calculate_scaline_width(ctx, &sub[i]);
+        int ret = calculate_scanline_width(ctx, &sub[i]);
         if(ret) return ret;
 
         if(sub[ctx->widest_pass].scanline_width < sub[i].scanline_width) ctx->widest_pass = i;
@@ -1981,8 +1979,15 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
 
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(fmt == SPNG_FMT_RGB8) pixel_size = 3;
-
-    if(len < (width * pixel_size)) return SPNG_EBUFSIZ;
+    
+    if(fmt == SPNG_FMT_PNG)
+    {
+        if(len < (scanline_width - 1)) return SPNG_EBUFSIZ;
+    }
+    else
+    {
+        if(len < (width * pixel_size)) return SPNG_EBUFSIZ;
+    }
     
     if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
     {
@@ -2263,6 +2268,38 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
     unsigned pixel_size = 4; /* RGBA8 */
     if(ctx->fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(ctx->fmt == SPNG_FMT_RGB8) pixel_size = 3;
+    else if(ctx->fmt == SPNG_FMT_PNG)
+    {
+        if(ctx->ihdr.bit_depth < 8)
+        {
+            const uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
+            const uint8_t mask = (uint16_t)(1 << ctx->ihdr.bit_depth) - 1;
+            const uint8_t initial_shift = 8 - ctx->ihdr.bit_depth;
+            uint8_t shift_amount = initial_shift;
+            uint8_t sample;
+
+            for(k=0; k < ctx->subimage[pass].width; k++)
+            {
+                size_t ioffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]);
+
+                memcpy(&sample, ctx->row + k / samples_per_byte, 1);
+
+                if(shift_amount > 8) shift_amount = initial_shift;
+
+                sample = (sample >> shift_amount) & mask;
+                sample = sample << (initial_shift - ioffset * ctx->ihdr.bit_depth % 8);
+
+                ioffset /= samples_per_byte;
+
+                out[ioffset] |= sample;
+
+                shift_amount -= ctx->ihdr.bit_depth;
+            }
+
+            return 0;
+        }
+        else pixel_size = ctx->bytes_per_pixel;
+    }
 
     for(k=0; k < ctx->subimage[pass].width; k++)
     {
@@ -2358,6 +2395,14 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
         f.apply_trns = 0;
         f.apply_gamma = 0; /* inconsistent with libpng */
+    }
+    else if(fmt == SPNG_FMT_PNG)
+    {
+        if(flags) return decode_err(ctx, SPNG_EFLAGS); /* For now */
+        f.same_layout = 1;
+        f.do_scaling = 0;
+        f.apply_gamma = 0; /* for now */
+        f.apply_trns = 0;
     }
 
     /*if(f.same_layout && !flags && !f.interlaced) f.zerocopy = 1;*/
@@ -2807,6 +2852,18 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     else if(fmt == SPNG_FMT_RGB8)
     {
         bytes_per_pixel = 3;
+    }
+    else if(fmt == SPNG_FMT_PNG)
+    {
+        struct spng_subimage img = {0};
+        img.width = ctx->ihdr.width;
+        img.height = ctx->ihdr.width;
+
+        ret = calculate_scanline_width(ctx, &img);
+        if(ret) return ret;
+
+        res = img.scanline_width - 1; /* exclude filter byte */
+        bytes_per_pixel = 1;
     }
     else return SPNG_EFMT;
 

@@ -16,7 +16,8 @@ enum spng_format
 {
     SPNG_FMT_RGBA8 = 1,
     SPNG_FMT_RGBA16 = 2,
-    SPNG_FMT_RGB8 = 4
+    SPNG_FMT_RGB8 = 4,
+    SPNG_FMT_PNG = 16
 };
 ```
 
@@ -43,6 +44,7 @@ enum spng_decode_flags
 | Any format* | `SPNG_FMT_RGBA8`  | All    | Convert from any PNG format and bit depth |
 | Any format* | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth |
 | Any format* | `SPNG_FMT_RGB8`   | None** | Convert from any PNG format and bit depth |
+| Any format* | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian           |
 
 \* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
 

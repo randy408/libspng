@@ -75,9 +75,6 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
 
         /* png_set_palette_to_rgb() + png_set_tRNS_to_alpha() */
         png_set_expand_16(png_ptr);
-#if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values */
-        png_set_swap(png_ptr);
-#endif
     }
     else if(fmt == SPNG_FMT_RGBA8)
     {
@@ -99,6 +96,10 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
         png_set_strip_16(png_ptr);
     }
 
+#if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values */
+        png_set_swap(png_ptr);
+#endif
+
     png_set_interlace_handling(png_ptr);
     png_read_update_info(png_ptr, info_ptr);
 
@@ -107,7 +108,9 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
     size_t image_size = height * rowbytes;
     memcpy(out_size, &image_size, sizeof(size_t));
 
-    image = malloc(image_size);
+    /* Neither library does zero-padding for <8-bit images,
+       but we want the images to be bit-identical for memcmp() */
+    image = calloc(1, image_size);
     if(image == NULL)
     {
          printf("libpng: malloc() failed\n");

@@ -18,6 +18,7 @@ void print_test_args(struct spng_test_case *test_case)
     if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
     else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
     else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8, ");
+    else if(test_case->fmt == SPNG_FMT_PNG) printf("PNG, ");
 
     printf("FLAGS: ");
 
@@ -66,9 +67,14 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
     test_cases[n].flags = SPNG_DECODE_GAMMA;
   /*  test_cases[n++].test_flags = 0;*/ /* libpng produces higher values for whatever reason */
 
+    test_cases[n].fmt = SPNG_FMT_PNG;
+    test_cases[n].flags = 0;
+    test_cases[n++].test_flags = 0;    
+
     *test_cases_n = n;
 }
 
+#define SPNG_FMT_RGB16 8
 
 int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
 {
@@ -78,12 +84,43 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     uint8_t alpha_mismatch = 0;
     uint8_t pixel_diff = 0;
     uint8_t bytes_per_pixel = 4; /* SPNG_FMT_RGBA8 */
+    const uint8_t samples_per_byte = 8 / ihdr->bit_depth;
+    const uint8_t mask = (uint16_t)(1 << ihdr->bit_depth) - 1;
+    const uint8_t initial_shift = 8 - ihdr->bit_depth;
+    uint8_t shift_amount = initial_shift;
+    size_t row_width, px_ofs;
+    unsigned channels;
 
-    uint16_t spng_red = 0, spng_green = 0, spng_blue = 0, spng_alpha = 0;
-    uint16_t png_red = 0, png_green = 0, png_blue = 0, png_alpha = 0;
+    uint16_t spng_red = 0, spng_green = 0, spng_blue = 0, spng_alpha = 0, spng_sample = 0;
+    uint16_t png_red = 0, png_green = 0, png_blue = 0, png_alpha = 0, png_sample = 0;
 
     w = ihdr->width;
     h = ihdr->height;
+
+    if(fmt == SPNG_FMT_PNG)
+    {
+        if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+        {
+            if(ihdr->bit_depth == 8) fmt = SPNG_FMT_RGB8;
+            else fmt = SPNG_FMT_RGB16;
+        }
+        else if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA)
+        {
+            if(ihdr->bit_depth == 8) fmt = SPNG_FMT_RGBA8;
+            else fmt = SPNG_FMT_RGBA16;
+        }
+        else
+        {/* gray 1,2,4,8,16 bits, indexed 1,2,4,8 or gray alpha 8,16  */
+            channels = 1; /* grayscale or indexed color */
+            if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) channels = 2;
+            else have_alpha = 0;
+
+            if(ihdr->bit_depth < 8) bytes_per_pixel = 1;
+            else bytes_per_pixel = channels * (ihdr->bit_depth / 8);
+
+            row_width = (channels * ihdr->bit_depth * w + 7) / 8;
+        }
+    }
 
     if(fmt == SPNG_FMT_RGBA8)
     {
@@ -98,17 +135,25 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
         bytes_per_pixel = 3;
         have_alpha = 0;
     }
+    else if(fmt == SPNG_FMT_RGB16)
+    {
+        bytes_per_pixel = 6;
+        have_alpha = 0;
+    }
 
     for(y=0; y < h; y++)
     {
         for(x=0; x < w; x++)
         {
-            if(fmt == SPNG_FMT_RGBA16)
+            if(fmt == SPNG_FMT_PNG && ihdr->bit_depth < 8)
+                px_ofs = (y * row_width) + x / samples_per_byte;
+            else
+                px_ofs = (x + (y * w)) * bytes_per_pixel;
+
+            if(fmt & (SPNG_FMT_RGBA16 | SPNG_FMT_RGB16))
             {
                 uint16_t s_red, s_green, s_blue, s_alpha;
                 uint16_t p_red, p_green, p_blue, p_alpha;
-
-                size_t px_ofs = (x + (y * w)) * bytes_per_pixel;
 
                 memcpy(&s_red, img_spng + px_ofs, 2);
                 memcpy(&s_green, img_spng + px_ofs + 2, 2);
@@ -134,12 +179,10 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                 png_green = p_green;
                 png_blue = p_blue;
             }
-            else /* FMT_RGB(A)8 */
+            else if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
             {
                 uint8_t s_red, s_green, s_blue, s_alpha;
                 uint8_t p_red, p_green, p_blue, p_alpha;
-
-                size_t px_ofs = (x + (y * w)) * bytes_per_pixel;
 
                 memcpy(&s_red, img_spng + px_ofs, 1);
                 memcpy(&s_green, img_spng + px_ofs + 1, 1);
@@ -164,15 +207,54 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                 png_red = p_red;
                 png_green = p_green;
                 png_blue = p_blue;
-
             }
-
-            if(have_alpha && spng_alpha != png_alpha)
+            else if(fmt == SPNG_FMT_PNG)
             {
-                printf("alpha mismatch at x:%" PRIu32 " y:%" PRIu32 ", "
-                       "spng: %" PRIu16 " png: %" PRIu16 "\n",
-                       x, y, spng_alpha, png_alpha);
-                alpha_mismatch = 1;
+                if(ihdr->bit_depth <= 8) /* gray 1-8, gray-alpha 8, indexed 1-8 */ 
+                {
+                    uint8_t s_alpha, s_sample;
+                    uint8_t p_alpha, p_sample;
+                    
+                    memcpy(&s_sample, img_spng + px_ofs, 1);
+                    memcpy(&p_sample, img_png + px_ofs, 1);
+
+                    if(shift_amount > 8) shift_amount = initial_shift;
+
+                    s_sample = (s_sample >> shift_amount) & mask;
+                    p_sample = (p_sample >> shift_amount) & mask;
+
+                    shift_amount -= ihdr->bit_depth;
+
+                    spng_sample = s_sample;
+                    png_sample = p_sample;
+
+                   if(have_alpha)
+                    {
+                        memcpy(&s_alpha, img_spng + px_ofs + 1, 1);
+                        memcpy(&p_alpha, img_png + px_ofs + 1, 1);
+                        spng_alpha = s_alpha;
+                        png_alpha = p_alpha;
+                    }
+                }
+                else /* gray 16, gray-alpha 16 */
+                {
+                    uint16_t s_alpha, s_sample;
+                    uint16_t p_alpha, p_sample;
+
+                    memcpy(&s_sample, img_spng + px_ofs, 2);
+                    memcpy(&p_sample, img_png + px_ofs, 2);
+
+                    spng_sample = s_sample;
+                    png_sample = p_sample;
+
+                    if(have_alpha)
+                    {
+                        memcpy(&s_alpha, img_spng + px_ofs + 2, 2);
+                        memcpy(&p_alpha, img_png + px_ofs + 2, 2);
+                        spng_alpha = s_alpha;
+                        png_alpha = p_alpha;
+                    }
+                }
             }
 
             if(spng_red != png_red || spng_green != png_green || spng_blue != png_blue)
@@ -192,7 +274,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
 
                     if(red_diff > max_diff || green_diff > max_diff || blue_diff > max_diff)
                     {
-                        printf("invalid gamma correction at x: %" PRIu32 " y:%" PRIu32 ", "
+                        printf("invalid gamma correction at x: %" PRIu32 " y: %" PRIu32 ", "
                                "spng: %" PRIu16 " %" PRIu16 " %" PRIu16 " "
                                "png: %" PRIu16 " %" PRIu16 " %" PRIu16 "\n",
                                x, y,
@@ -203,7 +285,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                 }
                 else
                 {
-                    printf("color difference at x: %" PRIu32 " y:%" PRIu32 ", "
+                    printf("color difference at x: %" PRIu32 " y: %" PRIu32 ", "
                            "spng: %" PRIu16 " %" PRIu16 " %" PRIu16 " "
                            "png: %" PRIu16 " %" PRIu16 " %" PRIu16 "\n",
                            x, y,
@@ -211,6 +293,24 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                            png_red, png_green, png_blue);
                     pixel_diff = 1;
                 }
+            }
+            else if(spng_sample != png_sample)
+            {
+                char *issue_str = "";
+                if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) issue_str = "index mismatch";
+                else issue_str = "grayscale difference";
+
+                printf("%s at x: %u y: %u spng: %u png: %u\n",
+                       issue_str, x, y, spng_sample, png_sample);
+                pixel_diff = 1;
+            }
+
+            if(have_alpha && spng_alpha != png_alpha)
+            {
+                printf("alpha mismatch at x:%" PRIu32 " y:%" PRIu32 ", "
+                       "spng: %" PRIu16 " png: %" PRIu16 "\n",
+                       x, y, spng_alpha, png_alpha);
+                alpha_mismatch = 1;
             }
         }
     }
