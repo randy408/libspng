@@ -65,7 +65,7 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
 
     test_cases[n].fmt = SPNG_FMT_RGB8;
     test_cases[n].flags = SPNG_DECODE_GAMMA;
-    test_cases[n++].test_flags = 0; /* libpng produces higher values for whatever reason */
+    test_cases[n++].test_flags = 0;
 
     test_cases[n].fmt = SPNG_FMT_PNG;
     test_cases[n].flags = 0;
@@ -309,7 +309,7 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
                                spng_red, spng_green, spng_blue,
                                png_red, png_green, png_blue);
                     }
-                    
+
                     pixel_diff = 1;
                 }
             }

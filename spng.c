@@ -2393,8 +2393,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
         if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR &&
            ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
 
-        f.apply_trns = 0;
-        f.apply_gamma = 0; /* inconsistent with libpng */
+        f.apply_trns = 0; /* not applicable */
     }
     else if(fmt == SPNG_FMT_PNG)
     {
