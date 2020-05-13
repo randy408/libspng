@@ -2712,9 +2712,11 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
 
 static int file_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
 {
-    if(fread(data, n, 1, user) != 1)
+    FILE *file = user;
+
+    if(fread(data, n, 1, file) != 1)
     {
-        if(feof(user)) return SPNG_IO_EOF;
+        if(feof(file)) return SPNG_IO_EOF;
         else return SPNG_IO_ERROR;
     }
 
