@@ -92,12 +92,12 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
         png_set_gray_to_rgb(png_ptr);
 
         png_set_strip_alpha(png_ptr);
-        
+
         png_set_strip_16(png_ptr);
     }
 
-#if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values */
-        png_set_swap(png_ptr);
+#if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values unless RAW format */
+    if((fmt & SPNG_FMT_RAW) != SPNG_FMT_RAW) png_set_swap(png_ptr);
 #endif
 
     png_set_interlace_handling(png_ptr);

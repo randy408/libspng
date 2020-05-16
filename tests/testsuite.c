@@ -19,6 +19,7 @@ void print_test_args(struct spng_test_case *test_case)
     else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
     else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8, ");
     else if(test_case->fmt == SPNG_FMT_PNG) printf("PNG, ");
+    else if(test_case->fmt == SPNG_FMT_RAW) printf("RAW, ");
 
     printf("FLAGS: ");
 
@@ -40,13 +41,13 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
     which acts as if png_set_tRNS_to_alpha() was called, as a result
     there are no tests where transparency is not applied
 */
-    
+
     int n=0;
 
     test_cases[n].fmt = SPNG_FMT_RGBA8;
     test_cases[n].flags = SPNG_DECODE_TRNS;
     test_cases[n++].test_flags = 0;
-    
+
     test_cases[n].fmt = SPNG_FMT_RGBA8;
     test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
     test_cases[n++].test_flags = 0;
@@ -69,7 +70,11 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
 
     test_cases[n].fmt = SPNG_FMT_PNG;
     test_cases[n].flags = 0;
-    test_cases[n++].test_flags = 0;    
+    test_cases[n++].test_flags = 0;
+
+    test_cases[n].fmt = SPNG_FMT_RAW;
+    test_cases[n].flags = 0;
+    test_cases[n++].test_flags = 0;
 
     *test_cases_n = n;
 }
@@ -218,11 +223,11 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
             }
             else if(fmt == SPNG_FMT_PNG)
             {
-                if(ihdr->bit_depth <= 8) /* gray 1-8, gray-alpha 8, indexed 1-8 */ 
+                if(ihdr->bit_depth <= 8) /* gray 1-8, gray-alpha 8, indexed 1-8 */
                 {
                     uint8_t s_alpha, s_sample;
                     uint8_t p_alpha, p_sample;
-                    
+
                     memcpy(&s_sample, img_spng + px_ofs, 1);
                     memcpy(&p_sample, img_png + px_ofs, 1);
 
