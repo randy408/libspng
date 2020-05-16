@@ -144,7 +144,8 @@ enum spng_format
     SPNG_FMT_RGBA8 = 1,
     SPNG_FMT_RGBA16 = 2,
     SPNG_FMT_RGB8 = 4,
-    SPNG_FMT_PNG = 16
+    SPNG_FMT_PNG = 16,
+    SPNG_FMT_RAW = (32 | SPNG_FMT_PNG)
 };
 
 enum spng_ctx_flags
