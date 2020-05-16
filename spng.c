@@ -3,6 +3,7 @@
 
 #include <limits.h>
 #include <string.h>
+#include <stdio.h>
 #include <math.h>
 
 #define ZLIB_CONST
