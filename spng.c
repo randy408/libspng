@@ -590,6 +590,45 @@ skip_crc:
     return ret;
 }
 
+/* read_chunk_bytes() + read_data() with custom output buffer */
+static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
+{
+    if(ctx == NULL) return 1;
+    if(!bytes) return 0;
+    if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
+
+    int ret;
+    uint32_t len = bytes;
+
+    if(ctx->streaming && len > SPNG_READ_SIZE) len = SPNG_READ_SIZE;
+
+    while(bytes)
+    {/* TODO: make sure read size is right for streaming */
+        if(len > bytes) len = bytes;
+
+        ret = ctx->read_fn(ctx, ctx->read_user_ptr, out, len);
+        if(ret) return ret;
+
+        ctx->bytes_read += len;
+        if(ctx->bytes_read < len) return SPNG_EOVERFLOW;
+
+        if(is_critical_chunk(&ctx->current_chunk) &&
+           ctx->crc_action_critical == SPNG_CRC_USE) goto skip_crc;
+        else if(ctx->crc_action_ancillary == SPNG_CRC_USE) goto skip_crc;
+
+        ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, out, len);
+
+skip_crc:
+        ctx->cur_chunk_bytes_left -= len;
+
+        out += len;
+        bytes -= len;
+        len = SPNG_READ_SIZE;
+    }
+
+    return 0;
+}
+
 static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
@@ -635,6 +674,10 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t
     if(buf == NULL) return SPNG_EMEM;
 
     size_t max = ctx->chunk_cache_limit - ctx->chunk_cache_usage;
+
+    if(ctx->max_chunk_size < max) max = ctx->max_chunk_size;
+    max--; /* account for the size++ */
+    if(!max) return 1;
 
     z_stream *stream = &ctx->zstream;
 
@@ -689,11 +732,12 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t
             stream->next_in = ctx->data;
         }
 
-        ret = inflate(stream, Z_SYNC_FLUSH);
-
     }while(ret != Z_STREAM_END);
 
     size = stream->total_out;
+    size++; /* leave space for NUL */
+
+    if(size < 1) goto mem;
 
     t = spng__realloc(ctx, buf, size);
     if(t == NULL) goto mem;
@@ -1298,19 +1342,30 @@ static int check_png_text(const char *str, size_t len)
     return 0;
 }
 
-static int chunk_fits_in_cache(spng_ctx *ctx, size_t *new_usage)
+static int increase_cache_usage(spng_ctx *ctx, size_t usage)
 {
-    if(ctx == NULL || new_usage == NULL) return 0;
+    if(ctx == NULL || !usage) return 1;
 
-    size_t usage = ctx->chunk_cache_usage + (size_t)ctx->current_chunk.length;
+    size_t new_usage = ctx->chunk_cache_usage + usage;
 
-    if(usage < ctx->chunk_cache_usage) return 0; /* Overflow */
+    /* Overflow, it's not fatal, it just won't fit */
+    if(new_usage < ctx->chunk_cache_usage) return 1;
 
-    if(usage > ctx->chunk_cache_limit) return 0;
+    if(new_usage > ctx->chunk_cache_limit) return 1;
 
-    *new_usage = usage;
+    ctx->chunk_cache_usage = new_usage;
 
-    return 1;
+    return 0;
+}
+
+int decrease_cache_usage(spng_ctx *ctx, size_t usage)
+{
+    if(ctx == NULL || !usage) return 1;
+    if(usage > ctx->chunk_cache_usage) return 1;
+
+    ctx->chunk_cache_usage -= usage;
+
+    return 0;
 }
 
 /* Returns non-zero for standard chunks which are stored without allocating memory */
@@ -1721,12 +1776,44 @@ static int read_non_idat_chunks(spng_ctx *ctx)
         }
         else /* Arbitrary-length chunk */
         {
-            ret = discard_chunk_bytes(ctx, chunk.length);
-            if(ret) return ret;
 
-            continue;
+            if(!memcmp(chunk.type, type_exif, 4))
+            {
+                if(ctx->file.exif) return SPNG_EDUP_EXIF;
 
-            if(!memcmp(chunk.type, type_iccp, 4))
+                ctx->file.exif = 1;
+
+                if(ctx->user.exif) goto discard;
+
+                if(chunk.length > ctx->max_chunk_size) goto discard;
+
+                if(increase_cache_usage(ctx, chunk.length)) goto discard;
+
+                struct spng_exif exif;
+
+                exif.length = chunk.length;
+
+                exif.data = spng__malloc(ctx, chunk.length);
+                if(exif.data == NULL) return SPNG_EMEM;
+
+                ret = read_chunk_bytes2(ctx, exif.data, chunk.length);
+                if(ret)
+                {
+                    spng__free(ctx, exif.data);
+                    return ret;
+                }
+
+                if(check_exif(&exif))
+                {
+                    spng__free(ctx, exif.data);
+                    return SPNG_EEXIF;
+                }
+
+                memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
+
+                ctx->stored.exif = 1;
+            }
+            else if(!memcmp(chunk.type, type_iccp, 4))
             {
                 if(ctx->file.plte) return SPNG_ECHUNK_POS;
                 if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
@@ -1749,21 +1836,14 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ctx->last_read_size = keyword_len;
                 ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, keyword_len + 1);
-
-                continue;
-            }
-
-            if(!chunk_fits_in_cache(ctx, &ctx->chunk_cache_usage))
-            {
-                ret = discard_chunk_bytes(ctx, chunk.length);
                 if(ret) return ret;
-                continue;
             }
 
-            ret = read_chunk_bytes(ctx, chunk.length);
+discard:
+            ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
             if(ret) return ret;
 
-            data = ctx->data;
+            continue;
 
             if(!memcmp(chunk.type, type_splt, 4))
             {
@@ -1877,30 +1957,6 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 ctx->file.text = 1;
 
                 continue;
-            }
-            else if(!memcmp(chunk.type, type_exif, 4))
-            {
-                if(ctx->file.exif) return SPNG_EDUP_EXIF;
-
-                ctx->file.exif = 1;
-
-                struct spng_exif exif;
-
-                exif.data = data;
-                exif.length = chunk.length;
-
-                if(!check_exif(&exif))
-                {
-                    if(ctx->user.exif) continue;
-
-                    exif.data = spng__malloc(ctx, chunk.length);
-                    if(exif.data == NULL) return SPNG_EMEM;
-
-                    memcpy(exif.data, data, chunk.length);
-                    memcpy(&ctx->exif, &exif, sizeof(struct spng_exif));
-                    ctx->stored.exif = 1;
-                }
-                else return SPNG_EEXIF;
             }
         }
 
