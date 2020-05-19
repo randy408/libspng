@@ -115,6 +115,25 @@ struct spng_plte_entry16
     uint16_t alpha;
 };
 
+struct spng_text2
+{
+    char *base_ptr; /* hold  */
+    struct spng_text v;
+};
+
+struct spng_text3
+{
+    int type;
+    char *keyword;
+    char *text;
+
+    size_t text_length;
+
+    uint8_t compression_flag; /* iTXt only */
+    char *language_tag; /* iTXt only */
+    char *translated_keyword; /* iTXt only */
+};
+
 struct decode_flags
 {
     unsigned apply_trns:  1;
@@ -212,7 +231,7 @@ struct spng_ctx
     uint8_t srgb_rendering_intent;
 
     uint32_t n_text;
-    struct spng_text *text_list;
+    struct spng_text2 *text_list;
 
     struct spng_bkgd bkgd;
     struct spng_hist hist;
@@ -2675,9 +2694,7 @@ void spng_ctx_free(spng_ctx *ctx)
         uint32_t i;
         for(i=0; i< ctx->n_text; i++)
         {
-            if(ctx->text_list[i].text != NULL) spng__free(ctx, ctx->text_list[i].text);
-            if(ctx->text_list[i].language_tag != NULL) spng__free(ctx, ctx->text_list[i].language_tag);
-            if(ctx->text_list[i].translated_keyword != NULL) spng__free(ctx, ctx->text_list[i].translated_keyword);
+            spng__free(ctx, ctx->text_list[i].base_ptr);
         }
         spng__free(ctx, ctx->text_list);
     }
@@ -3003,6 +3020,12 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 
     if(!ctx->stored.text) return SPNG_ECHUNKAVAIL;
 
+    uint32_t i;
+    for(i=0; i< ctx->n_text; i++)
+    {
+        memcpy(text + i, &ctx->text_list[i].v, sizeof(struct spng_text));
+    }
+
     memcpy(text, &ctx->text_list, ctx->n_text * sizeof(struct spng_text));
 
     return ret;
@@ -3304,9 +3327,7 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     {
         for(i=0; i< ctx->n_text; i++)
         {
-            if(ctx->text_list[i].text != NULL) spng__free(ctx, ctx->text_list[i].text);
-            if(ctx->text_list[i].language_tag != NULL) spng__free(ctx, ctx->text_list[i].language_tag);
-            if(ctx->text_list[i].translated_keyword != NULL) spng__free(ctx, ctx->text_list[i].translated_keyword);
+            spng__free(ctx, ctx->text_list[i].base_ptr);
         }
         spng__free(ctx, ctx->text_list);
     }
