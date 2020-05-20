@@ -103,4 +103,5 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
 ## Known Issues
 
 * Text and iCCP chunks are not read.
+* Gamma correction is not implemented for `SPNG_FMT_PNG`.
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
