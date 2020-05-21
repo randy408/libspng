@@ -1814,7 +1814,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 ctx->stored.exif = 1;
             }
             else if(!memcmp(chunk.type, type_iccp, 4))
-            {
+            {/* TODO: add test file with color profile */
                 if(ctx->file.plte) return SPNG_ECHUNK_POS;
                 if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
                 if(ctx->file.iccp) return SPNG_EDUP_ICCP;
@@ -1837,6 +1837,14 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 ctx->last_read_size = keyword_len;
                 ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, keyword_len + 1);
                 if(ret) return ret;
+            }
+             else if(!memcmp(chunk.type, type_text, 4) ||
+                     !memcmp(chunk.type, type_ztxt, 4) ||
+                     !memcmp(chunk.type, type_itxt, 4))
+            {
+                ctx->file.text = 1;
+
+
             }
 
 discard:
@@ -1949,14 +1957,6 @@ discard:
                 }
 
                 ctx->stored.splt = 1;
-            }
-            else if(!memcmp(chunk.type, type_text, 4) ||
-                    !memcmp(chunk.type, type_ztxt, 4) ||
-                    !memcmp(chunk.type, type_itxt, 4))
-            {
-                ctx->file.text = 1;
-
-                continue;
             }
         }
 
@@ -3378,17 +3378,16 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
 
     }
 
-
     if(ctx->text_list != NULL && !ctx->user.text)
     {
-        for(i=0; i< ctx->n_text; i++)
+        for(i=0; i < ctx->n_text; i++)
         {
             spng__free(ctx, ctx->text_list[i].base_ptr);
         }
         spng__free(ctx, ctx->text_list);
     }
 
-    ctx->text_list = text;
+    /* ctx->text_list = text; */ /* XXX: fix this for encode support */
     ctx->n_text = n_text;
 
     ctx->stored.text = 1;
