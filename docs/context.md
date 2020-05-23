@@ -90,6 +90,8 @@ int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
 Set chunk size and chunk cache limits, the default chunk size limit is 2<sup>31</sup>-1,
 the default chunk cache limit is `SIZE_MAX`.
 
+Reaching either limit while decoding is handled as an out-of-memory error.
+
 !!!note
     This can only be used for limiting memory usage, most standard chunks
     do not require additional memory and are stored regardless of these limits.
