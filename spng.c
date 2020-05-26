@@ -1875,9 +1875,9 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 struct spng_text2 *text = &ctx->text_list[ctx->n_text - 1];
                 memset(text, 0, sizeof(struct spng_text2));
 
+                uint32_t text_offset = 0, language_tag_offset = 0, translated_keyword_offset = 0;
                 uint32_t peek_bytes = 256; /* enough for 3 80-byte keywords and some text bytes */
                 uint32_t keyword_len;
-                uint32_t text_offset = 0, language_tag_offset = 0, translated_keyword_offset = 0;
 
                 if(peek_bytes > chunk.length) peek_bytes = chunk.length;
 
@@ -1886,9 +1886,9 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 data = ctx->data;
 
+                const unsigned char *zlib_stream = NULL;
                 const unsigned char *peek_end = data + peek_bytes;
                 const unsigned char *keyword_nul = memchr(data, 0, chunk.length > 80 ? 80 : chunk.length);
-                const unsigned char *zlib_stream = NULL;
 
                 if(keyword_nul == NULL) return SPNG_ETEXT_KEYWORD;
 
@@ -1898,21 +1898,22 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 {
                     text->type = SPNG_TEXT;
 
-                    text->text_length = chunk.length - (keyword_nul - data);
+                    text->text_length = chunk.length - keyword_len - 1;
 
-                    text_offset = keyword_len + 1;
+                    text_offset = keyword_len;
+
+                    /* increment past nul if there is a text field */
+                    if(text->text_length) text_offset++;
                 }
                 else if(!memcmp(chunk.type, type_ztxt, 4))
                 {
                     text->type = SPNG_ZTXT;
 
-                    if((keyword_nul - data) < 2) return SPNG_EZTXT;
+                    if((peek_bytes - keyword_len) <= 2) return SPNG_EZTXT;
 
                     if(keyword_nul[1]) return SPNG_EZTXT_COMPRESSION_METHOD;
 
                     text->compression_flag = 1;
-
-                    zlib_stream = keyword_nul + 2;
 
                     text_offset = keyword_len + 2;
                 }
@@ -1957,13 +1958,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     text->keyword = spng__calloc(ctx, 1, peek_bytes);
                     if(text->keyword == NULL) return SPNG_EMEM;
 
-                    memcpy(text->keyword, data, keyword_nul - data);
-
-                    if(text->type == SPNG_ITXT)
-                    {
-                        memcpy(text->language_tag, data + language_tag_offset, text->translated_keyword - text->language_tag);
-                        memcpy(text->translated_keyword, data + translated_keyword_offset, zlib_stream - 1 - data);
-                    }
+                    memcpy(text->keyword, data, peek_bytes);
 
                     zlib_stream = ctx->data + text_offset;
 
