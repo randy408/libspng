@@ -117,12 +117,6 @@ struct spng_plte_entry16
 
 struct spng_text2
 {
-    char *base_ptr; /* hold  */
-    struct spng_text v;
-};
-
-struct spng_text3
-{
     int type;
     char *keyword;
     char *text;
@@ -472,6 +466,33 @@ static int calculate_subimages(struct spng_ctx *ctx)
     return 0;
 }
 
+
+static int increase_cache_usage(spng_ctx *ctx, size_t bytes)
+{
+    if(ctx == NULL || !bytes) return 1;
+
+    size_t new_usage = ctx->chunk_cache_usage + bytes;
+
+    /* Overflow, treat it as a normal error though */
+    if(new_usage < ctx->chunk_cache_usage) return 1;
+
+    if(new_usage > ctx->chunk_cache_limit) return 1;
+
+    ctx->chunk_cache_usage = new_usage;
+
+    return 0;
+}
+
+static int decrease_cache_usage(spng_ctx *ctx, size_t usage)
+{
+    if(ctx == NULL || !usage) return 1;
+    if(usage > ctx->chunk_cache_usage) return 1;
+
+    ctx->chunk_cache_usage -= usage;
+
+    return 0;
+}
+
 static int is_critical_chunk(struct spng_chunk *chunk)
 {
     if(chunk == NULL) return 0;
@@ -658,39 +679,49 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
     return 0;
 }
 
-/* Inflate a zlib stream from current position - offset to the end,
+/* Inflate a zlib stream starting with start_buf if non-NULL,
+   continuing from the datastream till an end marker,
    allocating and writing the inflated stream to *out,
-   final buffer length is *len.
-   Takes into account the chunk cache limit
+   leaving "extra" bytes at the end, final buffer length is *len.
+
+   Takes into account the chunk size and cache limits.
 */
-static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t offset)
+static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extra, const void *start_buf, size_t start_len)
 {
     int ret = spng__inflate_init(ctx);
     if(ret) return ret;
 
-    uint32_t read_size;
-    size_t size = 1 << 13; /* 8192 */
-    void *t, *buf = spng__malloc(ctx, size);
-    if(buf == NULL) return SPNG_EMEM;
-
     size_t max = ctx->chunk_cache_limit - ctx->chunk_cache_usage;
 
     if(ctx->max_chunk_size < max) max = ctx->max_chunk_size;
-    max--; /* account for the size++ */
-    if(!max) return 1;
+
+    if(extra > max) return SPNG_EMEM;
+    max -= extra;
+
+    uint32_t read_size;
+    size_t size = 8 * 1024;
+    void *t, *buf = spng__malloc(ctx, size);
+
+    if(buf == NULL) return SPNG_EMEM;
 
     z_stream *stream = &ctx->zstream;
 
-    stream->avail_in = ctx->last_read_size - offset;
-    stream->next_in = ctx->data + offset;
+    if(start_buf != NULL && start_len)
+    {
+        stream->avail_in = start_len;
+        stream->next_in = start_buf;
+    }
+    else
+    {
+        stream->avail_in = 0;
+        stream->next_in = NULL;
+    }
 
     stream->avail_out = size;
     stream->next_out = buf;
 
     do
     {
-        ret = inflate(stream, Z_SYNC_FLUSH);
-
         if(ret != Z_OK && ret != Z_STREAM_END && ret != Z_BUF_ERROR)
         {
             spng__free(ctx, buf);
@@ -699,19 +730,10 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t
 
         if(!stream->avail_out)
         {
-            if(2 > SIZE_MAX / size)
-            {
-                spng__free(ctx, buf);
-                return SPNG_EOVERFLOW;
-            }
+            /* overflow or reached chunk/cache limit */
+            if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
 
             size *= 2;
-
-            if(size > max)
-            {
-                spng__free(ctx, buf);
-                return SPNG_EMEM; /* chunk cache limit */
-            }
 
             t = spng__realloc(ctx, buf, size);
             if(t == NULL) goto mem;
@@ -723,7 +745,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t
         if(!stream->avail_in) /* Read more chunk bytes */
         {
             read_size = ctx->cur_chunk_bytes_left;
-            if(read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
+            if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
 
             ret = read_chunk_bytes(ctx, read_size);
             if(ret) return ret;
@@ -732,15 +754,21 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, uint32_t
             stream->next_in = ctx->data;
         }
 
+        ret = inflate(stream, Z_SYNC_FLUSH);
+
     }while(ret != Z_STREAM_END);
 
     size = stream->total_out;
-    size++; /* leave space for NUL */
 
-    if(size < 1) goto mem;
+    size += extra;
+    if(size < extra) goto mem;
 
     t = spng__realloc(ctx, buf, size);
     if(t == NULL) goto mem;
+
+    buf = t;
+
+    increase_cache_usage(ctx, size);
 
     *out = buf;
     *len = size;
@@ -1342,32 +1370,6 @@ static int check_png_text(const char *str, size_t len)
     return 0;
 }
 
-static int increase_cache_usage(spng_ctx *ctx, size_t usage)
-{
-    if(ctx == NULL || !usage) return 1;
-
-    size_t new_usage = ctx->chunk_cache_usage + usage;
-
-    /* Overflow, it's not fatal, it just won't fit */
-    if(new_usage < ctx->chunk_cache_usage) return 1;
-
-    if(new_usage > ctx->chunk_cache_limit) return 1;
-
-    ctx->chunk_cache_usage = new_usage;
-
-    return 0;
-}
-
-int decrease_cache_usage(spng_ctx *ctx, size_t usage)
-{
-    if(ctx == NULL || !usage) return 1;
-    if(usage > ctx->chunk_cache_usage) return 1;
-
-    ctx->chunk_cache_usage -= usage;
-
-    return 0;
-}
-
 /* Returns non-zero for standard chunks which are stored without allocating memory */
 static int is_small_chunk(uint8_t type[4])
 {
@@ -1785,9 +1787,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 if(ctx->user.exif) goto discard;
 
-                if(chunk.length > ctx->max_chunk_size) goto discard;
-
-                if(increase_cache_usage(ctx, chunk.length)) goto discard;
+                if(increase_cache_usage(ctx, chunk.length)) return SPNG_EMEM;
 
                 struct spng_exif exif;
 
@@ -1820,32 +1820,196 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(ctx->file.iccp) return SPNG_EDUP_ICCP;
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
-                uint32_t keyword_len = 81 > chunk.length ? chunk.length : 81;
-                ret = read_chunk_bytes(ctx, 81);
+                uint32_t peek_bytes =  81 > chunk.length ? chunk.length : 81;
+
+                ret = read_chunk_bytes(ctx, peek_bytes);
                 if(ret) return ret;
 
-                unsigned char *keyword_nul = memchr(ctx->data, '\0', keyword_len);
+                unsigned char *keyword_nul = memchr(ctx->data, '\0', peek_bytes);
                 if(keyword_nul == NULL) return SPNG_EICCP_NAME;
 
-                memcpy(ctx->iccp.profile_name, ctx->data, keyword_nul - ctx->data);
+                uint32_t keyword_len = keyword_nul - ctx->data;
+
+                if(keyword_len > 79) return SPNG_EICCP_NAME;
+
+                memcpy(ctx->iccp.profile_name, ctx->data, keyword_len);
 
                 if(check_png_keyword(ctx->iccp.profile_name)) return SPNG_EICCP_NAME;
 
-                if(chunk.length - keyword_len - 1) return SPNG_ECHUNK_SIZE;
+                if(chunk.length < (keyword_len + 2)) return SPNG_ECHUNK_SIZE;
 
                 if(ctx->data[keyword_len + 1] != 0) return SPNG_EICCP_COMPRESSION_METHOD;
 
-                ctx->last_read_size = keyword_len;
-                ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, keyword_len + 1);
+                ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, 0, ctx->data + keyword_len + 2, peek_bytes - (keyword_len + 2));
                 if(ret) return ret;
             }
              else if(!memcmp(chunk.type, type_text, 4) ||
                      !memcmp(chunk.type, type_ztxt, 4) ||
                      !memcmp(chunk.type, type_itxt, 4))
             {
+                if(!chunk.length) return SPNG_ECHUNK_SIZE;
+
                 ctx->file.text = 1;
 
+                if(ctx->user.text) goto discard;
 
+                if(increase_cache_usage(ctx, sizeof(struct spng_text2))) return SPNG_EMEM;
+
+                if(!ctx->stored.text)
+                {
+                    ctx->n_text = 1;
+                    ctx->text_list = spng__calloc(ctx, 1, sizeof(struct spng_text2));
+                    if(ctx->text_list == NULL) return SPNG_EMEM;
+                }
+                else
+                {
+                    ctx->n_text++;
+                    if(ctx->n_text < 1) return SPNG_EOVERFLOW;
+                    if(sizeof(struct spng_text2) > SIZE_MAX / ctx->n_text) return SPNG_EOVERFLOW;
+
+                    void *buf = spng__realloc(ctx, ctx->text_list, ctx->n_text * sizeof(struct spng_text2));
+                    if(buf == NULL) return SPNG_EMEM;
+                    ctx->text_list = buf;
+                }
+
+                struct spng_text2 *text = &ctx->text_list[ctx->n_text - 1];
+                memset(text, 0, sizeof(struct spng_text2));
+
+                uint32_t peek_bytes = 256; /* enough for 3 80-byte keywords and some text bytes */
+                uint32_t keyword_len;
+                uint32_t text_offset, language_tag_offset, translated_keyword_offset;
+
+                if(peek_bytes > chunk.length) peek_bytes = chunk.length;
+
+                ret = read_chunk_bytes(ctx, peek_bytes);
+                if(ret) return ret;
+
+                data = ctx->data;
+
+                const unsigned char *peek_end = data + peek_bytes;
+                const unsigned char *keyword_nul = memchr(data, 0, chunk.length > 80 ? 80 : chunk.length);
+                const unsigned char *zlib_stream = NULL;
+
+                if(keyword_nul == NULL) return SPNG_ETEXT_KEYWORD;
+
+                keyword_len = keyword_nul - data;
+
+                if(!memcmp(chunk.type, type_text, 4))
+                {
+                    text->type = SPNG_TEXT;
+
+                    text->text_length = chunk.length - (keyword_nul - data);
+
+                    text_offset = keyword_len + 1;
+                }
+                else if(!memcmp(chunk.type, type_ztxt, 4))
+                {
+                    text->type = SPNG_ZTXT;
+
+                    if((keyword_nul - data) < 2) return SPNG_EZTXT;
+
+                    if(keyword_nul[1]) return SPNG_EZTXT_COMPRESSION_METHOD;
+
+                    text->compression_flag = 1;
+
+                    zlib_stream = keyword_nul + 2;
+
+                    text_offset = keyword_len + 2;
+                }
+                else if(!memcmp(chunk.type, type_itxt, 4))
+                {
+                    text->type = SPNG_ITXT;
+
+                    /* at least two 1-byte fields, two >=0 length strings, and one byte of (compressed) text */
+                    if((keyword_nul - data) < 5) return SPNG_EITXT;
+
+                    memcpy(&text->compression_flag, keyword_nul + 1, 1);
+
+                    if(text->compression_flag > 1) return SPNG_EITXT_COMPRESSION_FLAG;
+
+                    if(keyword_nul[2]) return SPNG_EITXT_COMPRESSION_METHOD;
+
+                    language_tag_offset = (keyword_nul - data + 3);
+
+                    const unsigned char *term;
+                    term = memchr(data + language_tag_offset, 0, peek_bytes - language_tag_offset);
+                    if(term == NULL) return SPNG_EITXT_LANG_TAG;
+
+                    if((term - data) < 2) return SPNG_EITXT;
+
+                    translated_keyword_offset = term - data + 1;
+
+                    const unsigned char *zlib_stream = memchr(data + translated_keyword_offset, 0, peek_bytes - translated_keyword_offset);
+                    if(zlib_stream == NULL) return SPNG_EITXT;
+                    if(zlib_stream == peek_end) return SPNG_EITXT;
+
+                    text_offset = zlib_stream - data + 1;
+                    text->text_length = chunk.length - text_offset;
+                }
+                else return 1;
+
+
+                if(text->compression_flag)
+                {
+                    /* cache usage = peek_bytes + decompressed text size + nul */
+                    if(increase_cache_usage(ctx, peek_bytes)) return SPNG_EMEM;
+
+                    text->keyword = spng__calloc(ctx, 1, peek_bytes);
+                    if(text->keyword == NULL) return SPNG_EMEM;
+
+                    memcpy(text->keyword, data, keyword_nul - data);
+
+                    if(text->type == SPNG_ITXT)
+                    {
+                        memcpy(text->language_tag, data + language_tag_offset, text->translated_keyword - text->language_tag);
+                        memcpy(text->translated_keyword, data + translated_keyword_offset, zlib_stream - 1 - data);
+                    }
+
+                    zlib_stream = ctx->data + text_offset;
+
+                    ret = spng__inflate_stream(ctx, &text->text, &text->text_length, 1, zlib_stream, peek_bytes - text_offset);
+                    if(ret) return ret;
+
+                    text->text[text->text_length - 1] = '\0';
+                }
+                else
+                {
+                    if(increase_cache_usage(ctx, chunk.length + 1)) return SPNG_EMEM;
+
+                    text->keyword = spng__malloc(ctx, chunk.length + 1);
+                    if(text->keyword == NULL) return SPNG_EMEM;
+
+                    memcpy(text->keyword, data, peek_bytes);
+
+                    if(chunk.length > peek_bytes)
+                    {
+                        ret = read_chunk_bytes2(ctx, text->keyword + peek_bytes, chunk.length - peek_bytes);
+                        if(ret) return ret;
+                    }
+
+                    text->text = text->keyword + text_offset;
+
+                    text->text_length = chunk.length - text_offset;
+
+                    text->text[text->text_length] = '\0';
+                }
+
+                if(check_png_keyword(text->keyword)) return SPNG_ETEXT_KEYWORD;
+
+                text->text_length = strlen(text->text);
+
+                if(text->type != SPNG_ITXT)
+                {
+                    language_tag_offset = keyword_len;
+                    translated_keyword_offset = keyword_len;
+
+                    if(check_png_text(text->text, text->text_length)) return SPNG_ETEXT;
+                }
+
+                text->language_tag = text->keyword + language_tag_offset;
+                text->translated_keyword = text->keyword + translated_keyword_offset;
+
+                ctx->stored.text = 1;
             }
 
 discard:
@@ -2751,7 +2915,8 @@ void spng_ctx_free(spng_ctx *ctx)
         uint32_t i;
         for(i=0; i< ctx->n_text; i++)
         {
-            spng__free(ctx, ctx->text_list[i].base_ptr);
+            spng__free(ctx, ctx->text_list[i].keyword);
+            if(ctx->text_list[i].compression_flag) spng__free(ctx, ctx->text_list[i].text);
         }
         spng__free(ctx, ctx->text_list);
     }
@@ -2871,7 +3036,7 @@ int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
 
 int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
 {
-    if(ctx == NULL || chunk_size > png_u32max) return 1;
+    if(ctx == NULL || chunk_size > png_u32max || cache_limit > chunk_size) return 1;
 
     ctx->max_chunk_size = chunk_size;
 
@@ -3080,10 +3245,14 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
     uint32_t i;
     for(i=0; i< ctx->n_text; i++)
     {
-        memcpy(text + i, &ctx->text_list[i].v, sizeof(struct spng_text));
+        text[i].type = ctx->text_list[i].type;
+        memcpy(&text[i].keyword,  ctx->text_list[i].keyword, strlen(ctx->text_list[i].keyword) + 1);
+        text[i].compression_method = 0;
+        text[i].compression_flag = ctx->text_list[i].compression_flag;
+        text[i].language_tag = ctx->text_list[i].language_tag;
+        text[i].length = ctx->text_list[i].text_length;
+        text[i].text = ctx->text_list[i].text;
     }
-
-    memcpy(text, &ctx->text_list, ctx->n_text * sizeof(struct spng_text));
 
     return ret;
 }
@@ -3350,6 +3519,8 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     if(!n_text) return 1;
     SPNG_SET_CHUNK_BOILERPLATE(text);
 
+    return 0; /* XXX: fix this for encode support */
+
     uint32_t i;
     for(i=0; i < n_text; i++)
     {
@@ -3383,12 +3554,12 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     {
         for(i=0; i < ctx->n_text; i++)
         {
-            spng__free(ctx, ctx->text_list[i].base_ptr);
+            spng__free(ctx, ctx->text_list[i].keyword);
         }
         spng__free(ctx, ctx->text_list);
     }
 
-    /* ctx->text_list = text; */ /* XXX: fix this for encode support */
+    /* ctx->text_list = text; */
     ctx->n_text = n_text;
 
     ctx->stored.text = 1;
