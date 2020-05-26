@@ -1898,21 +1898,22 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 {
                     text->type = SPNG_TEXT;
 
-                    text->text_length = chunk.length - (keyword_nul - data);
+                    text->text_length = chunk.length - keyword_len - 1;
 
-                    text_offset = keyword_len + 1;
+                    text_offset = keyword_len;
+
+                    /* increment past nul if there is a text field */
+                    if(text->text_length) text_offset++;
                 }
                 else if(!memcmp(chunk.type, type_ztxt, 4))
                 {
                     text->type = SPNG_ZTXT;
 
-                    if((keyword_nul - data) < 2) return SPNG_EZTXT;
+                    if((peek_bytes - keyword_len) <= 2) return SPNG_EZTXT;
 
                     if(keyword_nul[1]) return SPNG_EZTXT_COMPRESSION_METHOD;
 
                     text->compression_flag = 1;
-
-                    zlib_stream = keyword_nul + 2;
 
                     text_offset = keyword_len + 2;
                 }
