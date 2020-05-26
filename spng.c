@@ -1921,7 +1921,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     text->type = SPNG_ITXT;
 
                     /* at least two 1-byte fields, two >=0 length strings, and one byte of (compressed) text */
-                    if((keyword_nul - data) < 5) return SPNG_EITXT;
+                    if((peek_bytes - keyword_len) < 5) return SPNG_EITXT;
 
                     memcpy(&text->compression_flag, keyword_nul + 1, 1);
 
@@ -1929,7 +1929,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                     if(keyword_nul[2]) return SPNG_EITXT_COMPRESSION_METHOD;
 
-                    language_tag_offset = (keyword_nul - data + 3);
+                    language_tag_offset = keyword_len + 3;
 
                     const unsigned char *term;
                     term = memchr(data + language_tag_offset, 0, peek_bytes - language_tag_offset);
