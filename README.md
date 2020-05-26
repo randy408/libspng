@@ -24,22 +24,22 @@ it outperforms the reference implementation in common use cases.
 
 ## Features
 
-| Feature                    | libspng    | libpng   | stb_image | lodepng |
-|----------------------------|------------|----------|-----------|---------|
-| Decode from stream         | ✅        | ✅       | ✅        | ❌     |
-| Gamma correction           | ✅        | ✅       | ❌        | ❌     |
-| No known security bugs*    | ✅        | ✅       | ❌        | ✅     |
-| Progressive image read     | ✅        | ✅       | ❌        | ❌     |
-| Parses all standard chunks | ✅        | ✅       | ❌        | ❌     |
-| Doesn't require zlib       | ❌*       | ❌       | ✅        | ✅     |
-| Encoding                   | ❌*       | ✅       | ✅        | ✅     |
-| Animated PNG               | ❌*       | ✅***    | ❌        | ❌     |
+| Feature                              | libspng | libpng | stb_image | lodepng |
+|--------------------------------------|---------|--------|-----------|---------|
+| Decode from stream                   | ✅      |  ✅   | ✅       | ❌      |
+| Gamma correction                     | ✅      |  ✅   | ❌       | ❌      |
+| No known security bugs<sup>[1]</sup> | ✅      |  ✅   | ❌       | ✅      |
+| Progressive image read               | ✅      |  ✅   | ❌       | ❌      |
+| Parses all standard chunks           | ✅      |  ✅   | ❌       | ❌      |
+| Doesn't require zlib                 | ❌*     |  ❌   | ✅       | ✅      |
+| Encoding                             | ❌*     |  ✅   | ✅       | ✅      |
+| Animated PNG                         | ❌*     |  ✅** | ❌       | ❌      |
 
-\* The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
+[1] The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
 
 \* Work in progress
 
-\*\*\* With a 3rd party patch
+\*\* With a 3rd party patch
 
 ## Getting spng
 
