@@ -1877,7 +1877,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 uint32_t peek_bytes = 256; /* enough for 3 80-byte keywords and some text bytes */
                 uint32_t keyword_len;
-                uint32_t text_offset, language_tag_offset, translated_keyword_offset;
+                uint32_t text_offset = 0, language_tag_offset = 0, translated_keyword_offset = 0;
 
                 if(peek_bytes > chunk.length) peek_bytes = chunk.length;
 
