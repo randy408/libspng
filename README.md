@@ -30,7 +30,7 @@ it outperforms the reference implementation in common use cases.
 | Gamma correction           | ✅        | ✅       | ❌        | ❌     |
 | No known security bugs*    | ✅        | ✅       | ❌        | ✅     |
 | Progressive image read     | ✅        | ✅       | ❌        | ❌     |
-| Parses all standard chunks | ❌*       | ✅       | ❌        | ❌     |
+| Parses all standard chunks | ✅        | ✅       | ❌        | ❌     |
 | Doesn't require zlib       | ❌*       | ❌       | ✅        | ✅     |
 | Encoding                   | ❌*       | ✅       | ✅        | ✅     |
 | Animated PNG               | ❌*       | ✅***    | ❌        | ❌     |
@@ -102,6 +102,5 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
 
 ## Known Issues
 
-* Text and iCCP chunks are not read.
 * Gamma correction is not implemented for `SPNG_FMT_PNG`.
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
