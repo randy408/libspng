@@ -1875,9 +1875,9 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 struct spng_text2 *text = &ctx->text_list[ctx->n_text - 1];
                 memset(text, 0, sizeof(struct spng_text2));
 
+                uint32_t text_offset = 0, language_tag_offset = 0, translated_keyword_offset = 0;
                 uint32_t peek_bytes = 256; /* enough for 3 80-byte keywords and some text bytes */
                 uint32_t keyword_len;
-                uint32_t text_offset = 0, language_tag_offset = 0, translated_keyword_offset = 0;
 
                 if(peek_bytes > chunk.length) peek_bytes = chunk.length;
 
@@ -1886,9 +1886,9 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 data = ctx->data;
 
+                const unsigned char *zlib_stream = NULL;
                 const unsigned char *peek_end = data + peek_bytes;
                 const unsigned char *keyword_nul = memchr(data, 0, chunk.length > 80 ? 80 : chunk.length);
-                const unsigned char *zlib_stream = NULL;
 
                 if(keyword_nul == NULL) return SPNG_ETEXT_KEYWORD;
 
@@ -1959,12 +1959,6 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     if(text->keyword == NULL) return SPNG_EMEM;
 
                     memcpy(text->keyword, data, peek_bytes);
-
-                    if(text->type == SPNG_ITXT)
-                    {
-                        text->language_tag = text->keyword + language_tag_offset;
-                        text->translated_keyword = text->keyword + translated_keyword_offset;
-                    }
 
                     zlib_stream = ctx->data + text_offset;
 
