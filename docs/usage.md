@@ -1,10 +1,9 @@
 # Basic usage
 
-libspng can decode images to 8- or 16-bit RGBA formats from any PNG file,
-whether to use ancillary chunk information when decoding is controlled
-with `SPNG_DECODE_USE_*` flags, they're ignored by default. To output the
-image data untransformed (except for deinterlacing) use `SPNG_FMT_RAW`,
-no flags can be used in "RAW" output format.
+libspng can decode images to an explicit output format (e.g. 8/16-bit RGBA)
+from any PNG format. With `SPNG_FMT_PNG` the pixel format will identical
+to the PNG's format in host-endian, or big-endian with `SPNG_FMT_RAW`,
+the latter does not support any transforms e.g. gamma correction.
 
 
 ```c
