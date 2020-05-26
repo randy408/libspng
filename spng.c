@@ -644,7 +644,7 @@ static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
 skip_crc:
         ctx->cur_chunk_bytes_left -= len;
 
-        out += len;
+        out = (char*)out + len;
         bytes -= len;
         len = SPNG_READ_SIZE;
     }
@@ -741,7 +741,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
             if(t == NULL) goto mem;
 
             stream->avail_out = size / 2;
-            stream->next_out = buf + size / 2;
+            stream->next_out = (unsigned char*)buf + size / 2;
         }
 
         if(!stream->avail_in) /* Read more chunk bytes */
@@ -2102,7 +2102,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     return SPNG_EMEM;
                 }
 
-                data = t + keyword_len + 2;
+                data = (unsigned char*)t + keyword_len + 2;
 
                 uint32_t k;
                 if(splt->sample_depth == 16)
