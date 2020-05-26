@@ -2538,7 +2538,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 
             for(k=0; k < ctx->subimage[pass].width; k++)
             {
-                size_t ioffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]);
+                size_t ioffset = adam7_x_start[pass] + k * adam7_x_delta[pass];
 
                 memcpy(&sample, ctx->row + k / samples_per_byte, 1);
 
@@ -2561,7 +2561,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 
     for(k=0; k < ctx->subimage[pass].width; k++)
     {
-        size_t ioffset = (adam7_x_start[pass] + k * adam7_x_delta[pass]) * pixel_size;
+        size_t ioffset = (adam7_x_start[pass] + (size_t) k * adam7_x_delta[pass]) * pixel_size;
 
         memcpy(out + ioffset, ctx->row + k * pixel_size, pixel_size);
     }
