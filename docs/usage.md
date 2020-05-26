@@ -35,8 +35,9 @@ To decode arbitrary files safely it is required to at least:
 * Use `spng_decoded_image_size()` to calculate the output image size
  and check it against a constant limit.
 
-* Set a chunk size and chunk cache limit with `spng_set_chunks_limits()` to avoid
- running out of memory.
+* Set a chunk size and chunk cache limit with `spng_set_chunks_limits()`
+  to avoid running out of memory. Note that exceeding either limit is
+  handled as an out-of-memory error since v0.6.0.
 
 ### Notes on memory use
 
