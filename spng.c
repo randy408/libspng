@@ -1935,7 +1935,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     term = memchr(data + language_tag_offset, 0, peek_bytes - language_tag_offset);
                     if(term == NULL) return SPNG_EITXT_LANG_TAG;
 
-                    if((term - data) < 2) return SPNG_EITXT;
+                    if((peek_end - term) < 2) return SPNG_EITXT;
 
                     translated_keyword_offset = term - data + 1;
 
