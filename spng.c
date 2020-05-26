@@ -3036,7 +3036,7 @@ int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
 
 int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
 {
-    if(ctx == NULL || chunk_size > png_u32max || cache_limit > chunk_size) return 1;
+    if(ctx == NULL || chunk_size > png_u32max || chunk_size > cache_limit) return 1;
 
     ctx->max_chunk_size = chunk_size;
 
