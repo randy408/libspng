@@ -104,6 +104,7 @@ struct spng_subimage
 {
     uint32_t width;
     uint32_t height;
+    size_t out_width;
     size_t scanline_width;
 };
 
@@ -249,7 +250,8 @@ struct spng_ctx
     size_t out_width; /* total_out_size / ihdr.height */
 
     unsigned channels;
-    unsigned bytes_per_pixel;
+    unsigned bytes_per_pixel; /* input PNG */
+    unsigned pixel_size; /* output format */
     int widest_pass;
     int last_pass; /* last non-empty pass */
 
@@ -2233,14 +2235,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(fmt == SPNG_FMT_RGB8) pixel_size = 3;
 
-    if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
-    {
-        if(len < (scanline_width - 1)) return SPNG_EBUFSIZ;
-    }
-    else
-    {
-        if(len < (width * pixel_size)) return SPNG_EBUFSIZ;
-    }
+    if(len < sub[pass].out_width) return SPNG_EBUFSIZ;
 
     if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
     {
@@ -2827,6 +2822,18 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     while(!sub[ri->pass].width || !sub[ri->pass].height) ri->pass++;
 
     if(f.interlaced) ri->row_num = adam7_y_start[ri->pass];
+
+    unsigned pixel_size = 4; /* SPNG_FMT_RGBA8 */
+
+    if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
+    else if(fmt == SPNG_FMT_RGB8) pixel_size = 3;
+
+    uint32_t i;
+    for(i=ri->pass; i <= ctx->last_pass; i++)
+    {
+        if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW)) sub[i].out_width = sub[i].scanline_width - 1;
+        else sub[i].out_width = sub[i].width * pixel_size;
+    }
 
     /* Read the first filter byte, offsetting all reads by 1 byte.
     The scanlines will be aligned with the start of the array with
