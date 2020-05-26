@@ -722,7 +722,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
 
     do
     {
-        if(ret != Z_OK && ret != Z_STREAM_END && ret != Z_BUF_ERROR)
+        if(ret != Z_OK)
         {
             spng__free(ctx, buf);
             return SPNG_EZLIB;
