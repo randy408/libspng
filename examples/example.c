@@ -67,8 +67,9 @@ int main(int argc, char **argv)
     size_t out_size, out_width;
 
     /* Output format, does not depend on source PNG format except for
-       SPNG_FMT_PNG, which is the PNG's format in host-endian and SPNG_FMT_RAW
-       where the PNG's data is left in byte-packed or big endian format */
+       SPNG_FMT_PNG, which is the PNG's format in host-endian or
+       big-endian for SPNG_FMT_RAW.
+       Note that for these two formats <8-bit images are left byte-packed */
     int fmt = SPNG_FMT_PNG;
 
     /* For this format indexed color images are output as palette indices,
