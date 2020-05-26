@@ -2233,7 +2233,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(fmt == SPNG_FMT_RGB8) pixel_size = 3;
 
-    if(fmt == SPNG_FMT_PNG)
+    if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
     {
         if(len < (scanline_width - 1)) return SPNG_EBUFSIZ;
     }
@@ -2263,7 +2263,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
         memset(ctx->prev_scanline, 0, scanline_width);
     }
 
-    if(ctx->ihdr.bit_depth == 16) u16_row_to_host(ctx->scanline, scanline_width - 1);
+    if(ctx->ihdr.bit_depth == 16 && fmt != SPNG_FMT_RAW) u16_row_to_host(ctx->scanline, scanline_width - 1);
 
     ret = defilter_scanline(ctx->prev_scanline, ctx->scanline, scanline_width, ctx->bytes_per_pixel, ri->filter);
     if(ret) return decode_err(ctx, ret);
@@ -2521,7 +2521,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
     unsigned pixel_size = 4; /* RGBA8 */
     if(ctx->fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(ctx->fmt == SPNG_FMT_RGB8) pixel_size = 3;
-    else if(ctx->fmt == SPNG_FMT_PNG)
+    else if(ctx->fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
     {
         if(ctx->ihdr.bit_depth < 8)
         {
@@ -2648,7 +2648,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
 
         f.apply_trns = 0; /* not applicable */
     }
-    else if(fmt == SPNG_FMT_PNG)
+    else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
     {
         f.same_layout = 1;
         f.do_scaling = 0;
@@ -3105,7 +3105,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     {
         bytes_per_pixel = 3;
     }
-    else if(fmt == SPNG_FMT_PNG)
+    else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
     {
         struct spng_subimage img = {0};
         img.width = ctx->ihdr.width;

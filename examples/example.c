@@ -67,7 +67,9 @@ int main(int argc, char **argv)
     size_t out_size, out_width;
 
     /* Output format, does not depend on source PNG format except for
-       SPNG_FMT_PNG, which is the PNG's format in host-endian */
+       SPNG_FMT_PNG, which is the PNG's format in host-endian or
+       big-endian for SPNG_FMT_RAW.
+       Note that for these two formats <8-bit images are left byte-packed */
     int fmt = SPNG_FMT_PNG;
 
     /* For this format indexed color images are output as palette indices,
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
     }
 
     /* ihdr.height will always be non-zero if spng_get_ihdr() succeeds */
-    out_width = out_size / ihdr.height; 
+    out_width = out_size / ihdr.height;
 
     struct spng_row_info row_info = {0};
 
