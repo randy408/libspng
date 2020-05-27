@@ -1826,6 +1826,8 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(ctx->file.iccp) return SPNG_EDUP_ICCP;
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
+                ctx->file.iccp = 1;
+
                 uint32_t peek_bytes =  81 > chunk.length ? chunk.length : 81;
 
                 ret = read_chunk_bytes(ctx, peek_bytes);
@@ -1848,6 +1850,8 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, 0, ctx->data + keyword_len + 2, peek_bytes - (keyword_len + 2));
                 if(ret) return ret;
+
+                ctx->stored.iccp = 1;
             }
              else if(!memcmp(chunk.type, type_text, 4) ||
                      !memcmp(chunk.type, type_ztxt, 4) ||
