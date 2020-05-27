@@ -4014,12 +4014,12 @@ static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned ch
 }
 
 /* Returns |x| for 16-bit lanes. */
-#if (SPNG_SSE == 3) && !defined(_MSC_VER)
+#if (SPNG_SSE >= 3) && !defined(_MSC_VER)
 __attribute__((target("ssse3")))
 #endif
 static __m128i abs_i16(__m128i x)
 {
-#if SPNG_SSE >= 2
+#if SPNG_SSE >= 3
    return _mm_abs_epi16(x);
 #else
    /* Read this all as, return x<0 ? -x : x.
