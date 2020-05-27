@@ -3112,7 +3112,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     {
         bytes_per_pixel = 3;
     }
-    else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
+    else if(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW)
     {
         struct spng_subimage img = {0};
         img.width = ctx->ihdr.width;
