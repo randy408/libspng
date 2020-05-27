@@ -750,7 +750,11 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
             if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
 
             ret = read_chunk_bytes(ctx, read_size);
-            if(ret) return ret;
+            if(ret)
+            {
+                spng__free(ctx, buf);
+                return ret;
+            }
 
             stream->avail_in = read_size;
             stream->next_in = ctx->data;
