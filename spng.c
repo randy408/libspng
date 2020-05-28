@@ -104,7 +104,7 @@ struct spng_subimage
 {
     uint32_t width;
     uint32_t height;
-    size_t out_width;
+    size_t out_width; /* byte width based on output format */
     size_t scanline_width;
 };
 
@@ -184,7 +184,7 @@ struct spng_ctx
 
     struct spng_alloc alloc;
 
-    int flags;
+    int flags; /* context flags */
     int fmt;
 
     unsigned state: 4;
