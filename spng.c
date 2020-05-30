@@ -768,7 +768,11 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
 
     size = stream->total_out;
 
-    if(!size) return SPNG_EZLIB;
+    if(!size)
+    {
+        spng__free(ctx, buf);
+        return SPNG_EZLIB;
+    }
 
     size += extra;
     if(size < extra) goto mem;
