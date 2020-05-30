@@ -632,6 +632,8 @@ static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
         ret = ctx->read_fn(ctx, ctx->read_user_ptr, out, len);
         if(ret) return ret;
 
+        if(!ctx->streaming) memcpy(out, ctx->data, len);
+
         ctx->bytes_read += len;
         if(ctx->bytes_read < len) return SPNG_EOVERFLOW;
 
