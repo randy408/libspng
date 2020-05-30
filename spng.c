@@ -742,6 +742,8 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
             t = spng__realloc(ctx, buf, size);
             if(t == NULL) goto mem;
 
+           buf = t;
+
             stream->avail_out = size / 2;
             stream->next_out = (unsigned char*)buf + size / 2;
         }
