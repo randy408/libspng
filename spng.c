@@ -2851,6 +2851,8 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     uint32_t i;
     for(i=ri->pass; i <= ctx->last_pass; i++)
     {
+        if(!sub[i].scanline_width) continue;
+
         if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW)) sub[i].out_width = sub[i].scanline_width - 1;
         else sub[i].out_width = (size_t)sub[i].width * pixel_size;
 
