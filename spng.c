@@ -2850,7 +2850,7 @@ int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, in
     for(i=ri->pass; i <= ctx->last_pass; i++)
     {
         if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW)) sub[i].out_width = sub[i].scanline_width - 1;
-        else sub[i].out_width = sub[i].width * pixel_size;
+        else sub[i].out_width = (size_t)sub[i].width * pixel_size;
     }
 
     /* Read the first filter byte, offsetting all reads by 1 byte.
