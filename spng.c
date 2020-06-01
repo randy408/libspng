@@ -417,6 +417,8 @@ static int calculate_scanline_width(struct spng_ctx *ctx, struct spng_subimage *
 
     scanline_width /= 8;
 
+    if(scanline_width > UINT32_MAX) return SPNG_EOVERFLOW;
+
     sub->scanline_width = scanline_width;
 
     return 0;
