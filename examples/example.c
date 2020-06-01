@@ -13,21 +13,21 @@ int main(int argc, char **argv)
     if(argc < 2)
     {
         printf("no input file\n");
-        goto err;
+        goto error;
     }
 
     png = fopen(argv[1], "rb");
     if(png == NULL)
     {
         printf("error opening input file %s\n", argv[1]);
-        goto err;
+        goto error;
     }
 
     ctx = spng_ctx_new(0);
     if(ctx == NULL)
     {
         printf("spng_ctx_new() failed\n");
-        goto err;
+        goto error;
     }
 
     spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     if(r)
     {
         printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
-        goto err;
+        goto error;
     }
 
     char *clr_type_str;
@@ -78,17 +78,17 @@ int main(int argc, char **argv)
 
     r = spng_decoded_image_size(ctx, fmt, &out_size);
 
-    if(r) goto err;
+    if(r) goto error;
 
     out = malloc(out_size);
-    if(out == NULL) goto err;
+    if(out == NULL) goto error;
 
     /* This is required to initialize for progressive decoding */
     r = spng_decode_image(ctx, NULL, 0, fmt, SPNG_DECODE_PROGRESSIVE);
     if(r)
     {
         printf("progressive spng_decode_image() error: %s\n", spng_strerror(r));
-        goto err;
+        goto error;
     }
 
     /* ihdr.height will always be non-zero if spng_get_ihdr() succeeds */
@@ -110,15 +110,67 @@ int main(int argc, char **argv)
         printf("progressive decode error: %s\n", spng_strerror(r));
     }
 
+    /* Alternatively you can decode the image in one go,
+       this doesn't require a separate initialization step. */
     /* r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 
     if(r)
     {
         printf("spng_decode_image() error: %s\n", spng_strerror(r));
-        goto err;
+        goto error;
     } */
 
-err:
+    struct spng_text *text = NULL;
+    uint32_t n_text;
+
+    r = spng_get_text(ctx, NULL, &n_text);
+
+    if(r == SPNG_ECHUNKAVAIL) goto no_text; /* no text chunks found in file */
+
+    if(r)
+    {
+        printf("spng_get_text() error: %s\n", spng_strerror(r));
+        goto error;
+    }
+
+    text = malloc(n_text * sizeof(struct spng_text));
+
+    if(text == NULL) goto error;
+
+    r = spng_get_text(ctx, text, &n_text);
+
+    if(r)
+    {
+        printf("spng_get_text() error: %s\n", spng_strerror(r));
+        goto error;
+    }
+
+    uint32_t i;
+    for(i=0; i < n_text; i++)
+    {
+        char *type_str = "tEXt";
+        if(text[i].type == SPNG_ITXT) type_str = "iTXt";
+        else if(text[i].type == SPNG_ZTXT) type_str = "zTXt";
+
+        printf("\ntext type: %s\n", type_str);
+        printf("keyword: %s\n", text[i].keyword);
+
+        if(text[i].type == SPNG_ITXT)
+        {
+            printf("language tag: %s\n", text[i].language_tag);
+            printf("translated keyword: %s\n", text[i].translated_keyword);
+        }
+
+        printf("text is %scompressed\n", text[i].compression_flag ? "" : "not ");
+        printf("text length: %zu\n", text[i].length);
+        printf("text: %s\n", text[i].text);
+    }
+
+    free(text);
+
+no_text:
+
+error:
     spng_ctx_free(ctx);
     free(out);
 
