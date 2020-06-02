@@ -15,7 +15,7 @@
     #include <zlib.h>
 #endif
 
-#ifdef SPNG_ENABLE_MT
+#ifdef SPNG_MULTITHREADING
     #include <pthread.h>
 #endif
 
