@@ -628,7 +628,7 @@ static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
     if(ctx->streaming && len > SPNG_READ_SIZE) len = SPNG_READ_SIZE;
 
     while(bytes)
-    {/* TODO: make sure read size is right for streaming */
+    {
         if(len > bytes) len = bytes;
 
         ret = ctx->read_fn(ctx, ctx->read_user_ptr, out, len);
@@ -816,7 +816,7 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
     }
 
     if(ctx->streaming)
-    {/* TODO: calculate bytes to read for progressive reads */
+    {/* TODO: estimate bytes to read for progressive reads */
         len = SPNG_READ_SIZE;
         if(len > ctx->cur_chunk_bytes_left) len = ctx->cur_chunk_bytes_left;
     }
@@ -2063,7 +2063,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 void *t = spng__malloc(ctx, chunk.length);
                 if(t == NULL) return SPNG_EMEM;
 
-                splt->entries = t; /* this simplifies error handling */
+                splt->entries = t; /* simplifies error handling */
                 data = t;
 
                 ret = read_chunk_bytes2(ctx, t, chunk.length);
@@ -3563,7 +3563,7 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     SPNG_SET_CHUNK_BOILERPLATE(text);
 
     return 0; /* XXX: fix this for encode support */
-
+/*
     uint32_t i;
     for(i=0; i < n_text; i++)
     {
@@ -3602,13 +3602,13 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
         spng__free(ctx, ctx->text_list);
     }
 
-    /* ctx->text_list = text; */
+    ctx->text_list = text;
     ctx->n_text = n_text;
 
     ctx->stored.text = 1;
     ctx->user.text = 1;
 
-    return 0;
+    return 0;*/
 }
 
 int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
