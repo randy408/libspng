@@ -58,7 +58,7 @@ for multiple instruction sets, this is enabled by the
 of GCC and glibc.
 For the Meson project this is always enabled if the target supports it.
 
-## miniz support
+## miniz
 
 miniz[1] is a single source file replacement for zlib, linking
 against miniz allows libspng to be embedded into a project with just
