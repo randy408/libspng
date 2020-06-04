@@ -12,7 +12,11 @@
     #define SPNG_DISABLE_OPT
     #include "tests/framac_stubs.h"
 #else
-    #include <zlib.h>
+    #ifdef SPNG_USE_MINIZ
+        #include <miniz.h>
+    #else
+        #include <zlib.h>
+    #endif
 #endif
 
 #ifdef SPNG_MULTITHREADING
@@ -317,7 +321,11 @@ static inline void spng__free(spng_ctx *ctx, void *ptr)
     ctx->alloc.free_fn(ptr);
 }
 
+#if defined(SPNG_USE_MINIZ)
+static void *spng__zalloc(void *opaque, long unsigned items, long unsigned size)
+#else
 static void *spng__zalloc(void *opaque, unsigned items, unsigned size)
+#endif
 {
     spng_ctx *ctx = opaque;
 
@@ -344,10 +352,10 @@ static int spng__inflate_init(spng_ctx *ctx)
 
     if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
 
-#if ZLIB_VERNUM >= 0x1290
+#if ZLIB_VERNUM >= 0x1290 && !defined(SPNG_USE_MINIZ)
     if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
-#else
-    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#else /* This requires zlib >= 1.2.11 */
+    #warning "inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored"
 #endif
 
     return 0;
@@ -766,7 +774,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
             stream->next_in = ctx->data;
         }
 
-        ret = inflate(stream, Z_SYNC_FLUSH);
+        ret = inflate(stream, 0);
 
     }while(ret != Z_STREAM_END);
 
@@ -833,34 +841,39 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 {
     if(ctx == NULL || dest == NULL) return 1;
 
-    int ret;
+    int ret = Z_OK;
     uint32_t bytes_read;
 
-    ctx->zstream.avail_out = len;
-    ctx->zstream.next_out = dest;
+    z_stream *zstream = &ctx->zstream;
 
-    while(ctx->zstream.avail_out != 0)
+    zstream->avail_out = len;
+    zstream->next_out = dest;
+
+    do
     {
-        if(ctx->zstream.avail_in == 0) /* Need more IDAT bytes */
-        {
-            ret = read_idat_bytes(ctx, &bytes_read);
-            if(ret) return ret;
-
-            ctx->zstream.avail_in = bytes_read;
-            ctx->zstream.next_in = ctx->data;
-        }
-
-        ret = inflate(&ctx->zstream, Z_SYNC_FLUSH);
-
         if(ret != Z_OK)
         {
             if(ret == Z_STREAM_END) /* zlib reached an end-marker */
             {
-                if(ctx->zstream.avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
+                if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
             }
-            else if(ret != Z_BUF_ERROR) return SPNG_EIDAT_STREAM;
+            else if(ret == Z_BUF_ERROR)
+            {
+                if(zstream->avail_in == 0) /* Need more IDAT bytes */
+                {
+                    ret = read_idat_bytes(ctx, &bytes_read);
+                    if(ret) return ret;
+
+                    zstream->avail_in = bytes_read;
+                    zstream->next_in = ctx->data;
+                }
+            }
+            else return SPNG_EIDAT_STREAM;
         }
-    }
+
+        ret = inflate(&ctx->zstream, 0);
+
+    }while(zstream->avail_out != 0);
 
     return 0;
 }
