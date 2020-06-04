@@ -402,24 +402,24 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
 }
 
 /* Calculate scanline width in bits, round up to the nearest byte */
-static int calculate_scanline_width(struct spng_ctx *ctx, struct spng_subimage *sub)
+static int calculate_scanline_width(struct spng_ctx *ctx, uint32_t width, size_t *scanline_width)
 {
-    if(!sub->width || !sub->height) return 1;
+    if(!width) return 1;
 
-    size_t scanline_width = ctx->channels * ctx->ihdr.bit_depth;
+    size_t res = ctx->channels * ctx->ihdr.bit_depth;
 
-    if(scanline_width > SIZE_MAX / ctx->ihdr.width) return SPNG_EOVERFLOW;
-    scanline_width = scanline_width * sub->width;
+    if(res > SIZE_MAX / width) return SPNG_EOVERFLOW;
+    res = res * width;
 
-    scanline_width += 15; /* Filter byte + 7 for rounding */
+    res += 15; /* Filter byte + 7 for rounding */
 
-    if(scanline_width < 15) return SPNG_EOVERFLOW;
+    if(res < 15) return SPNG_EOVERFLOW;
 
-    scanline_width /= 8;
+    res /= 8;
 
-    if(scanline_width > UINT32_MAX) return SPNG_EOVERFLOW;
+    if(res > UINT32_MAX) return SPNG_EOVERFLOW;
 
-    sub->scanline_width = scanline_width;
+    *scanline_width = res;
 
     return 0;
 }
@@ -459,7 +459,7 @@ static int calculate_subimages(struct spng_ctx *ctx)
     {
         if(sub[i].width == 0 || sub[i].height == 0) continue;
 
-        int ret = calculate_scanline_width(ctx, &sub[i]);
+        int ret = calculate_scanline_width(ctx, sub[i].width, &sub[i].scanline_width);
         if(ret) return ret;
 
         if(sub[ctx->widest_pass].scanline_width < sub[i].scanline_width) ctx->widest_pass = i;
@@ -3138,14 +3138,10 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     }
     else if(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW)
     {
-        struct spng_subimage img = {0};
-        img.width = ctx->ihdr.width;
-        img.height = ctx->ihdr.width;
-
-        ret = calculate_scanline_width(ctx, &img);
+        ret = calculate_scanline_width(ctx, ctx->ihdr.width, &res);
         if(ret) return ret;
 
-        res = img.scanline_width - 1; /* exclude filter byte */
+        res -= 1; /* exclude filter byte */
         bytes_per_pixel = 1;
     }
     else return SPNG_EFMT;
