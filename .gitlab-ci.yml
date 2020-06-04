@@ -12,8 +12,11 @@ test:
   stage: test
   script:
     - CC=clang-7 CXX=clang++-7 meson -Ddev_build=true -Db_sanitize=address,undefined -Db_lundef=false clang_build
-    - ninja -C clang_build test
-    - ninja -C clang_build scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
+    - cd clang_build
+    - ninja test
+    - ninja scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
+    - meson configure -Duse_miniz=true
+    - ninja test
     - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=address,undefined -Db_coverage=true gcc_build
     - cd gcc_build
     - ninja
