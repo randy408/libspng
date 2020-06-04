@@ -738,8 +738,26 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
     {
         if(ret != Z_OK)
         {
-            spng__free(ctx, buf);
-            return SPNG_EZLIB;
+            if(ret == Z_BUF_ERROR && !stream->avail_in) /* Read more chunk bytes */
+            {
+                read_size = ctx->cur_chunk_bytes_left;
+                if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
+
+                ret = read_chunk_bytes(ctx, read_size);
+                if(ret)
+                {
+                    spng__free(ctx, buf);
+                    return ret;
+                }
+
+                stream->avail_in = read_size;
+                stream->next_in = ctx->data;
+            }
+            else
+            {
+                spng__free(ctx, buf);
+                return SPNG_EZLIB;
+            }
         }
 
         if(!stream->avail_out)
@@ -756,22 +774,6 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
 
             stream->avail_out = size / 2;
             stream->next_out = (unsigned char*)buf + size / 2;
-        }
-
-        if(!stream->avail_in) /* Read more chunk bytes */
-        {
-            read_size = ctx->cur_chunk_bytes_left;
-            if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
-
-            ret = read_chunk_bytes(ctx, read_size);
-            if(ret)
-            {
-                spng__free(ctx, buf);
-                return ret;
-            }
-
-            stream->avail_in = read_size;
-            stream->next_in = ctx->data;
         }
 
         ret = inflate(stream, 0);
@@ -857,16 +859,13 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
             {
                 if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
             }
-            else if(ret == Z_BUF_ERROR)
+            else if(ret == Z_BUF_ERROR && zstream->avail_in == 0) /* Need more IDAT bytes */
             {
-                if(zstream->avail_in == 0) /* Need more IDAT bytes */
-                {
-                    ret = read_idat_bytes(ctx, &bytes_read);
-                    if(ret) return ret;
+                ret = read_idat_bytes(ctx, &bytes_read);
+                if(ret) return ret;
 
-                    zstream->avail_in = bytes_read;
-                    zstream->next_in = ctx->data;
-                }
+                zstream->avail_in = bytes_read;
+                zstream->next_in = ctx->data;
             }
             else return SPNG_EIDAT_STREAM;
         }
