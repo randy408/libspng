@@ -734,11 +734,33 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
     stream->avail_out = size;
     stream->next_out = buf;
 
-    do
+    while(ret != Z_STREAM_END)
     {
-        if(ret != Z_OK)
+        ret = inflate(stream, 0);
+
+        if(ret == Z_OK) continue;
+
+        if(ret == Z_STREAM_END) break;
+
+        if(ret == Z_BUF_ERROR)
         {
-            if(ret == Z_BUF_ERROR && !stream->avail_in) /* Read more chunk bytes */
+            if(!stream->avail_out) /* Resize buffer */
+            {
+                /* overflow or reached chunk/cache limit */
+                if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
+
+                size *= 2;
+
+                t = spng__realloc(ctx, buf, size);
+                if(t == NULL) goto mem;
+
+                buf = t;
+
+                stream->avail_out = size / 2;
+                stream->next_out = (unsigned char*)buf + size / 2;
+            }
+
+            if(!stream->avail_in) /* Read more chunk bytes */
             {
                 read_size = ctx->cur_chunk_bytes_left;
                 if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
@@ -753,32 +775,13 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
                 stream->avail_in = read_size;
                 stream->next_in = ctx->data;
             }
-            else
-            {
-                spng__free(ctx, buf);
-                return SPNG_EZLIB;
-            }
         }
-
-        if(!stream->avail_out)
+        else
         {
-            /* overflow or reached chunk/cache limit */
-            if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
-
-            size *= 2;
-
-            t = spng__realloc(ctx, buf, size);
-            if(t == NULL) goto mem;
-
-           buf = t;
-
-            stream->avail_out = size / 2;
-            stream->next_out = (unsigned char*)buf + size / 2;
+            spng__free(ctx, buf);
+            return SPNG_EZLIB;
         }
-
-        ret = inflate(stream, 0);
-
-    }while(ret != Z_STREAM_END);
+    }
 
     size = stream->total_out;
 
@@ -851,28 +854,26 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
     zstream->avail_out = len;
     zstream->next_out = dest;
 
-    do
+    while(zstream->avail_out != 0)
     {
-        if(ret != Z_OK)
-        {
-            if(ret == Z_STREAM_END) /* zlib reached an end-marker */
-            {
-                if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
-            }
-            else if(ret == Z_BUF_ERROR && zstream->avail_in == 0) /* Need more IDAT bytes */
-            {
-                ret = read_idat_bytes(ctx, &bytes_read);
-                if(ret) return ret;
-
-                zstream->avail_in = bytes_read;
-                zstream->next_in = ctx->data;
-            }
-            else return SPNG_EIDAT_STREAM;
-        }
-
         ret = inflate(&ctx->zstream, 0);
 
-    }while(zstream->avail_out != 0);
+        if(ret == Z_OK) continue;
+
+        if(ret == Z_STREAM_END) /* Reached an end-marker */
+        {
+            if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
+        }
+        else if(ret == Z_BUF_ERROR) /* Read more IDAT bytes */
+        {
+            ret = read_idat_bytes(ctx, &bytes_read);
+            if(ret) return ret;
+
+            zstream->avail_in = bytes_read;
+            zstream->next_in = ctx->data;
+        }
+        else return SPNG_EIDAT_STREAM;
+    }
 
     return 0;
 }
