@@ -67,6 +67,8 @@ four files: `spng.c`, `miniz.c` and their headers.
 API usage has be restricted to be compatible with miniz,
 this is controlled with the `SPNG_USE_MINIZ` compiler option,
 the Meson build option for this is `use_miniz`.
+Performance is mostly identical, slightly better in some cases
+compared to stock zlib.
 
 [1]: https://github.com/richgel999/miniz
 
