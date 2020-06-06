@@ -95,6 +95,10 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
 
         png_set_strip_16(png_ptr);
     }
+    else if(fmt == SPNG_FMT_UNPACK)
+    {
+        png_set_packing(png_ptr);
+    }
 
 #if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values unless it's SPNG_FMT_RAW */
     if(fmt != SPNG_FMT_RAW) png_set_swap(png_ptr);

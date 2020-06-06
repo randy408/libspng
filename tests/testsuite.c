@@ -20,6 +20,7 @@ void print_test_args(struct spng_test_case *test_case)
     else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8, ");
     else if(test_case->fmt == SPNG_FMT_PNG) printf("PNG, ");
     else if(test_case->fmt == SPNG_FMT_RAW) printf("RAW, ");
+    else if(test_case->fmt == SPNG_FMT_UNPACK) printf("UNPACK, ");
 
     printf("FLAGS: ");
 
@@ -73,6 +74,10 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
     test_cases[n++].test_flags = 0;
 
     test_cases[n].fmt = SPNG_FMT_RAW;
+    test_cases[n].flags = 0;
+    test_cases[n++].test_flags = 0;
+
+    test_cases[n].fmt = SPNG_FMT_UNPACK;
     test_cases[n].flags = 0;
     test_cases[n++].test_flags = 0;
 
