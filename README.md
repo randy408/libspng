@@ -37,7 +37,7 @@ it outperforms the reference implementation in common use cases.
 
 <sup>[1]</sup> The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
 
-<sup>[2]</sup> Linking against miniz is [supported](docs/build.md#miniz).
+<sup>[2]</sup> Building with miniz is [supported](docs/build.md#miniz).
 
 <sup>[3]</sup> With a 3rd party patch
 
