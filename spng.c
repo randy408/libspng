@@ -603,7 +603,7 @@ static inline int read_header(spng_ctx *ctx, int *discard)
 static int read_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
-    if(!bytes) return 0;
+    if(!ctx->cur_chunk_bytes_left || !bytes) return 1;
     if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
 
     int ret;
@@ -627,7 +627,7 @@ skip_crc:
 static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
-    if(!bytes) return 0;
+    if(!ctx->cur_chunk_bytes_left || !bytes) return 1;
     if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
 
     int ret;
