@@ -37,6 +37,8 @@ any configuration, intrinsics are enabled by default.
 
 # Build options
 
+## Optimizations
+
 Architecture-specific intrinsics are enabled by default,
 this can be disabled with the `SPNG_DISABLE_OPT` compiler option.
 
@@ -55,6 +57,18 @@ for multiple instruction sets, this is enabled by the
 `SPNG_ENABLE_TARGET_CLONES` compiler option, it requires a recent version
 of GCC and glibc.
 For the Meson project this is always enabled if the target supports it.
+
+## miniz
+
+[miniz](https://github.com/richgel999/miniz) is a single source file replacement for zlib,
+linking against miniz allows libspng to be embedded into a project with just
+four files: `spng.c`, `miniz.c` and their headers.
+
+For building with miniz use the `SPNG_USE_MINIZ` compiler option,
+this handles some minor issues with the API.
+The Meson build option for this is `use_miniz`.
+Performance is mostly identical, slightly better in some cases
+compared to stock zlib.
 
 # Profile-guided optimization
 

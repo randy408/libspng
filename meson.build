@@ -4,10 +4,15 @@ cc = meson.get_compiler('c')
 
 spng_inc = include_directories('.')
 
-if cc.get_define('__ANDROID__') != ''
-    zlib_dep = cc.find_library('z')
+if get_option('use_miniz') == true
+    add_project_arguments('-DSPNG_USE_MINIZ', language : 'c')
+    zlib_dep = dependency('miniz', fallback : [ 'miniz', 'miniz_dep'])
 else
-    zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'], static : get_option('static_zlib'))
+    if cc.get_define('__ANDROID__') != ''
+        zlib_dep = cc.find_library('z')
+    else
+        zlib_dep = dependency('zlib', fallback : ['zlib', 'zlib_dep'], static : get_option('static_zlib'))
+    endif
 endif
 
 m_dep = cc.find_library('m', required : false)

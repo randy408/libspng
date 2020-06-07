@@ -24,24 +24,24 @@ it outperforms the reference implementation in common use cases.
 
 ## Features
 
-| Feature                              | libspng | libpng | stb_image | lodepng |
-|--------------------------------------|---------|--------|-----------|---------|
-| Decode from stream                   | ✅      |  ✅   | ✅       | ❌      |
-| Gamma correction                     | ✅      |  ✅   | ❌       | ❌      |
-| No known security bugs<sup>[1]</sup> | ✅      |  ✅   | ❌       | ✅      |
-| Progressive image read               | ✅      |  ✅   | ❌       | ❌      |
-| Parses all standard chunks           | ✅      |  ✅   | ❌       | ❌      |
-| Doesn't require zlib                 | ❌*     |  ❌   | ✅       | ✅      |
-| Encoding                             | ❌*     |  ✅   | ✅       | ✅      |
-| Animated PNG                         | ❌*     |  ✅** | ❌       | ❌      |
+| Feature                              | libspng | libpng             | stb_image | lodepng |
+|--------------------------------------|---------|--------------------|-----------|---------|
+| Decode from stream                   | ✅      |  ✅               | ✅       | ❌      |
+| Gamma correction                     | ✅      |  ✅               | ❌       | ❌      |
+| No known security bugs<sup>[1]</sup> | ✅      |  ✅               | ❌       | ✅      |
+| Progressive image read               | ✅      |  ✅               | ❌       | ❌      |
+| Parses all standard chunks           | ✅      |  ✅               | ❌       | ❌      |
+| Doesn't require zlib<sup>[2]</sup>   | ✅      |  ❌               | ✅       | ✅      |
+| Encoding                             | Planned  |  ✅               | ✅       | ✅      |
+| Animated PNG                         | Planned  |  ✅<sup>[3]</sup> | ❌       | ❌      |
 
-[1] The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
+<sup>[1]</sup> The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
 
-\* Work in progress
+<sup>[2]</sup> Building with miniz is [supported](docs/build.md#miniz).
 
-\*\* With a 3rd party patch
+<sup>[3]</sup> With a 3rd party patch
 
-## Getting spng
+## Getting libspng
 
 Download the [latest release](https://libspng.org/download) and include `spng.c/spng.h` in your project,
 you can also build with CMake or Meson. Refer to the [documentation](https://libspng.org/docs) for details.
@@ -65,7 +65,7 @@ spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 spng_ctx_free(ctx);
 ```
 
-See [example.c](https://github.com/randy408/libspng/blob/v0.5.0/examples/example.c).
+See [example.c](https://github.com/randy408/libspng/blob/v0.6.0/examples/example.c).
 
 ## License
 

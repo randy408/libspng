@@ -12,7 +12,11 @@
     #define SPNG_DISABLE_OPT
     #include "tests/framac_stubs.h"
 #else
-    #include <zlib.h>
+    #ifdef SPNG_USE_MINIZ
+        #include <miniz.h>
+    #else
+        #include <zlib.h>
+    #endif
 #endif
 
 #ifdef SPNG_MULTITHREADING
@@ -317,7 +321,11 @@ static inline void spng__free(spng_ctx *ctx, void *ptr)
     ctx->alloc.free_fn(ptr);
 }
 
+#if defined(SPNG_USE_MINIZ)
+static void *spng__zalloc(void *opaque, long unsigned items, long unsigned size)
+#else
 static void *spng__zalloc(void *opaque, unsigned items, unsigned size)
+#endif
 {
     spng_ctx *ctx = opaque;
 
@@ -344,10 +352,10 @@ static int spng__inflate_init(spng_ctx *ctx)
 
     if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
 
-#if ZLIB_VERNUM >= 0x1290
+#if ZLIB_VERNUM >= 0x1290 && !defined(SPNG_USE_MINIZ)
     if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
-#else
-    #warning "zlib >= 1.2.11 is required for SPNG_CTX_IGNORE_ADLER32"
+#else /* This requires zlib >= 1.2.11 */
+    #warning "inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored"
 #endif
 
     return 0;
@@ -595,7 +603,7 @@ static inline int read_header(spng_ctx *ctx, int *discard)
 static int read_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
-    if(!bytes) return 0;
+    if(!ctx->cur_chunk_bytes_left || !bytes) return 1;
     if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
 
     int ret;
@@ -619,7 +627,7 @@ skip_crc:
 static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
-    if(!bytes) return 0;
+    if(!ctx->cur_chunk_bytes_left || !bytes) return 1;
     if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
 
     int ret;
@@ -726,49 +734,54 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extr
     stream->avail_out = size;
     stream->next_out = buf;
 
-    do
+    while(ret != Z_STREAM_END)
     {
-        if(ret != Z_OK)
+        ret = inflate(stream, 0);
+
+        if(ret == Z_OK) continue;
+
+        if(ret == Z_STREAM_END) break;
+
+        if(ret == Z_BUF_ERROR)
+        {
+            if(!stream->avail_out) /* Resize buffer */
+            {
+                /* overflow or reached chunk/cache limit */
+                if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
+
+                size *= 2;
+
+                t = spng__realloc(ctx, buf, size);
+                if(t == NULL) goto mem;
+
+                buf = t;
+
+                stream->avail_out = size / 2;
+                stream->next_out = (unsigned char*)buf + size / 2;
+            }
+
+            if(!stream->avail_in) /* Read more chunk bytes */
+            {
+                read_size = ctx->cur_chunk_bytes_left;
+                if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
+
+                ret = read_chunk_bytes(ctx, read_size);
+                if(ret)
+                {
+                    spng__free(ctx, buf);
+                    return ret;
+                }
+
+                stream->avail_in = read_size;
+                stream->next_in = ctx->data;
+            }
+        }
+        else
         {
             spng__free(ctx, buf);
             return SPNG_EZLIB;
         }
-
-        if(!stream->avail_out)
-        {
-            /* overflow or reached chunk/cache limit */
-            if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
-
-            size *= 2;
-
-            t = spng__realloc(ctx, buf, size);
-            if(t == NULL) goto mem;
-
-           buf = t;
-
-            stream->avail_out = size / 2;
-            stream->next_out = (unsigned char*)buf + size / 2;
-        }
-
-        if(!stream->avail_in) /* Read more chunk bytes */
-        {
-            read_size = ctx->cur_chunk_bytes_left;
-            if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
-
-            ret = read_chunk_bytes(ctx, read_size);
-            if(ret)
-            {
-                spng__free(ctx, buf);
-                return ret;
-            }
-
-            stream->avail_in = read_size;
-            stream->next_in = ctx->data;
-        }
-
-        ret = inflate(stream, Z_SYNC_FLUSH);
-
-    }while(ret != Z_STREAM_END);
+    }
 
     size = stream->total_out;
 
@@ -833,33 +846,33 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 {
     if(ctx == NULL || dest == NULL) return 1;
 
-    int ret;
+    int ret = Z_OK;
     uint32_t bytes_read;
 
-    ctx->zstream.avail_out = len;
-    ctx->zstream.next_out = dest;
+    z_stream *zstream = &ctx->zstream;
 
-    while(ctx->zstream.avail_out != 0)
+    zstream->avail_out = len;
+    zstream->next_out = dest;
+
+    while(zstream->avail_out != 0)
     {
-        if(ctx->zstream.avail_in == 0) /* Need more IDAT bytes */
+        ret = inflate(&ctx->zstream, 0);
+
+        if(ret == Z_OK) continue;
+
+        if(ret == Z_STREAM_END) /* Reached an end-marker */
+        {
+            if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
+        }
+        else if(ret == Z_BUF_ERROR) /* Read more IDAT bytes */
         {
             ret = read_idat_bytes(ctx, &bytes_read);
             if(ret) return ret;
 
-            ctx->zstream.avail_in = bytes_read;
-            ctx->zstream.next_in = ctx->data;
+            zstream->avail_in = bytes_read;
+            zstream->next_in = ctx->data;
         }
-
-        ret = inflate(&ctx->zstream, Z_SYNC_FLUSH);
-
-        if(ret != Z_OK)
-        {
-            if(ret == Z_STREAM_END) /* zlib reached an end-marker */
-            {
-                if(ctx->zstream.avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
-            }
-            else if(ret != Z_BUF_ERROR) return SPNG_EIDAT_STREAM;
-        }
+        else return SPNG_EIDAT_STREAM;
     }
 
     return 0;
