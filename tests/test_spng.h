@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags, struct spng_ihdr *info)
+unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags, spng_ctx **out_ctx)
 {
     int r;
     size_t siz, out_width;
@@ -54,8 +54,6 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
         goto err;
     }
 
-    memcpy(info, &ihdr, sizeof(struct spng_ihdr));
-
     r = spng_decoded_image_size(ctx, fmt, &siz);
     if(r) goto err;
 
@@ -89,8 +87,7 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
         goto err;
     }
 
-    spng_ctx_free(ctx);
-
+    *out_ctx = ctx;
 goto skip_err;
 
 err:

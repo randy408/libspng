@@ -336,13 +336,18 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     return 0;
 }
 
-int decode_and_compare(FILE *file, int fmt, int flags)
+int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int flags, int test_flags)
 {
-    struct spng_ihdr ihdr;
+    int ret = 0;
+    png_infop info_ptr = NULL;
+    png_structp png_ptr = NULL;
+
+    struct spng_ctx *ctx = NULL;
+
     size_t img_spng_size;
     unsigned char *img_spng =  NULL;
 
-    img_spng = getimage_libspng(file, &img_spng_size, fmt, flags, &ihdr);
+    img_spng = getimage_libspng(file, &img_spng_size, fmt, flags, &ctx);
     if(img_spng == NULL)
     {
         printf("getimage_libspng() failed\n");
@@ -354,28 +359,25 @@ int decode_and_compare(FILE *file, int fmt, int flags)
     size_t img_png_size;
     unsigned char *img_png = NULL;
 
-    img_png = getimage_libpng(file, &img_png_size, fmt, flags);
+    img_png = getimage_libpng(file, &img_png_size, fmt, flags, &info_ptr, &png_ptr);
     if(img_png == NULL)
     {
         printf("getimage_libpng() failed\n");
-        free(img_spng);
-        return 1;
+        ret = 1;
+        goto cleanup;
     }
 
     if(img_png_size != img_spng_size)
     {
         printf("output image size mismatch\n");
         printf("spng: %zu\n png: %zu\n", img_spng_size, img_png_size);
-        free(img_spng);
-        free(img_png);
-        return 1;
+        ret = 1;
+        goto cleanup;
     }
-
-    int ret = 0;
 
     if(!memcmp(img_spng, img_png, img_spng_size)) goto identical;
 
-    ret = compare_images(&ihdr, fmt, flags, img_spng, img_png);
+    ret = compare_images(ihdr, fmt, flags, img_spng, img_png);
 
     if(!ret && !(flags & SPNG_DECODE_GAMMA))
     {/* in case compare_images() has some edge case */
@@ -383,7 +385,11 @@ int decode_and_compare(FILE *file, int fmt, int flags)
         ret = 1;
     }
 
+cleanup:
 identical:
+
+    spng_ctx_free(ctx);
+    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
     free(img_spng);
     free(img_png);
@@ -475,7 +481,7 @@ int main(int argc, char **argv)
     {
         print_test_args(&test_cases[i]);
 
-        int e = decode_and_compare(file, test_cases[i].fmt, test_cases[i].flags);
+        int e = decode_and_compare(file, &ihdr, test_cases[i].fmt, test_cases[i].flags, test_cases[i].test_flags);
         if(!ret) ret = e;
         rewind(file);
     }

@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 
-unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
+unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags, png_infop *iptr, png_structp *pptr)
 {
     png_infop info_ptr;
     png_structp png_ptr;
@@ -139,7 +139,8 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags)
 
     free(row_pointers);
 
-    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    *pptr = png_ptr;
+    *iptr = info_ptr;
 
     return image;
 }
