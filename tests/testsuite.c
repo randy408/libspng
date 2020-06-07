@@ -391,6 +391,21 @@ identical:
     return ret;
 }
 
+static int get_image_info(FILE *f, struct spng_ihdr *ihdr)
+{
+    spng_ctx *ctx = spng_ctx_new(0);
+
+    spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+
+    spng_set_png_file(ctx, f);
+
+    int ret = spng_get_ihdr(ctx, ihdr);
+
+    spng_ctx_free(ctx);
+
+    return ret;
+}
+
 int main(int argc, char **argv)
 {
     if(argc < 2)
@@ -424,6 +439,30 @@ int main(int argc, char **argv)
         printf("error opening input file %s\n", filename);
         return 1;
     }
+
+    struct spng_ihdr ihdr = {0};
+
+    if(!get_image_info(file, &ihdr))
+    {
+         char *clr_type_str;
+        if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
+            clr_type_str = "GRAY";
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+            clr_type_str = "RGB";
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+            clr_type_str = "INDEXED";
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
+            clr_type_str = "GRAY-ALPHA";
+        else
+            clr_type_str = "RGBA";
+
+        printf("%s %" PRIu8 "-bit, %" PRIu32 "x%" PRIu32 " %s\n",
+               clr_type_str, ihdr.bit_depth, ihdr.width, ihdr.height,
+               ihdr.interlace_method ? "interlaced" : "non-interlaced");
+    }
+    else printf("failed to get image info\n");
+
+    rewind(file);
 
     struct spng_test_case test_cases[100];
     int test_cases_n;
