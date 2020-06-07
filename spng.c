@@ -2354,7 +2354,7 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
             {
                 memcpy(&entry, scanline + k / samples_per_byte, 1);
 
-                if(shift_amount > 8) shift_amount = initial_shift;
+                if(shift_amount > 7) shift_amount = initial_shift;
 
                 entry = (entry >> shift_amount) & mask;
 
