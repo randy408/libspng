@@ -2300,7 +2300,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 
     for(k=0; k < width; k++)
     {
-        pixel = out + pixel_offset;
+        pixel = (unsigned char*)out + pixel_offset;
         pixel_offset += pixel_size;
 
         if(f.same_layout)
@@ -2891,7 +2891,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     {
         size_t ioffset = ri->row_num * ctx->out_width;
 
-        ret = spng_decode_row(ctx, out + ioffset, ctx->out_width);
+        ret = spng_decode_row(ctx, (unsigned char*)out + ioffset, ctx->out_width);
     }while(!ret);
 
     if(ret != SPNG_EOI) return decode_err(ctx, ret);
