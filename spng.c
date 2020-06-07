@@ -667,6 +667,7 @@ skip_crc:
 static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
     if(ctx == NULL) return 1;
+    if(!bytes) return 0;
 
     int ret;
 
@@ -2206,10 +2207,16 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
 
     if(ctx->state == SPNG_STATE_EOI) ctx->state = SPNG_STATE_AFTER_IDAT;
 
-    if(ctx->state < SPNG_STATE_FIRST_IDAT ||
-       ctx->state == SPNG_STATE_AFTER_IDAT) ret = read_non_idat_chunks(ctx);
-
-    if(ret) ctx->state = SPNG_STATE_INVALID;
+    if(ctx->state < SPNG_STATE_FIRST_IDAT || ctx->state == SPNG_STATE_AFTER_IDAT)
+    {
+        ret = read_non_idat_chunks(ctx);
+        if(!ret)
+        {
+            if(ctx->state < SPNG_STATE_FIRST_IDAT) ctx->state = SPNG_STATE_FIRST_IDAT;
+            else if(ctx->state == SPNG_STATE_AFTER_IDAT) ctx->state = SPNG_STATE_IEND;
+        }
+        else ctx->state = SPNG_STATE_INVALID;
+    }
 
     return ret;
 }
