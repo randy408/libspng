@@ -89,7 +89,7 @@ An input PNG must be set.
 
 # spng_decode_image()
 ```c
-int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
+int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 ```
 
 Decodes the PNG file and writes the image to `out`,

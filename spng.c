@@ -2221,7 +2221,7 @@ static int decode_err(spng_ctx *ctx, int err)
     return err;
 }
 
-int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
+int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
 
@@ -2532,13 +2532,14 @@ int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len)
     return 0;
 }
 
-int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
+int spng_decode_row(spng_ctx *ctx, void *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
     if(len < ctx->out_width) return SPNG_EBUFSIZ;
 
     int ret, pass = ctx->row_info.pass;
+    unsigned char *outptr = out;
 
     if(!ctx->ihdr.interlace_method || pass == 6) return spng_decode_scanline(ctx, out, len);
 
@@ -2572,7 +2573,7 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
 
                 ioffset /= samples_per_byte;
 
-                out[ioffset] |= sample;
+                outptr[ioffset] |= sample;
 
                 shift_amount -= ctx->ihdr.bit_depth;
             }
@@ -2586,13 +2587,13 @@ int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len)
     {
         size_t ioffset = (adam7_x_start[pass] + (size_t) k * adam7_x_delta[pass]) * pixel_size;
 
-        memcpy(out + ioffset, ctx->row + k * pixel_size, pixel_size);
+        memcpy(outptr + ioffset, ctx->row + k * pixel_size, pixel_size);
     }
 
     return 0;
 }
 
-int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags)
+int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 {
     if(ctx == NULL) return 1;
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;

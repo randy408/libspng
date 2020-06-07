@@ -374,11 +374,11 @@ SPNG_API int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary);
 SPNG_API int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len);
 
 /* Decode */
-SPNG_API int spng_decode_image(spng_ctx *ctx, unsigned char *out, size_t len, int fmt, int flags);
+SPNG_API int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags);
 
 /* Progressive decode */
-SPNG_API int spng_decode_scanline(spng_ctx *ctx, unsigned char *out, size_t len);
-SPNG_API int spng_decode_row(spng_ctx *ctx, unsigned char *out, size_t len);
+SPNG_API int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len);
+SPNG_API int spng_decode_row(spng_ctx *ctx, void *out, size_t len);
 
 SPNG_API int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info);
 
