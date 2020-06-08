@@ -39,14 +39,14 @@ enum spng_decode_flags
 
 # Supported format, flag combinations
 
-
-| PNG Format  | Output format     | Flags  | Notes                                       |
-|-------------|-------------------|--------|---------------------------------------------|
-| Any format* | `SPNG_FMT_RGBA8`  | All    | Convert from any PNG format and bit depth   |
-| Any format* | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth   |
-| Any format* | `SPNG_FMT_RGB8`   | All    | Convert from any PNG format and bit depth   |
-| Any format* | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian             |
-| Any format* | `SPNG_FMT_RAW`    | None   | The PNG's format in big-endian              |
+| PNG Format   | Output format     | Flags  | Notes                                       |
+|--------------|-------------------|--------|---------------------------------------------|
+| Any format*  | `SPNG_FMT_RGBA8`  | All    | Convert from any PNG format and bit depth   |
+| Any format   | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth   |
+| Any format   | `SPNG_FMT_RGB8`   | All    | Convert from any PNG format and bit depth   |
+| Any format   | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian             |
+| Any format   | `SPNG_FMT_RAW`    | None   | The PNG's format in big-endian              |
+| Gray <=8-bit | `SPNG_FMT_G8`     | None** | Valid for 1, 2, 4, 8-bit grayscale only     |
 
 \* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
 
