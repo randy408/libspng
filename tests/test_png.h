@@ -95,9 +95,21 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
 
         png_set_strip_16(png_ptr);
     }
-    else if(fmt == SPNG_FMT_G8)
-    {/* TODO: support more input formats */
+    else if(fmt == SPNG_FMT_G8) /* SPNG_FMT_G* is only run for <=8-bit grayscale images */
+    {/* TODO: support all input formats */
         png_set_expand_gray_1_2_4_to_8(png_ptr);
+    }
+    else if(fmt == SPNG_FMT_GA8)
+    {/* TODO: support all input formats */
+        if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS) && (flags & SPNG_DECODE_TRNS))
+        {
+            png_set_tRNS_to_alpha(png_ptr);
+        }
+        else
+        {
+            png_set_expand_gray_1_2_4_to_8(png_ptr);
+            png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+        }
     }
     else if(fmt == SPNGT_FMT_VIPS)
     {

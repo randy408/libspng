@@ -21,8 +21,8 @@ int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
     {
         if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
         {
-            if(ihdr.bit_depth == 8) *fmt = SPNG_FMT_RGBA8;
-            else *fmt = SPNG_FMT_RGBA16;
+            if(ihdr.bit_depth == 16) *fmt = SPNG_FMT_RGBA16;
+            else *fmt = SPNG_FMT_RGBA8;
         }
         else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
         {
@@ -30,8 +30,8 @@ int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
         }
         else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
         {
-           // if(ihdr->bit_depth == 8) *fmt = SPNG_FMT_GA8;
-            /*else *fmt = SPNG_FMT_GA16;*/
+            /*if(ihdr.bit_depth == 16) *fmt = SPNG_FMT_GA16;
+            else*/  *fmt = SPNG_FMT_GA8;
         }
     }
     else return 1;
