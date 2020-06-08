@@ -5,6 +5,8 @@
 
 #define SPNG_TEST_COMPARE_CHUNKS 1
 
+#define SPNG_FMT_RGB16 8
+
 struct spng_test_case
 {
     int fmt;
@@ -12,16 +14,17 @@ struct spng_test_case
     int test_flags;
 };
 
-void print_test_args(struct spng_test_case *test_case)
+static void print_test_args(struct spng_test_case *test_case)
 {
     printf("Decode and compare ");
-    if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8, ");
-    else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16, ");
-    else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8, ");
-    else if(test_case->fmt == SPNG_FMT_PNG) printf("PNG, ");
-    else if(test_case->fmt == SPNG_FMT_RAW) printf("RAW, ");
+    if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8");
+    else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16");
+    else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8");
+    else if(test_case->fmt == SPNG_FMT_PNG) printf("PNG");
+    else if(test_case->fmt == SPNG_FMT_RAW) printf("RAW");
+    else if(test_case->fmt == SPNGT_FMT_VIPS) printf("VIPS");
 
-    printf("FLAGS: ");
+    printf(", FLAGS: ");
 
     if(!test_case->flags && !test_case->test_flags) printf("(NONE)");
 
@@ -34,7 +37,7 @@ void print_test_args(struct spng_test_case *test_case)
 }
 
 
-void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
+static void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
 {
 /*  With libpng it's not possible to request 8/16-bit images regardless of
     PNG format without calling functions that alias to png_set_expand(_16),
@@ -79,9 +82,7 @@ void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
     *test_cases_n = n;
 }
 
-#define SPNG_FMT_RGB16 8
-
-int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
+static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
 {
     uint32_t w, h;
     uint32_t x, y;
@@ -336,7 +337,13 @@ int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *im
     return 0;
 }
 
-int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int flags, int test_flags)
+static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr)
+{/* TODO */
+
+    return 0;
+}
+
+static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int flags, int test_flags)
 {
     int ret = 0;
     png_infop info_ptr = NULL;
@@ -383,10 +390,17 @@ int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int flags, i
     {/* in case compare_images() has some edge case */
         printf("compare_images() returned 0 but images are not identical\n");
         ret = 1;
+        goto cleanup;
+    }
+
+identical:
+
+    if(test_flags & SPNG_TEST_COMPARE_CHUNKS)
+    {
+        ret = compare_chunks(ctx, info_ptr, png_ptr);
     }
 
 cleanup:
-identical:
 
     spng_ctx_free(ctx);
     png_destroy_read_struct(&png_ptr, &info_ptr, NULL);

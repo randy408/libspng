@@ -1,10 +1,43 @@
 #ifndef TEST_SPNG_H
 #define TEST_SPNG_H
 
+#define SPNGT_FMT_VIPS (1 << 20) /* the sequence of libpng calls in libvips */
+
 #include <spng.h>
 
 #include <stdio.h>
 #include <string.h>
+
+int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
+{
+   if(ctx == NULL || fmt == NULL) return 1;
+
+    struct spng_trns trns;
+    struct spng_ihdr ihdr;
+
+    if(spng_get_ihdr(ctx, &ihdr)) return 1;
+
+    if(!spng_get_trns(ctx, &trns))
+    {
+        if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+        {
+            if(ihdr.bit_depth == 8) *fmt = SPNG_FMT_RGBA8;
+            else *fmt = SPNG_FMT_RGBA16;
+        }
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+        {
+            *fmt = SPNG_FMT_RGBA8;
+        }
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
+        {
+           // if(ihdr->bit_depth == 8) *fmt = SPNG_FMT_GA8;
+            /*else *fmt = SPNG_FMT_GA16;*/
+        }
+    }
+    else return 1;
+
+    return 0;
+}
 
 unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags, spng_ctx **out_ctx)
 {
@@ -52,6 +85,15 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
     {
         printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
         goto err;
+    }
+
+    if(fmt == SPNGT_FMT_VIPS)
+    {
+        fmt = SPNG_FMT_PNG;
+        if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE) fmt = SPNG_FMT_G8;
+
+        spng_get_trns_fmt(ctx, &fmt);
     }
 
     r = spng_decoded_image_size(ctx, fmt, &siz);

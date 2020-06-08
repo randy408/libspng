@@ -95,6 +95,14 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
 
         png_set_strip_16(png_ptr);
     }
+    else if(fmt == SPNGT_FMT_VIPS)
+    {
+        png_set_palette_to_rgb(png_ptr);
+
+        png_set_tRNS_to_alpha(png_ptr);
+
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
+    }
 
 #if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values unless it's SPNG_FMT_RAW */
     if(fmt != SPNG_FMT_RAW) png_set_swap(png_ptr);
