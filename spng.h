@@ -138,14 +138,19 @@ enum spng_interlace_method
     SPNG_INTERLACE_ADAM7 = 1
 };
 
-/* All formats are in host-endian, channels are in byte-order */
+/* Channels are always in byte-order */
 enum spng_format
 {
     SPNG_FMT_RGBA8 = 1,
     SPNG_FMT_RGBA16 = 2,
     SPNG_FMT_RGB8 = 4,
-    SPNG_FMT_PNG = 16,
-    SPNG_FMT_RAW = 32
+
+    /* Partially implemented, see documentation */
+    SPNG_FMT_G8 = 64,
+
+    /* No conversion or scaling */
+    SPNG_FMT_PNG = 256, /* host-endian */
+    SPNG_FMT_RAW = 512  /* big-endian */
 };
 
 enum spng_ctx_flags

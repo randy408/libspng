@@ -14,17 +14,32 @@ struct spng_test_case
     int test_flags;
 };
 
+static int n_test_cases=0;
+struct spng_test_case test_cases[100];
+
+static const char* fmt_str(int fmt)
+{
+    switch(fmt)
+    {
+        case SPNG_FMT_RGBA8: return "RGBA8";
+        case SPNG_FMT_RGBA16: return "RGBA16";
+        case SPNG_FMT_RGB8: return "RGB8";
+        case SPNG_FMT_PNG: return "PNG";
+        case SPNG_FMT_RAW: return "RAW";
+        case SPNG_FMT_G8: return "G8";
+        case SPNGT_FMT_VIPS: return "VIPS";
+        default: return "";
+    }
+}
+
 static void print_test_args(struct spng_test_case *test_case)
 {
-    printf("Decode and compare ");
-    if(test_case->fmt == SPNG_FMT_RGBA8) printf("RGBA8");
-    else if(test_case->fmt == SPNG_FMT_RGBA16) printf("RGBA16");
-    else if(test_case->fmt == SPNG_FMT_RGB8) printf("RGB8");
-    else if(test_case->fmt == SPNG_FMT_PNG) printf("PNG");
-    else if(test_case->fmt == SPNG_FMT_RAW) printf("RAW");
-    else if(test_case->fmt == SPNGT_FMT_VIPS) printf("VIPS");
+    printf("Decode and compare %s", fmt_str(test_case->fmt));
 
-    printf(", FLAGS: ");
+    char pad_str[] = "      ";
+    pad_str[sizeof(pad_str) - strlen(fmt_str(test_case->fmt))] = '\0';
+
+    printf(",%sFLAGS: ", pad_str);
 
     if(!test_case->flags && !test_case->test_flags) printf("(NONE)");
 
@@ -36,50 +51,13 @@ static void print_test_args(struct spng_test_case *test_case)
     printf("\n");
 }
 
-
-static void gen_test_cases(struct spng_test_case *test_cases, int *test_cases_n)
+static void add_test_case(int fmt, int flags, int test_flags)
 {
-/*  With libpng it's not possible to request 8/16-bit images regardless of
-    PNG format without calling functions that alias to png_set_expand(_16),
-    which acts as if png_set_tRNS_to_alpha() was called, as a result
-    there are no tests where transparency is not applied
-*/
+    int n = n_test_cases;
 
-    int n=0;
-
-    test_cases[n].fmt = SPNG_FMT_RGBA8;
-    test_cases[n].flags = SPNG_DECODE_TRNS;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_RGBA8;
-    test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_RGBA16;
-    test_cases[n].flags = SPNG_DECODE_TRNS;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_RGBA16;
-    test_cases[n].flags = SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_RGB8;
-    test_cases[n].flags = 0;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_RGB8;
-    test_cases[n].flags = SPNG_DECODE_GAMMA;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_PNG;
-    test_cases[n].flags = 0;
-    test_cases[n++].test_flags = 0;
-
-    test_cases[n].fmt = SPNG_FMT_RAW;
-    test_cases[n].flags = 0;
-    test_cases[n++].test_flags = 0;
-
-    *test_cases_n = n;
+    test_cases[n].fmt = fmt;
+    test_cases[n].flags = flags;
+    test_cases[n_test_cases++].test_flags = test_flags;
 }
 
 static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
@@ -484,14 +462,23 @@ int main(int argc, char **argv)
 
     rewind(file);
 
-    struct spng_test_case test_cases[100];
-    int test_cases_n;
+/*  With libpng it's not possible to request 8/16-bit images regardless of
+    PNG format without calling functions that alias to png_set_expand(_16),
+    which acts as if png_set_tRNS_to_alpha() was called, as a result
+    there are no tests where transparency is not applied
+*/
+    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS, 0);
+    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, 0);
+    add_test_case(SPNG_FMT_RGBA16, SPNG_DECODE_TRNS, 0);
+    add_test_case(SPNG_FMT_RGBA16, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, 0);
+    add_test_case(SPNG_FMT_RGB8, 0, 0);
+    add_test_case(SPNG_FMT_RGB8, SPNG_DECODE_GAMMA, 0);
+    add_test_case(SPNG_FMT_PNG, 0, 0);
+    add_test_case(SPNG_FMT_RAW, 0, 0);
 
-    gen_test_cases(test_cases, &test_cases_n);
-
-    int ret=0;
+    int ret = 0;
     uint32_t i;
-    for(i=0; i < test_cases_n; i++)
+    for(i=0; i < n_test_cases; i++)
     {
         print_test_args(&test_cases[i]);
 
