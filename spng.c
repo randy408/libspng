@@ -143,6 +143,7 @@ struct decode_flags
     unsigned interlaced:  1;
     unsigned same_layout: 1;
     unsigned zerocopy:    1;
+    unsigned unpack:      1;
 };
 
 struct spng_chunk_bitfield
@@ -1076,35 +1077,57 @@ static inline void gamma_correct_row(unsigned char *row, uint32_t pixels, int fm
     }
 }
 
-/* Apply transparency to truecolor output row */
+/* Apply transparency to output row */
 static inline void trns_row(unsigned char *row,
                             const unsigned char *scanline,
                             const unsigned char *trns,
+                            struct spng_ihdr *ihdr,
                             uint32_t pixels,
-                            int fmt,
-                            unsigned ctype,
-                            unsigned depth)
+                            int fmt)
 {
-    if(ctype != SPNG_COLOR_TYPE_TRUECOLOR) return;
-
     uint32_t i;
-    unsigned scanline_stride = 3; /* depth == 8 */
-    if(depth == 16) scanline_stride = 6;
+    unsigned scanline_stride, row_stride;
+    unsigned ctype = ihdr->color_type;
+    unsigned depth = ihdr->bit_depth;
+
+    if(ctype == SPNG_COLOR_TYPE_TRUECOLOR)
+    {
+        if(depth == 16) scanline_stride = 6;
+        else scanline_stride = 3; /* depth == 8 */
+    }
+    else return;
+#if 0
+    /*else if(ctype == SPNG_COLOR_TYPE_GRAYSCALE)
+    {
+        if(depth == 16) scanline_stride = 2;
+        scanline_stride = 1; /* depth == 8 */
+    }
+#endif
 
     if(fmt == SPNG_FMT_RGBA8)
     {
-        for(i=0; i < pixels; i++, scanline+=scanline_stride, row+=4)
+        row_stride = 4;
+        for(i=0; i < pixels; i++, scanline+=scanline_stride, row+=row_stride)
         {
             if(!memcmp(scanline, trns, scanline_stride)) row[3] = 0;
         }
     }
     else if(fmt == SPNG_FMT_RGBA16)
     {
-        for(i=0; i < pixels; i++, scanline+=scanline_stride, row+=8)
+        row_stride = 8;
+        for(i=0; i < pixels; i++, scanline+=scanline_stride, row+=row_stride)
         {
-            if(!memcmp(scanline, trns, scanline_stride)) memset(row+6, 0, 2);
+            if(!memcmp(scanline, trns, scanline_stride)) memset(row + 6, 0, 2);
         }
     }
+   /* else if(fmt == SPNG_FMT_GA8)
+    {
+        row_stride = 2;
+        for(i=0; i < pixels; i++, scanline+=scanline_stride, row+=row_stride)
+        {
+            if(!memcmp(scanline, trns, scanline_stride)) memset(row + 1, 0, 1);
+        }
+    }*/
 }
 
 static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsigned depth, struct spng_sbit *sbit)
@@ -1155,6 +1178,13 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
             memcpy(row + i * 3, px, 3);
         }
     }
+    else if(fmt == SPNG_FMT_G8)
+    {
+        for(i=0; i < pixels; i++)
+        {
+            row[i] = sample_to_target(row[i], depth, sbit->grayscale_bits, 8);
+        }
+    }
 }
 
 /* Expand to *row using 8-bit palette indices from *scanline */
@@ -1185,6 +1215,30 @@ void expand_row(unsigned char *row, unsigned char *scanline, struct spng_plte_en
             px[1] = plte[entry].green;
             px[2] = plte[entry].blue;
         }
+    }
+}
+
+/* Unpack 1/2/4-bit samples from *scanline to *out */
+static void unpack_scanline(unsigned char *out, unsigned char *scanline, uint32_t width, unsigned bit_depth)
+{
+    if( !(bit_depth == 1 || bit_depth == 2 || bit_depth == 4) ) return;
+
+    const unsigned initial_shift = 8 - bit_depth;
+    const uint8_t mask = (uint16_t)(1 << bit_depth) - 1;
+    unsigned shift_amount = initial_shift;
+    uint32_t i;
+
+    for(i=0; i < width; i++)
+    {
+        if(shift_amount > 7)
+        {
+            shift_amount = initial_shift;
+            scanline++;
+        }
+
+        out[i] = (scanline[0] >> shift_amount) & mask;
+
+        shift_amount -= bit_depth;
     }
 }
 
@@ -2318,6 +2372,12 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
             break;
         }
 
+        if(f.unpack)
+        {
+            unpack_scanline(out, scanline, width, ctx->ihdr.bit_depth);
+            break;
+        }
+
         if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
         {
             if(ctx->ihdr.bit_depth == 16)
@@ -2494,7 +2554,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
         }
     }/* for(k=0; k < width; k++) */
 
-    if(f.apply_trns) trns_row(out, scanline, trns_px, width, fmt, ctx->ihdr.color_type, ctx->ihdr.bit_depth);
+    if(f.apply_trns) trns_row(out, scanline, trns_px, &ctx->ihdr, width, fmt);
 
     if(f.do_scaling) scale_row(out, width, fmt, processing_depth, sb);
 
@@ -2557,6 +2617,7 @@ int spng_decode_row(spng_ctx *ctx, void *out, size_t len)
     unsigned pixel_size = 4; /* RGBA8 */
     if(ctx->fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(ctx->fmt == SPNG_FMT_RGB8) pixel_size = 3;
+    else if(ctx->fmt == SPNG_FMT_G8) pixel_size = 1;
     else if(ctx->fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
     {
         if(ctx->ihdr.bit_depth < 8)
@@ -2617,7 +2678,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
         if(len < ctx->total_out_size) return SPNG_EBUFSIZ;
     }
 
-    ctx->out_width = ctx->total_out_size / ctx->ihdr.height;
+    struct spng_ihdr *ihdr = &ctx->ihdr;
+
+    ctx->out_width = ctx->total_out_size / ihdr->height;
 
     ret = spng__inflate_init(ctx);
     if(ret) return decode_err(ctx, ret);
@@ -2634,13 +2697,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     ctx->fmt = fmt;
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
+    if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) f.indexed = 1;
 
-    unsigned processing_depth = ctx->ihdr.bit_depth;
+    unsigned processing_depth = ihdr->bit_depth;
 
     if(f.indexed) processing_depth = 8;
 
-    if(ctx->ihdr.interlace_method)
+    if(ihdr->interlace_method)
     {
         f.interlaced = 1;
         ctx->row_buf = spng__malloc(ctx, ctx->out_width);
@@ -2657,14 +2720,14 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     f.do_scaling = 1;
     if(f.indexed) f.do_scaling = 0;
 
-    unsigned depth_target = 8; /* FMT_RGBA8 */
+    unsigned depth_target = 8; /* FMT_RGBA8, G8 */
     if(fmt == SPNG_FMT_RGBA16) depth_target = 16;
 
     if(flags & SPNG_DECODE_TRNS && ctx->stored.trns) f.apply_trns = 1;
     else flags &= ~SPNG_DECODE_TRNS;
 
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA ||
-       ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) flags &= ~SPNG_DECODE_TRNS;
+    if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA ||
+       ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) flags &= ~SPNG_DECODE_TRNS;
 
     if(flags & SPNG_DECODE_GAMMA && ctx->stored.gama) f.apply_gamma = 1;
     else flags &= ~SPNG_DECODE_GAMMA;
@@ -2674,13 +2737,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGBA16))
     {
-        if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
-           ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
+        if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA &&
+           ihdr->bit_depth == depth_target) f.same_layout = 1;
     }
     else if(fmt == SPNG_FMT_RGB8)
     {
-        if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR &&
-           ctx->ihdr.bit_depth == depth_target) f.same_layout = 1;
+        if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR &&
+           ihdr->bit_depth == depth_target) f.same_layout = 1;
 
         f.apply_trns = 0; /* not applicable */
     }
@@ -2690,6 +2753,11 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
         f.do_scaling = 0;
         f.apply_gamma = 0; /* for now */
         f.apply_trns = 0;
+    }
+    else if(fmt == SPNG_FMT_G8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
+    {
+        if(ihdr->bit_depth == depth_target) f.same_layout = 1;
+        else if(ihdr->bit_depth < 8) f.unpack = 1;
     }
 
     /*if(f.same_layout && !flags && !f.interlaced) f.zerocopy = 1;*/
@@ -2750,19 +2818,19 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     if(f.use_sbit)
     {
-        if(ctx->ihdr.color_type == 0)
+        if(ihdr->color_type == 0)
         {
             sb->grayscale_bits = ctx->sbit.grayscale_bits;
-            sb->alpha_bits = ctx->ihdr.bit_depth;
+            sb->alpha_bits = ihdr->bit_depth;
         }
-        else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 3)
+        else if(ihdr->color_type == 2 || ihdr->color_type == 3)
         {
             sb->red_bits = ctx->sbit.red_bits;
             sb->green_bits = ctx->sbit.green_bits;
             sb->blue_bits = ctx->sbit.blue_bits;
-            sb->alpha_bits = ctx->ihdr.bit_depth;
+            sb->alpha_bits = ihdr->bit_depth;
         }
-        else if(ctx->ihdr.color_type == 4)
+        else if(ihdr->color_type == 4)
         {
             sb->grayscale_bits = ctx->sbit.grayscale_bits;
             sb->alpha_bits = ctx->sbit.alpha_bits;
@@ -2776,8 +2844,8 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
         }
     }
 
-    if(ctx->ihdr.bit_depth == 16 && fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
-    {/* in this case samples are scaled down by 8 bits */
+    if(ihdr->bit_depth == 16 && fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
+    {/* samples are scaled down by 8 bits in the decode loop */
         sb->red_bits -= 8;
         sb->green_bits -= 8;
         sb->blue_bits -= 8;
@@ -2837,20 +2905,34 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     unsigned char *trns_px = ctx->trns_px;
 
-    if(f.apply_trns && ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+    if(f.apply_trns)
     {
-        if(ctx->ihdr.bit_depth == 16)
+        if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR)
         {
-            memcpy(trns_px, &ctx->trns.red, 2);
-            memcpy(trns_px + 2, &ctx->trns.green, 2);
-            memcpy(trns_px + 4, &ctx->trns.blue, 2);
+            if(ihdr->bit_depth == 16)
+            {
+                memcpy(trns_px, &ctx->trns.red, 2);
+                memcpy(trns_px + 2, &ctx->trns.green, 2);
+                memcpy(trns_px + 4, &ctx->trns.blue, 2);
+            }
+            else
+            {
+                trns_px[0] = ctx->trns.red;
+                trns_px[1] = ctx->trns.green;
+                trns_px[2] = ctx->trns.blue;
+            }
         }
-        else
+        /*else if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && fmt == SPNG_FMT_GA8)
         {
-            trns_px[0] = ctx->trns.red;
-            trns_px[1] = ctx->trns.green;
-            trns_px[2] = ctx->trns.blue;
-        }
+            if(ihdr->bit_depth == 16)
+            {
+                memcpy(trns_px, &ctx->trns.gray, 2);
+            }
+            else
+            {
+                trns_px[0] = ctx->trns.gray;
+            }
+        }*/
     }
 
     memcpy(&ctx->decode_flags, &f, sizeof(struct decode_flags));
@@ -2868,6 +2950,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     if(fmt == SPNG_FMT_RGBA16) pixel_size = 8;
     else if(fmt == SPNG_FMT_RGB8) pixel_size = 3;
+    else if(fmt == SPNG_FMT_G8) pixel_size = 1;
 
     uint32_t i;
     for(i=ri->pass; i <= ctx->last_pass; i++)
@@ -3142,7 +3225,8 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     int ret = read_chunks(ctx, 1);
     if(ret) return ret;
 
-    size_t res = ctx->ihdr.width;
+    struct spng_ihdr *ihdr = &ctx->ihdr;
+    size_t res = ihdr->width;
     unsigned bytes_per_pixel;
 
     if(fmt == SPNG_FMT_RGBA8)
@@ -3159,10 +3243,14 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     }
     else if(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW)
     {
-        ret = calculate_scanline_width(ctx, ctx->ihdr.width, &res);
+        ret = calculate_scanline_width(ctx, ihdr->width, &res);
         if(ret) return ret;
 
         res -= 1; /* exclude filter byte */
+        bytes_per_pixel = 1;
+    }
+    else if(fmt == SPNG_FMT_G8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
+    {
         bytes_per_pixel = 1;
     }
     else return SPNG_EFMT;
@@ -3170,8 +3258,8 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     if(res > SIZE_MAX / bytes_per_pixel) return SPNG_EOVERFLOW;
     res = res * bytes_per_pixel;
 
-    if(res > SIZE_MAX / ctx->ihdr.height) return SPNG_EOVERFLOW;
-    res = res * ctx->ihdr.height;
+    if(res > SIZE_MAX / ihdr->height) return SPNG_EOVERFLOW;
+    res = res * ihdr->height;
 
     *len = res;
 
