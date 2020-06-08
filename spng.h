@@ -147,6 +147,7 @@ enum spng_format
 
     /* Partially implemented, see documentation */
     SPNG_FMT_GA8 = 16,
+    SPNG_FMT_GA16 = 32,
     SPNG_FMT_G8 = 64,
 
     /* No conversion or scaling */

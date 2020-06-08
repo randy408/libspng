@@ -1,5 +1,7 @@
 #include <inttypes.h>
 
+const char* fmt_str(int fmt);
+
 #include "test_spng.h"
 #include "test_png.h"
 
@@ -17,7 +19,7 @@ struct spng_test_case
 static int n_test_cases=0;
 struct spng_test_case test_cases[100];
 
-static const char* fmt_str(int fmt)
+const char* fmt_str(int fmt)
 {
     switch(fmt)
     {
@@ -25,6 +27,7 @@ static const char* fmt_str(int fmt)
         case SPNG_FMT_RGBA16: return "RGBA16";
         case SPNG_FMT_RGB8: return "RGB8";
         case SPNG_FMT_GA8: return "GA8";
+        case SPNG_FMT_GA16: return "GA16";
         case SPNG_FMT_G8: return "G8";
         case SPNG_FMT_PNG: return "PNG";
         case SPNG_FMT_RAW: return "RAW";
@@ -63,7 +66,13 @@ static void add_test_case(int fmt, int flags, int test_flags)
     test_cases[n_test_cases++].test_flags = test_flags;
 }
 
-static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned char *img_spng, unsigned char *img_png)
+/* Returns 1 on different images with, allows a small difference if gamma corrected */
+static int compare_images(const struct spng_ihdr *ihdr,
+                          int fmt,
+                          int flags,
+                          const unsigned char *img_spng,
+                          const unsigned char *img_png,
+                          size_t img_size)
 {
     uint32_t w, h;
     uint32_t x, y;
@@ -76,7 +85,8 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
     const uint8_t mask = (uint16_t)(1 << ihdr->bit_depth) - 1;
     const uint8_t initial_shift = 8 - ihdr->bit_depth;
     uint8_t shift_amount = initial_shift;
-    size_t row_width, px_ofs;
+    size_t row_width = img_size / ihdr->height;
+    size_t px_ofs = 0;
     unsigned channels;
 
     uint32_t red_diff = 0, green_diff = 0, blue_diff = 0, sample_diff = 0;
@@ -106,8 +116,6 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
 
             if(ihdr->bit_depth < 8) bytes_per_pixel = 1;
             else bytes_per_pixel = channels * (ihdr->bit_depth / 8);
-
-            row_width = (channels * ihdr->bit_depth * w + 7) / 8;
 
             if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) flags &= ~SPNG_DECODE_GAMMA;
         }
@@ -215,7 +223,7 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
                 png_green = p_green;
                 png_blue = p_blue;
             }
-            else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW | SPNG_FMT_G8 | SPNG_FMT_GA8))
+            else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW | SPNG_FMT_G8 | SPNG_FMT_GA8 | SPNG_FMT_GA16))
             {
                 if(ihdr->bit_depth <= 8) /* gray 1-8, gray-alpha 8, indexed 1-8 */
                 {
@@ -299,7 +307,7 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
                         else issue_str = "grayscale difference";
 
                         printf("%s at x: %u y: %u spng: %u png: %u\n",
-                            issue_str, x, y, spng_sample, png_sample);
+                               issue_str, x, y, spng_sample, png_sample);
                     }
                     else
                     {
@@ -375,9 +383,25 @@ static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int f
         goto cleanup;
     }
 
+    if(fmt == SPNGT_FMT_VIPS)
+    {/* Get the right format for compare_images() */
+        fmt = SPNG_FMT_PNG;
+        if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
+        else if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8) fmt = SPNG_FMT_G8;
+
+        spng_get_trns_fmt(ctx, &fmt);
+        printf("VIPS format: %s\n", fmt_str(fmt));
+    }
+
     if(!memcmp(img_spng, img_png, img_spng_size)) goto identical;
 
-    ret = compare_images(ihdr, fmt, flags, img_spng, img_png);
+    if( !(flags & SPNG_DECODE_GAMMA) )
+    {
+        printf("error: image buffers are not identical\n");
+        ret = 1;
+    }
+
+    ret |= compare_images(ihdr, fmt, flags, img_spng, img_png, img_spng_size);
 
     if(!ret && !(flags & SPNG_DECODE_GAMMA))
     {/* in case compare_images() has some edge case */
@@ -491,14 +515,20 @@ int main(int argc, char **argv)
     add_test_case(SPNG_FMT_PNG, 0, 0);
     add_test_case(SPNG_FMT_RAW, 0, 0);
 
-    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8) add_test_case(SPNG_FMT_G8, 0, 0);
-
     if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8)
     {
+        add_test_case(SPNG_FMT_G8, 0, 0);
         add_test_case(SPNG_FMT_GA8, 0, 0);
         add_test_case(SPNG_FMT_GA8, SPNG_DECODE_TRNS, 0);
     }
 
+    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth == 16)
+    {
+        add_test_case(SPNG_FMT_GA16, 0, 0);
+        add_test_case(SPNG_FMT_GA16, SPNG_DECODE_TRNS, 0);
+    }
+
+    add_test_case(SPNGT_FMT_VIPS, SPNG_DECODE_TRNS, 0);
 
     int ret = 0;
     uint32_t i;

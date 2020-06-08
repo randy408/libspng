@@ -50,11 +50,11 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
     png_read_info(png_ptr, info_ptr);
 
     png_uint_32 width, height;
-    int bit_depth, colour_type, interlace_type, compression_type;
+    int bit_depth, color_type, interlace_type, compression_type;
     int filter_method;
 
     if(!png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth,
-                     &colour_type, &interlace_type, &compression_type, &filter_method))
+                     &color_type, &interlace_type, &compression_type, &filter_method))
     {
         printf("png_get_IHDR failed\n");
         return NULL;
@@ -95,11 +95,22 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
 
         png_set_strip_16(png_ptr);
     }
-    else if(fmt == SPNG_FMT_G8) /* SPNG_FMT_G* is only run for <=8-bit grayscale images */
+    else if(fmt == SPNG_FMT_G8) /* assumes only <=8-bit grayscale images */
     {/* TODO: support all input formats */
         png_set_expand_gray_1_2_4_to_8(png_ptr);
     }
-    else if(fmt == SPNG_FMT_GA8)
+    else if(fmt == SPNG_FMT_GA16) /* assumes only 16-bit grayscale images */
+    {/* TODO: support all input formats */
+        if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS) && (flags & SPNG_DECODE_TRNS))
+        {
+            png_set_tRNS_to_alpha(png_ptr);
+        }
+        else
+        {
+            if(bit_depth == 16) png_set_filler(png_ptr, 0xFFFF, PNG_FILLER_AFTER);
+        }
+    }
+    else if(fmt == SPNG_FMT_GA8) /* assumes only <=8-bit grayscale images */
     {/* TODO: support all input formats */
         if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS) && (flags & SPNG_DECODE_TRNS))
         {
@@ -113,11 +124,15 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
     }
     else if(fmt == SPNGT_FMT_VIPS)
     {
-        png_set_palette_to_rgb(png_ptr);
+        if(color_type == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png_ptr);
 
-        png_set_tRNS_to_alpha(png_ptr);
+        if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) png_set_tRNS_to_alpha(png_ptr);
 
-        png_set_expand_gray_1_2_4_to_8(png_ptr);
+        if(color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) png_set_expand_gray_1_2_4_to_8(png_ptr);
+
+#if defined(SPNG_LITTLE_ENDIAN)
+         png_set_swap(png_ptr);
+#endif
     }
 
 #if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values unless it's SPNG_FMT_RAW */
