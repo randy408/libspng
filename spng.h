@@ -146,6 +146,7 @@ enum spng_format
     SPNG_FMT_RGB8 = 4,
 
     /* Partially implemented, see documentation */
+    SPNG_FMT_GA8 = 16,
     SPNG_FMT_G8 = 64,
 
     /* No conversion or scaling */

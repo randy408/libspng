@@ -24,11 +24,12 @@ static const char* fmt_str(int fmt)
         case SPNG_FMT_RGBA8: return "RGBA8";
         case SPNG_FMT_RGBA16: return "RGBA16";
         case SPNG_FMT_RGB8: return "RGB8";
+        case SPNG_FMT_GA8: return "GA8";
+        case SPNG_FMT_G8: return "G8";
         case SPNG_FMT_PNG: return "PNG";
         case SPNG_FMT_RAW: return "RAW";
-        case SPNG_FMT_G8: return "G8";
         case SPNGT_FMT_VIPS: return "VIPS";
-        default: return "";
+        default: return "   ";
     }
 }
 
@@ -49,6 +50,8 @@ static void print_test_args(struct spng_test_case *test_case)
     if(test_case->test_flags & SPNG_TEST_COMPARE_CHUNKS) printf("COMPARE_CHUNKS ");
 
     printf("\n");
+
+    fflush(stdout);
 }
 
 static void add_test_case(int fmt, int flags, int test_flags)
@@ -132,12 +135,24 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
         have_alpha = 0;
         max_diff = 65536 / diff_div;
     }
+    else if(fmt == SPNG_FMT_GA8)
+    {
+        bytes_per_pixel = 2;
+        have_alpha = 1;
+        max_diff = 256 / diff_div;
+    }
+    else if(fmt == SPNG_FMT_G8)
+    {
+        bytes_per_pixel = 1;
+        have_alpha = 0;
+        max_diff = 256 / diff_div;
+    }
 
     for(y=0; y < h; y++)
     {
         for(x=0; x < w; x++)
         {
-            if(fmt == SPNG_FMT_PNG && ihdr->bit_depth < 8)
+            if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW) && ihdr->bit_depth < 8)
                 px_ofs = (y * row_width) + x / samples_per_byte;
             else
                 px_ofs = (x + (y * w)) * bytes_per_pixel;
@@ -200,7 +215,7 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
                 png_green = p_green;
                 png_blue = p_blue;
             }
-            else if(fmt == SPNG_FMT_PNG)
+            else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW | SPNG_FMT_G8 | SPNG_FMT_GA8))
             {
                 if(ihdr->bit_depth <= 8) /* gray 1-8, gray-alpha 8, indexed 1-8 */
                 {
@@ -475,7 +490,15 @@ int main(int argc, char **argv)
     add_test_case(SPNG_FMT_RGB8, SPNG_DECODE_GAMMA, 0);
     add_test_case(SPNG_FMT_PNG, 0, 0);
     add_test_case(SPNG_FMT_RAW, 0, 0);
+
     if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8) add_test_case(SPNG_FMT_G8, 0, 0);
+
+    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8)
+    {
+        add_test_case(SPNG_FMT_GA8, 0, 0);
+        add_test_case(SPNG_FMT_GA8, SPNG_DECODE_TRNS, 0);
+    }
+
 
     int ret = 0;
     uint32_t i;
