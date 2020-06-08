@@ -17,6 +17,8 @@ test:
     - ninja scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
     - meson configure -Duse_miniz=true
     - ninja test
+    - meson configure -Db_sanitize=memory
+    - MSAN_OPTIONS=exitcode=100 ninja test
     - cd ..
     - CC=gcc CXX=g++ meson -Ddev_build=true -Db_sanitize=address,undefined -Db_coverage=true gcc_build
     - cd gcc_build
