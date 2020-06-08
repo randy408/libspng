@@ -17,8 +17,14 @@ enum spng_format
     SPNG_FMT_RGBA8 = 1,
     SPNG_FMT_RGBA16 = 2,
     SPNG_FMT_RGB8 = 4,
-    SPNG_FMT_PNG = 16,
-    SPNG_FMT_RAW = 32
+
+    SPNG_FMT_GA8 = 16,
+    SPNG_FMT_GA16 = 32,
+    SPNG_FMT_G8 = 64,
+
+    /* No conversion or scaling */
+    SPNG_FMT_PNG = 256, /* host-endian */
+    SPNG_FMT_RAW = 512  /* big-endian */
 };
 ```
 
@@ -45,6 +51,7 @@ enum spng_decode_flags
 | Any format   | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth     |
 | Any format   | `SPNG_FMT_RGB8`   | All    | Convert from any PNG format and bit depth     |
 | Gray <=8-bit | `SPNG_FMT_G8`     | None** | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
+| Gray 16-bit  | `SPNG_FMT_GA16`   | None** | Only valid for 16-bit grayscale PNG's         |
 | Gray <=8-bit | `SPNG_FMT_GA8`    | None** | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
 | Any format   | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian               |
 | Any format   | `SPNG_FMT_RAW`    | None   | The PNG's format in big-endian                |

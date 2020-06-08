@@ -1171,8 +1171,6 @@ static inline void trns_row(unsigned char *row,
             }
         }
     }
-    else return;
-#if 0
     else if(fmt == SPNG_FMT_GA16)
     {
         row_stride = 4;
@@ -1186,13 +1184,15 @@ static inline void trns_row(unsigned char *row,
         }
         else
         {
+            struct spng__iter iter = spng__iter_init(depth, scanline);
+
             for(i=0; i< pixels; i++, row+=row_stride)
             {
                 if(trns[0] == get_sample(&iter)) memset(row + 2, 0, 2);
             }
         }
     }
-#endif
+    else return;
 }
 
 static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsigned depth, struct spng_sbit *sbit)
@@ -1290,13 +1290,16 @@ void expand_row(unsigned char *row, unsigned char *scanline, struct spng_plte_en
     }
 }
 
-/* Unpack 1/2/4/8-bit samples to G8 or GA8 */
+/* Unpack 1/2/4/8-bit samples to G8/GA8/GA16 or G16 -> GA16 */
 static void unpack_scanline(unsigned char *out, unsigned char *scanline, uint32_t width, unsigned bit_depth, int fmt)
 {
     struct spng__iter iter = spng__iter_init(bit_depth, scanline);
     uint32_t i;
+    uint16_t sample, alpha = 65535;
+
 
     if(fmt == SPNG_FMT_GA8) goto ga8;
+    else if(fmt == SPNG_FMT_GA16) goto ga16;
 
     /* 1/2/4-bit -> 8-bit */
     for(i=0; i < width; i++) out[i] = get_sample(&iter);
@@ -1304,7 +1307,7 @@ static void unpack_scanline(unsigned char *out, unsigned char *scanline, uint32_
     return;
 
 ga8:
-    /* 1/2/4/8-bit to GA8 */
+    /* 1/2/4/8-bit -> GA8 */
     for(i=0; i < width; i++)
     {
         out[i*2] = get_sample(&iter);
@@ -1313,18 +1316,26 @@ ga8:
 
     return;
 
-#if 0
 ga16:
 
-    /* 1/2/4/8-bit to GA16 */
-    uint16_t alpha = 65535;
+    /* 16 -> GA16 */
+    if(bit_depth == 16)
+    {
+        for(i=0; i < width; i++)
+        {
+            memcpy(out + i * 4, scanline + i * 2, 2);
+            memcpy(out + i * 4 + 2, &alpha, 2);
+        }
+        return;
+    }
 
+     /* 1/2/4/8-bit -> GA16 */
     for(i=0; i < width; i++)
     {
-        out[i*4] = get_sample(&iter);
+        sample = get_sample(&iter);
+        memcpy(out + i * 4, &sample, 2);
         memcpy(out + i * 4 + 2, &alpha, 2);
     }
-#endif
 }
 
 static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
@@ -2853,6 +2864,12 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
            ihdr->bit_depth == depth_target) f.same_layout = 1;
         else if(ihdr->bit_depth <= 8) f.unpack = 1;
     }
+    else if(fmt == SPNG_FMT_GA16 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth == 16)
+    {
+        if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA &&
+           ihdr->bit_depth == depth_target) f.same_layout = 1;
+        else if(ihdr->bit_depth == 16) f.unpack = 1;
+    }
 
     /*if(f.same_layout && !flags && !f.interlaced) f.zerocopy = 1;*/
 
@@ -3354,6 +3371,10 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     else if(fmt == SPNG_FMT_GA8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
     {
         bytes_per_pixel = 2;
+    }
+    else if(fmt == SPNG_FMT_GA16 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth == 16)
+    {
+        bytes_per_pixel = 4;
     }
     else return SPNG_EFMT;
 

@@ -30,8 +30,8 @@ int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
         }
         else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
         {
-            /*if(ihdr.bit_depth == 16) *fmt = SPNG_FMT_GA16;
-            else*/  *fmt = SPNG_FMT_GA8;
+            if(ihdr.bit_depth == 16) *fmt = SPNG_FMT_GA16;
+            else *fmt = SPNG_FMT_GA8;
         }
     }
     else return 1;
@@ -91,13 +91,19 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
     {
         fmt = SPNG_FMT_PNG;
         if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE) fmt = SPNG_FMT_G8;
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8) fmt = SPNG_FMT_G8;
 
         spng_get_trns_fmt(ctx, &fmt);
+        /*printf("VIPS format: %s\n", fmt_str(fmt));*/
     }
 
     r = spng_decoded_image_size(ctx, fmt, &siz);
-    if(r) goto err;
+    if(r)
+    {
+        printf("spng_decoded_image_size() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
 
     *out_size = siz;
     out_width = siz / ihdr.height;
