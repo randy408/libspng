@@ -1165,7 +1165,7 @@ static inline void trns_row(unsigned char *row,
         {
             struct spng__iter iter = spng__iter_init(depth, scanline);
 
-            for(i=0; i < pixels; i++, row++)
+            for(i=0; i < pixels; i++, row+=row_stride)
             {
                 if(trns[0] == get_sample(&iter)) row[1] = 0;
             }
@@ -1177,7 +1177,20 @@ static inline void trns_row(unsigned char *row,
     {
         row_stride = 4;
 
-
+        if(depth == 16)
+        {
+            for(i=0; i< pixels; i++, scanline+=scanline_stride, row+=row_stride)
+            {
+                if(!memcmp(scanline, trns, 2)) memset(row + 2, 0, 2);
+            }
+        }
+        else
+        {
+            for(i=0; i< pixels; i++, row+=row_stride)
+            {
+                if(trns[0] == get_sample(&iter)) memset(row + 2, 0, 2);
+            }
+        }
     }
 #endif
 }
