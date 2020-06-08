@@ -86,7 +86,7 @@ static int compare_images(struct spng_ihdr *ihdr, int fmt, int flags, unsigned c
     w = ihdr->width;
     h = ihdr->height;
 
-    if(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW)
+    if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
     {
         if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR)
         {
