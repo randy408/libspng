@@ -91,7 +91,7 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
     {
         fmt = SPNG_FMT_PNG;
         if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8) fmt = SPNG_FMT_G8;
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth < 8) fmt = SPNG_FMT_G8;
 
         spng_get_trns_fmt(ctx, &fmt);
         /*printf("VIPS format: %s\n", fmt_str(fmt));*/
