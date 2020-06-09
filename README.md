@@ -102,5 +102,8 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
 
 ## Known Issues
 
-* Gamma correction is not implemented for `SPNG_FMT_PNG`.
+* Decoding to `SPNG_FMT_G8`, `SPNG_FMT_GA8` and `SPNG_FMT_GA16` output formats is not supported
+ for all PNG color type and bit depth combinations, see documentation for details.
+* Gamma correction is not implemented for `SPNG_FMT_PNG`, `SPNG_FMT_G8`, `SPNG_FMT_GA8`
+ and `SPNG_FMT_GA16` output formats.
 * `spng_crc_set_action()` is partially implemented, `SPNG_CRC_DISCARD` has no effect.
