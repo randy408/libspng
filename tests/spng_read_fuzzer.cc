@@ -89,7 +89,25 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_get_iccp(ctx, &iccp);
     spng_get_sbit(ctx, &sbit);
     spng_get_srgb(ctx, &srgb_rendering_intent);
-    spng_get_text(ctx, text, &n_text);
+
+    if(!spng_get_text(ctx, text, &n_text))
+    {/* Up to 4 entries were read, get the actual count */
+        spng_get_text(ctx, NULL, &n_text);
+
+        uint32_t i;
+        for(i=0; i < n_text; i++)
+        {/* text.text is guaranteed to be non-NULL */
+            if(text[i].text == NULL)
+            {
+                spng_ctx_free(ctx);
+                if(out != NULL) free(out);
+                return 1;
+            }
+            /* This shouldn't cause issues either */
+            text[i].length = strlen(text[i].text);
+        }
+    }
+
     spng_get_bkgd(ctx, &bkgd);
     spng_get_hist(ctx, &hist);
     spng_get_phys(ctx, &phys);
