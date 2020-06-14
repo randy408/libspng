@@ -3500,6 +3500,8 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 {
     if(ctx == NULL || n_text == NULL) return 1;
 
+    if(!ctx->stored.text) return SPNG_ECHUNKAVAIL;
+
     if(text == NULL)
     {
         *n_text = ctx->n_text;
@@ -3511,13 +3513,11 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 
     if(*n_text < ctx->n_text) return 1;
 
-    if(!ctx->stored.text) return SPNG_ECHUNKAVAIL;
-
     uint32_t i;
     for(i=0; i< ctx->n_text; i++)
     {
         text[i].type = ctx->text_list[i].type;
-        memcpy(&text[i].keyword,  ctx->text_list[i].keyword, strlen(ctx->text_list[i].keyword) + 1);
+        memcpy(&text[i].keyword, ctx->text_list[i].keyword, strlen(ctx->text_list[i].keyword) + 1);
         text[i].compression_method = 0;
         text[i].compression_flag = ctx->text_list[i].compression_flag;
         text[i].language_tag = ctx->text_list[i].language_tag;
@@ -3565,6 +3565,8 @@ int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 {
     if(ctx == NULL || n_splt == NULL) return 1;
 
+    if(!ctx->stored.splt) return SPNG_ECHUNKAVAIL;
+
     if(splt == NULL)
     {
         *n_splt = ctx->n_splt;
@@ -3575,8 +3577,6 @@ int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
     if(ret) return ret;
 
     if(*n_splt < ctx->n_splt) return 1;
-
-    if(!ctx->stored.splt) return SPNG_ECHUNKAVAIL;
 
     memcpy(splt, &ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
 
