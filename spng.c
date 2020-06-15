@@ -3539,6 +3539,7 @@ int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
         text[i].compression_method = 0;
         text[i].compression_flag = ctx->text_list[i].compression_flag;
         text[i].language_tag = ctx->text_list[i].language_tag;
+        text[i].translated_keyword = ctx->text_list[i].translated_keyword;
         text[i].length = ctx->text_list[i].text_length;
         text[i].text = ctx->text_list[i].text;
     }
