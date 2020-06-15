@@ -96,7 +96,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
         uint32_t i;
         for(i=0; i < n_text; i++)
-        {/* text.text is guaranteed to be non-NULL */
+        {/* All strings should be non-NULL */
             if(text[i].text == NULL || text[i].language_tag == NULL || text[i].translated_keyword == NULL)
             {
                 spng_ctx_free(ctx);
