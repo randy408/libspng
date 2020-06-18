@@ -30,12 +30,13 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     if(size < 2) return 0;
 
-    int flags = data[size - 1];
+    int flags = data[size - 1] & 127;
     int stream = data[size - 1] >> 7;
-    int fmt = data[size-2] & 31;
+    int fmt = data[size - 2] & 31;
+    int progressive = data[size - 2] & 128;
     fmt = 1 << fmt; /* for the foreseeable future fmt enums are single-bit */
 
-    data+=2; size-=2;
+    size -= 2;
 
     int ret;
     unsigned char *out = NULL;
@@ -43,6 +44,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_ctx *ctx = spng_ctx_new(SPNG_CTX_IGNORE_ADLER32);
     if(ctx == NULL) return 0;
 
+    struct spng_ihdr ihdr;
     struct spng_plte plte;
     struct spng_trns trns;
     struct spng_chrm chrm;
@@ -82,6 +84,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     out = (unsigned char*)malloc(out_size);
     if(out == NULL) goto err;
 
+    spng_get_ihdr(ctx, &ihdr);
     spng_get_plte(ctx, &plte);
     spng_get_trns(ctx, &trns);
     spng_get_chrm(ctx, &chrm);
@@ -115,7 +118,22 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_get_splt(ctx, splt, &n_splt);
     spng_get_time(ctx, &time);
 
-    if(spng_decode_image(ctx, out, out_size, fmt, flags)) goto err;
+    if(progressive)
+    {
+        if(spng_decode_image(ctx, NULL, 0, fmt, flags & SPNG_DECODE_PROGRESSIVE)) goto err;
+
+        size_t ioffset, out_width = out_size / ihdr.height;
+        struct spng_row_info ri;
+
+        do
+        {
+            if(spng_get_row_info(ctx, &ri)) break;
+
+            ioffset = ri.row_num * out_width;
+
+        }while(!spng_decode_row(ctx, out + ioffset, out_size));
+    }
+    else if(spng_decode_image(ctx, out, out_size, fmt, flags)) goto err;
 
 err:
     spng_ctx_free(ctx);
