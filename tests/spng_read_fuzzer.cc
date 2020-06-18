@@ -30,10 +30,10 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     if(size < 2) return 0;
 
-    int flags = data[0];
-    int fmt = data[1] & 31;
+    int flags = data[size - 1];
+    int stream = data[size - 1] >> 7;
+    int fmt = data[size-2] & 31;
     fmt = 1 << fmt; /* for the foreseeable future fmt enums are single-bit */
-    int stream = data[1] >> 7;
 
     data+=2; size-=2;
 
