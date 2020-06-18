@@ -3362,6 +3362,9 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     size_t res = ihdr->width;
     unsigned bytes_per_pixel;
 
+    /* Currently all enums are single-bit values */
+    if(fmt & (fmt - 1)) return SPNG_EFMT; /* More than one bit is set */
+
     if(fmt == SPNG_FMT_RGBA8)
     {
         bytes_per_pixel = 4;
