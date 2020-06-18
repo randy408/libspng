@@ -120,7 +120,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     if(progressive)
     {
-        if(spng_decode_image(ctx, NULL, 0, fmt, flags & SPNG_DECODE_PROGRESSIVE)) goto err;
+        if(spng_decode_image(ctx, NULL, 0, fmt, flags | SPNG_DECODE_PROGRESSIVE)) goto err;
 
         size_t ioffset, out_width = out_size / ihdr.height;
         struct spng_row_info ri;
