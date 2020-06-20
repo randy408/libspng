@@ -32,7 +32,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     int flags = data[size - 1] & 127;
     int stream = data[size - 1] >> 7;
-    int fmt = data[size - 2] & 31;
+    int fmt = data[size - 2] & 15;
     int progressive = data[size - 2] & 128;
     fmt = 1 << fmt; /* for the foreseeable future fmt enums are single-bit */
 
