@@ -28,15 +28,14 @@ extern "C"
 #endif
 int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    if(size < 2) return 0;
+    if(size < 4) return 0;
 
-    int flags = data[size - 1] & 127;
-    int stream = data[size - 1] >> 7;
-    int fmt = data[size - 2] & 15;
-    int progressive = data[size - 2] & 128;
-    fmt = 1 << fmt; /* for the foreseeable future fmt enums are single-bit */
+    int flags = data[size - 1];
+    int fmt = data[size - 3] | (data[size - 2] << 8);
+    int stream = data[size - 4] & 1;
+    int progressive = data[size - 4] & 2;
 
-    size -= 2;
+    size -= 4;
 
     int ret;
     unsigned char *out = NULL;
