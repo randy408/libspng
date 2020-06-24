@@ -16,7 +16,7 @@ include(GNUInstallDirs)
 find_package(ZLIB REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIRS})
 
-set(spng_SOURCES spng.c)
+set(spng_SOURCES spng/spng.c)
 
 if(NOT ENABLE_OPT)
     add_definitions( -DSPNG_DISABLE_OPT=1 )
@@ -33,7 +33,7 @@ if(SPNG_STATIC)
     install(TARGETS spng_static DESTINATION lib)
 endif()
 
-install(FILES spng.h DESTINATION include)
+install(FILES spng/spng.h DESTINATION include/spng)
 
 
 if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
