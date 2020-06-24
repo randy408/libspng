@@ -6,5 +6,5 @@ option('benchmarks', type : 'boolean', value : false, description : 'Enable benc
 
 
 # Not for end-users
-option('multithreading', type : 'boolean', value : false, description : 'Enable experimental multithreading features')
+option('multithreading', type : 'feature', value : 'disabled', description : 'Experimental multithreading features')
 option('oss_fuzz', type : 'boolean', value : false, description : 'Enable OSS-Fuzz tests')

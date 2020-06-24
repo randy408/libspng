@@ -1,4 +1,9 @@
-project('libspng', 'c', version : '0.6.0', license : 'bsd', default_options : ['c_std=c99'])
+project(
+    'libspng', 'c',
+    version : '0.6.0',
+    license : [ 'bsd', 'libpng2' ],
+    default_options : ['c_std=c99']
+)
 
 cc = meson.get_compiler('c')
 
@@ -19,7 +24,7 @@ m_dep = cc.find_library('m', required : false)
 
 spng_deps = [ zlib_dep, m_dep ]
 
-if get_option('multithreading') == true
+if get_option('multithreading').enabled()
     spng_deps += dependency('threads')
     add_project_arguments('-DSPNG_MULTITHREADING', language : 'c')
 endif
