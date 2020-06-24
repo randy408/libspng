@@ -142,7 +142,7 @@ int main(int argc, char **argv)
     if(r)
     {
         printf("spng_get_text() error: %s\n", spng_strerror(r));
-        goto error;
+        goto no_text;
     }
 
     uint32_t i;
