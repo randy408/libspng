@@ -1,5 +1,5 @@
 #define SPNG_UNTESTED
-#include "../spng.h"
+#include "../spng/spng.h"
 
 #include <string.h>
 

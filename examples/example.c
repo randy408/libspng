@@ -1,4 +1,4 @@
-#include <spng.h>
+#include <spng/spng.h>
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
     if(r)
     {
         printf("spng_get_text() error: %s\n", spng_strerror(r));
-        goto no_text;
+        goto error;
     }
 
     uint32_t i;

@@ -42,7 +42,7 @@ if host_machine.cpu_family() == 'x86_64'
     endif
 endif
 
-spng_src = files('spng.c')
+spng_src = files('spng/spng.c')
 
 spng_lib = library(
     'spng', spng_src,
@@ -62,7 +62,7 @@ example_src = files('examples/example.c')
 example_exe = executable('example', example_src, dependencies : spng_dep)
 
 if not static_subproject
-    install_headers('spng.h')
+    install_headers('spng/spng.h', subdir : 'spng')
 
     pkg = import('pkgconfig')
     pkg.generate(
