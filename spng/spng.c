@@ -23,18 +23,6 @@
     #include <pthread.h>
 #endif
 
-#if defined(_MSC_VER)
-
-    #if _MSC_VER >= 1900
-        #define restrict __restrict
-    #else
-        #define restrict
-    #endif
-
-    #pragma warning(push)
-    #pragma warning(disable: 4244)
-#endif
-
 #define SPNG_READ_SIZE 8192
 
 #define SPNG_TARGET_CLONES(x)
@@ -66,11 +54,16 @@
     #ifndef SPNG_DISABLE_OPT
         static void defilter_sub3(size_t rowbytes, unsigned char *row);
         static void defilter_sub4(size_t rowbytes, unsigned char *row);
-        static void defilter_avg3(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev);
-        static void defilter_avg4(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev);
-        static void defilter_paeth3(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev);
-        static void defilter_paeth4(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev);
+        static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+        static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+        static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+        static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev);
     #endif
+#endif
+
+#if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable: 4244)
 #endif
 
 #if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || defined(__BIG_ENDIAN__)
@@ -447,7 +440,7 @@ static void u16_row_to_host(void *row, size_t size)
     }
 }
 
-static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *restrict out, uint32_t n)
+static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint32_t n)
 {
     uint32_t i;
     for(i=0; i < n; i++)
@@ -941,7 +934,7 @@ static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
 }
 
 SPNG_TARGET_CLONES("default,avx2")
-static void defilter_up(size_t bytes, unsigned char *restrict row, const unsigned char *prev)
+static void defilter_up(size_t bytes, unsigned char *row, const unsigned char *prev)
 {
     size_t i;
     for(i=0; i < bytes; i++)
@@ -954,11 +947,8 @@ static void defilter_up(size_t bytes, unsigned char *restrict row, const unsigne
    *prev_scanline and *scanline should point to the first pixel,
    scanline_width is the width of the scanline including the filter byte.
 */
-static int defilter_scanline(const unsigned char *prev_scanline,
-                             unsigned char *restrict scanline,
-                             size_t scanline_width,
-                             unsigned bytes_per_pixel,
-                             unsigned filter)
+static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *scanline,
+                             size_t scanline_width, unsigned bytes_per_pixel, unsigned filter)
 {
     if(prev_scanline == NULL || scanline == NULL || !scanline_width) return 1;
 
@@ -1128,7 +1118,7 @@ static inline void gamma_correct_row(unsigned char *row, uint32_t pixels, int fm
 }
 
 /* Apply transparency to output row */
-static inline void trns_row(unsigned char *restrict row,
+static inline void trns_row(unsigned char *row,
                             const unsigned char *scanline,
                             const unsigned char *trns,
                             unsigned scanline_stride,
@@ -1270,11 +1260,7 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
 }
 
 /* Expand to *row using 8-bit palette indices from *scanline */
-void expand_row(unsigned char *row,
-                const unsigned char *restrict scanline,
-                struct spng_plte_entry16 *plte,
-                uint32_t width,
-                int fmt)
+void expand_row(unsigned char *row, unsigned char *scanline, struct spng_plte_entry16 *plte, uint32_t width, int fmt)
 {
     uint32_t i;
     unsigned char *px;
@@ -1305,11 +1291,7 @@ void expand_row(unsigned char *row,
 }
 
 /* Unpack 1/2/4/8-bit samples to G8/GA8/GA16 or G16 -> GA16 */
-static void unpack_scanline(unsigned char *restrict out,
-                            const unsigned char *scanline,
-                            uint32_t width,
-                            unsigned bit_depth,
-                            int fmt)
+static void unpack_scanline(unsigned char *out, unsigned char *scanline, uint32_t width, unsigned bit_depth, int fmt)
 {
     struct spng__iter iter = spng__iter_init(bit_depth, scanline);
     uint32_t i;
@@ -4202,7 +4184,7 @@ static void defilter_sub4(size_t rowbytes, unsigned char *row)
    }
 }
 
-static void defilter_avg3(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev)
+static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* The Avg filter predicts each pixel as the (truncated) average of a and b.
     * There's no pixel to the left of the first pixel.  Luckily, it's
@@ -4253,7 +4235,7 @@ static void defilter_avg3(size_t rowbytes, unsigned char *restrict row, const un
    }
 }
 
-static void defilter_avg4(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev)
+static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* The Avg filter predicts each pixel as the (truncated) average of a and b.
     * There's no pixel to the left of the first pixel.  Luckily, it's
@@ -4320,7 +4302,7 @@ static __m128i if_then_else(__m128i c, __m128i t, __m128i e)
 #endif
 }
 
-static void defilter_paeth3(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev)
+static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* Paeth tries to predict pixel d using the pixel to the left of it, a,
     * and two pixels from the previous row, b and c:
@@ -4412,7 +4394,7 @@ static void defilter_paeth3(size_t rowbytes, unsigned char *restrict row, const 
    }
 }
 
-static void defilter_paeth4(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev)
+static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev)
 {
    /* Paeth tries to predict pixel d using the pixel to the left of it, a,
     * and two pixels from the previous row, b and c:
@@ -4582,7 +4564,7 @@ static void defilter_sub4(size_t rowbytes, unsigned char *row)
    }
 }
 
-static void defilter_avg3(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev_row)
+static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
    const unsigned char *pp = prev_row;
@@ -4646,7 +4628,7 @@ static void defilter_avg3(size_t rowbytes, unsigned char *restrict row, const un
    }
 }
 
-static void defilter_avg4(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev_row)
+static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
    unsigned char *rp_stop = row + rowbytes;
@@ -4710,7 +4692,7 @@ static uint8x8_t paeth_arm(uint8x8_t a, uint8x8_t b, uint8x8_t c)
    return e;
 }
 
-static void defilter_paeth3(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev_row)
+static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
    const unsigned char *pp = prev_row;
@@ -4774,7 +4756,7 @@ static void defilter_paeth3(size_t rowbytes, unsigned char *restrict row, const 
    }
 }
 
-static void defilter_paeth4(size_t rowbytes, unsigned char *restrict row, const unsigned char *prev_row)
+static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
    unsigned char *rp = row;
    unsigned char *rp_stop = row + rowbytes;
