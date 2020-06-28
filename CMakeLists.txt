@@ -33,7 +33,7 @@ if(SPNG_STATIC)
     install(TARGETS spng_static DESTINATION lib)
 endif()
 
-install(FILES spng/spng.h DESTINATION include/spng)
+install(FILES spng/spng.h DESTINATION include)
 
 
 if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)

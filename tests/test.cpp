@@ -1,4 +1,4 @@
-#include <spng/spng.h>
+#include <spng.h>
 #include <iostream>
 
 int main(int argc, char **argv)

@@ -3,7 +3,7 @@
 
 #define SPNGT_FMT_VIPS (1 << 20) /* the sequence of libpng calls in libvips */
 
-#include <spng/spng.h>
+#include <spng.h>
 
 #include <stdio.h>
 #include <string.h>

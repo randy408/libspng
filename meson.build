@@ -7,7 +7,7 @@ project(
 
 cc = meson.get_compiler('c')
 
-spng_inc = include_directories('.')
+spng_inc = include_directories('spng')
 
 if get_option('use_miniz') == true
     add_project_arguments('-DSPNG_USE_MINIZ', language : 'c')
@@ -67,7 +67,7 @@ example_src = files('examples/example.c')
 example_exe = executable('example', example_src, dependencies : spng_dep)
 
 if not static_subproject
-    install_headers('spng/spng.h', subdir : 'spng')
+    install_headers('spng/spng.h')
 
     pkg = import('pkgconfig')
     pkg.generate(
