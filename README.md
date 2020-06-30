@@ -2,7 +2,7 @@
 [![GitLab CI](https://gitlab.com/randy408/libspng-ci/badges/master/pipeline.svg)](https://gitlab.com/randy408/libspng-ci/pipelines/latest)
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/libspng.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#libspng)
 [![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
-[![codecov](https://codecov.io/gl/randy408/libspng/branch/master/graph/badge.svg)](https://codecov.io/gl/randy408/libspng)
+[![coverage](https://gitlab.com/randy408/libspng-ci/badges/master/coverage.svg)](https://gitlab.com/randy408/libspng-ci/-/graphs/master/charts)
 [![tag](https://img.shields.io/github/tag-date/randy408/libspng.svg)](https://libspng.org/download.html)
 
 # libspng
@@ -81,7 +81,7 @@ Code is written according to the rules of the
 All integer arithmetic is checked for overflow and all error conditions are handled gracefully.
 
 The library is continuously fuzzed by [OSS-Fuzz](https://github.com/google/oss-fuzz),
-releases are scanned with Clang Static Analyzer, PVS-Studio, and Coverity Scan.
+code is also scanned with Clang Static Analyzer, Coverity Scan and PVS-Studio.
 
 The test suite consists of over 700 test cases,
 175 [test images](http://www.schaik.com/pngsuite/) are decoded with all possible
