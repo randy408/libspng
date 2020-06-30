@@ -378,7 +378,7 @@ static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int f
     if(img_png_size != img_spng_size)
     {
         printf("output image size mismatch\n");
-        printf("spng: %zu\n png: %zu\n", img_spng_size, img_png_size);
+        printf("spng: %lu\n png: %lu\n", (unsigned long int)img_spng_size, (unsigned long int)img_png_size);
         ret = 1;
         goto cleanup;
     }

@@ -162,7 +162,7 @@ int main(int argc, char **argv)
         }
 
         printf("text is %scompressed\n", text[i].compression_flag ? "" : "not ");
-        printf("text length: %zu\n", text[i].length);
+        printf("text length: %lu\n", (unsigned long int)text[i].length);
         printf("text: %s\n", text[i].text);
     }
 
