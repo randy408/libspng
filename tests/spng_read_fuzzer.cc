@@ -34,11 +34,13 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     int fmt = data[size - 3] | (data[size - 2] << 8);
     int stream = data[size - 4] & 1;
     int progressive = data[size - 4] & 2;
+    int file_stream = data[size - 4] & 4;
 
     size -= 4;
 
     int ret;
     unsigned char *out = NULL;
+    FILE *file = NULL;
 
     spng_ctx *ctx = spng_ctx_new(SPNG_CTX_IGNORE_ADLER32);
     if(ctx == NULL) return 0;
@@ -64,7 +66,18 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     state.data = data;
     state.bytes_left = size;
 
-    if(stream) ret = spng_set_png_stream(ctx, buffer_read_fn, &state);
+    if(stream)
+    {
+        if(file_stream)
+        {
+            file = fmemopen((void*)data, size, "rb");
+
+            if(file == NULL) goto err;
+
+            ret = spng_set_png_file(ctx, file);
+        }
+        else ret = spng_set_png_stream(ctx, buffer_read_fn, &state);
+    }
     else ret = spng_set_png_buffer(ctx, (void*)data, size);
 
     if(ret) goto err;
@@ -137,6 +150,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 err:
     spng_ctx_free(ctx);
     if(out != NULL) free(out);
+    if(file != NULL) fclose(file);
 
     return 0;
 }
