@@ -18,12 +18,12 @@
 # This script is meant to be run by
 # https://github.com/google/oss-fuzz/blob/master/projects/libspng/Dockerfile
 
-mkdir $SRC/zlib/build $SRC/build
-cd $SRC/zlib/build
+mkdir $SRC/libspng/zlib/build $SRC/libspng/build
+cd $SRC/libspng/zlib/build
 cmake ..
 make -j$(nproc)
 
-cd $SRC/build
+cd $SRC/libspng/build
 cmake -DSPNG_STATIC=ON ..
 make -j$(nproc)
 cd ..
