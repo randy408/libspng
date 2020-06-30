@@ -25,7 +25,6 @@ test:
     - ninja test
     - ninja coverage-text
     - cat meson-logs/coverage.txt
-    - bash <(curl -s https://codecov.io/bash)
   artifacts:
     paths:
       - clang_build/
