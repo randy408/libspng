@@ -42,7 +42,7 @@ endif()
 install(FILES spng/spng.h DESTINATION include)
 
 add_executable(example examples/example.c)
-target_link_libraries(example spng)
+target_link_libraries(example spng ${spng_LIBS})
 target_include_directories(example PRIVATE ${PROJECT_SOURCE_DIR}/spng)
 
 if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
