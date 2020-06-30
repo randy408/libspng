@@ -18,13 +18,19 @@ include_directories(${ZLIB_INCLUDE_DIRS})
 
 set(spng_SOURCES spng/spng.c)
 
+if(NOT CMAKE_HOST_WIN32)
+    set(spng_LIBS -lm ${ZLIB_LIBRARIES})
+else()
+    set(spng_LIBS ${ZLIB_LIBRARIES})
+endif()
+
 if(NOT ENABLE_OPT)
     add_definitions( -DSPNG_DISABLE_OPT=1 )
 endif()
 
 if(SPNG_SHARED)
 	add_library(spng SHARED ${spng_SOURCES})
-    target_link_libraries(spng ${ZLIB_LIBRARIES})
+    target_link_libraries(spng ${spng_LIBS})
     install(TARGETS spng DESTINATION lib)
 endif()
 
@@ -35,6 +41,9 @@ endif()
 
 install(FILES spng/spng.h DESTINATION include)
 
+add_executable(example examples/example.c)
+target_link_libraries(example spng)
+target_include_directories(example PRIVATE ${PROJECT_SOURCE_DIR}/spng)
 
 if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
     set(prefix      ${CMAKE_INSTALL_PREFIX})
