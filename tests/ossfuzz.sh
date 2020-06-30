@@ -20,8 +20,9 @@
 
 wget http://www.zlib.net/zlib-1.2.11.tar.gz
 tar xzvf zlib-1.2.11.tar.gz
-mkdir zlib-1.2.11/build
-cd zlib-1.2.11/build
+mv zlib-1.2.11 zlib
+mkdir zlib/build
+cd zlib/build
 cmake ..
 make -j$(nproc) install
 cd ../..
@@ -35,14 +36,14 @@ cd ..
 $CXX $CXXFLAGS -std=c++11 -I. \
     $SRC/libspng/tests/spng_read_fuzzer.cc \
     -o $OUT/spng_read_fuzzer \
-    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng_static.a $SRC/libspng/zlib-1.2.11/build/libz.a
+    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng_static.a $SRC/libspng/zlib/build/libz.a
 
 $CXX $CXXFLAGS -std=c++11 -I. \
     $SRC/libspng/tests/spng_read_fuzzer.cc \
     -o $OUT/spng_read_fuzzer_structure_aware \
     -include $SRC/fuzzer-test-suite/libpng-1.2.56/png_mutator.h \
     -D PNG_MUTATOR_DEFINE_LIBFUZZER_CUSTOM_MUTATOR \
-    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng_static.a $SRC/libspng/zlib-1.2.11/build/libz.a
+    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng_static.a $SRC/libspng/zlib/build/libz.a
 
 find $SRC/libspng/tests/images -name "*.png" | \
      xargs zip $OUT/spng_read_fuzzer_seed_corpus.zip
