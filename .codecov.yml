@@ -1,5 +1,0 @@
-fixes:
-  - "../::"
-ignore:
-    - "examples/"
-    - "tests/"
