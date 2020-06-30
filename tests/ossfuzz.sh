@@ -21,7 +21,7 @@
 mkdir $SRC/zlib/build $SRC/build
 cd $SRC/zlib/build
 cmake ..
-make -j$(nproc) install
+make -j$(nproc)
 
 cd $SRC/build
 cmake -DSPNG_STATIC=ON ..
