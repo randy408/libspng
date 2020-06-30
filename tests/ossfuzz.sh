@@ -18,9 +18,6 @@
 # This script is meant to be run by
 # https://github.com/google/oss-fuzz/blob/master/projects/libspng/Dockerfile
 
-wget http://www.zlib.net/zlib-1.2.11.tar.gz
-tar xzvf zlib-1.2.11.tar.gz
-mv zlib-1.2.11 zlib
 mkdir zlib/build
 cd zlib/build
 cmake ..
