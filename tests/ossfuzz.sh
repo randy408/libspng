@@ -7,6 +7,7 @@ mkdir $SRC/libspng/zlib/build $SRC/libspng/build
 cd $SRC/libspng/zlib/build
 cmake ..
 make -j$(nproc) install
+ldconfig
 
 cd $SRC/libspng/build
 cmake -DSPNG_STATIC=ON ..
