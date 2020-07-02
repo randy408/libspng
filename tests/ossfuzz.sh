@@ -3,9 +3,6 @@
 # This script is meant to be run by
 # https://github.com/google/oss-fuzz/blob/master/projects/libspng/Dockerfile
 
-tar xzvf $WORK/zlib.tar.gz --directory $SRC/
-mv $SRC/zlib-1.2.11 $SRC/zlib
-
 mkdir $SRC/zlib/build $SRC/libspng/build
 cd $SRC/zlib/build
 cmake ..
