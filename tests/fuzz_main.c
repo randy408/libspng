@@ -1,8 +1,10 @@
-#include <spng_read_fuzzer.cc>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 /* fuzz target entry point, works without libFuzzer */
+
+int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
 
 int main(int argc, char **argv)
 {

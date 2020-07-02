@@ -4,7 +4,7 @@ cpp = meson.get_compiler('cpp')
 if cc.has_function('fmemopen', prefix : '#include <stdio.h>', args : '-D_GNU_SOURCE')
     repro_exe = executable(
         'fuzz_repro',
-        'fuzz_main.c',
+        'fuzz_main.c', 'spng_read_fuzzer.c',
         c_args : '-D_GNU_SOURCE',
         link_with : spng_lib)
 endif
