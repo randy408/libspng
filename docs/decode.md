@@ -51,8 +51,8 @@ enum spng_decode_flags
 | Any format   | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth     |
 | Any format   | `SPNG_FMT_RGB8`   | All    | Convert from any PNG format and bit depth     |
 | Gray <=8-bit | `SPNG_FMT_G8`     | None** | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
-| Gray 16-bit  | `SPNG_FMT_GA16`   | None** | Only valid for 16-bit grayscale PNG's         |
-| Gray <=8-bit | `SPNG_FMT_GA8`    | None** | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
+| Gray 16-bit  | `SPNG_FMT_GA16`   | All**  | Only valid for 16-bit grayscale PNG's         |
+| Gray <=8-bit | `SPNG_FMT_GA8`    | All**  | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
 | Any format   | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian               |
 | Any format   | `SPNG_FMT_RAW`    | None   | The PNG's format in big-endian                |
 
