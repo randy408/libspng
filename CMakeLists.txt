@@ -36,6 +36,7 @@ endif()
 
 if(SPNG_STATIC)
 	add_library(spng_static STATIC ${spng_SOURCES})
+    target_compile_definitions(spng_static PUBLIC SPNG_STATIC)
     install(TARGETS spng_static DESTINATION lib)
 endif()
 
