@@ -32,6 +32,10 @@ if(SPNG_SHARED)
 	add_library(spng SHARED ${spng_SOURCES})
     target_link_libraries(spng ${spng_LIBS})
     install(TARGETS spng DESTINATION lib)
+
+    add_executable(example examples/example.c)
+    target_include_directories(example PRIVATE ${PROJECT_SOURCE_DIR}/spng)
+    target_link_libraries(example spng ${spng_LIBS})
 endif()
 
 if(SPNG_STATIC)
@@ -42,9 +46,6 @@ endif()
 
 install(FILES spng/spng.h DESTINATION include)
 
-add_executable(example examples/example.c)
-target_link_libraries(example spng ${spng_LIBS})
-target_include_directories(example PRIVATE ${PROJECT_SOURCE_DIR}/spng)
 
 if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
     set(prefix      ${CMAKE_INSTALL_PREFIX})
