@@ -128,7 +128,6 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_get_hist(ctx, &hist);
     spng_get_phys(ctx, &phys);
     spng_get_splt(ctx, splt, &n_splt);
-    spng_get_time(ctx, &time);
 
     if(progressive)
     {
@@ -146,6 +145,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         }while(!spng_decode_row(ctx, out + ioffset, out_size));
     }
     else if(spng_decode_image(ctx, out, out_size, fmt, flags)) goto err;
+
+    spng_get_time(ctx, &time);
 
 err:
     spng_ctx_free(ctx);
