@@ -4094,10 +4094,12 @@ const char *spng_version_string(void)
 #endif
 
 #if defined(__GNUC__) && !defined(__clang__)
-   #pragma GCC target("sse2")
-
     #if SPNG_SSE == 3
         #pragma GCC target("ssse3")
+    #elif SPNG_SSE == 4
+        #pragma GCC target("sse4.1")
+    #else
+        #pragma GCC target("sse2")
     #endif
 #endif
 
@@ -4295,7 +4297,7 @@ static __m128i abs_i16(__m128i x)
 /* Bytewise c ? t : e. */
 static __m128i if_then_else(__m128i c, __m128i t, __m128i e)
 {
-#if SPNG_SSE > 3
+#if SPNG_SSE >= 4
    return _mm_blendv_epi8(e, t, c);
 #else
    return _mm_or_si128(_mm_and_si128(c, t), _mm_andnot_si128(c, e));
