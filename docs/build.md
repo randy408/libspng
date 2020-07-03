@@ -32,31 +32,35 @@ ninja install
 
 ## Embedding the source code
 
-The sources `spng.c`/`spng.h` can be dropped in a project without
-any configuration, intrinsics are enabled by default.
+The source files `spng.c`/`spng.h` can be embedded in a project without
+any configuration, SSE2 intrinsics are enabled by default on x86.
 
 # Build options
 
-## Optimizations
+| Meson       | CMake      | Compiler option             | Default | Description                                        |
+|-------------|------------|-----------------------------|---------|----------------------------------------------------|
+| (auto)      | (auto)     | `SPNG_STATIC`               |         | Controls symbol visibility on Windows              |
+| enable_opt  | ENABLE_OPT | `SPNG_DISABLE_OPT`          | ON      | Compile with optimizations                         |
+|             |            | `SPNG_SSE=<1-4>`            | 1       | SSE version target for x86 (ignored on non-x86)    |
+| static_zlib |            |                             | OFF     | Link zlib statically                               |
+| use_miniz   |            | `SPNG_USE_MINIZ`            | OFF     | Compile using miniz, disables some features        |
+| (auto)      |            | `SPNG_ENABLE_TARGET_CLONES` |         | Use target_clones() to optimize (GCC + glibc only) |
+| dev_build   |            |                             | OFF     | Enable the testsuite, requires libpng              |
+| benchmarks  |            |                             | OFF     | Enable benchmarks, requires Git LFS                |
+| oss_fuzz    |            |                             | OFF     | Enable regression tests with OSS-Fuzz corpora      |
 
-Architecture-specific intrinsics are enabled by default,
-this can be disabled with the `SPNG_DISABLE_OPT` compiler option.
+Valid values for `SPNG_SSE`:
 
-For the Meson project it is controlled with the `enable_opt` option,
-the CMake equivalent is `ENABLE_OPT`, they are enabled by default.
+* 1 - SSE2
+* 2 - same as above
+* 3 - SSSE3
+* 4 - SSE4.1
 
-Intrinsics for x86 require SSE2, to enable SSSE3 optimizations
-add `-DSPNG_SSE=3` as a compiler option, this improves performance by ~7%.
+Currently only SSE2 optimizations are tested.
 
 Compiler-specific macros are used to omit the need for the `-msse2` and
 `-mssse3` compiler flags, if the code does not compile without these flags
 you should file a bug report.
-
-The `target_clones()` function attribute is used to optimize code
-for multiple instruction sets, this is enabled by the
-`SPNG_ENABLE_TARGET_CLONES` compiler option, it requires a recent version
-of GCC and glibc.
-For the Meson project this is always enabled if the target supports it.
 
 ## miniz
 
@@ -66,7 +70,6 @@ four files: `spng.c`, `miniz.c` and their headers.
 
 For building with miniz use the `SPNG_USE_MINIZ` compiler option,
 this handles some minor issues with the API.
-The Meson build option for this is `use_miniz`.
 Performance is mostly identical, slightly better in some cases
 compared to stock zlib.
 
