@@ -67,7 +67,7 @@ example_src = files('examples/example.c')
 example_exe = executable('example', example_src, dependencies : spng_dep)
 
 if meson.version().version_compare('>= 0.54.0')
-    meson.override_dependency(spng, spng_dep)
+    meson.override_dependency('spng', spng_dep)
 endif
 
 if not static_subproject
