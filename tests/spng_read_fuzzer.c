@@ -115,6 +115,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         {/* All strings should be non-NULL */
             if(text[i].text == NULL ||
                text[i].keyword == NULL ||
+               text[i].keyword[0] == '\0' ||
                text[i].language_tag == NULL ||
                text[i].translated_keyword == NULL ||
                memchr(text[i].keyword, 0, 80) == NULL)
@@ -141,6 +142,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         {
             if(splt[i].name == NULL ||
                splt[i].entries == NULL ||
+               splt[i].name[0] == '\0' ||
                memchr(splt[i].name, 0, 80) == NULL)
             {
                 spng_ctx_free(ctx);
