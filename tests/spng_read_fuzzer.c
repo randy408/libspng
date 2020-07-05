@@ -113,7 +113,11 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         uint32_t i;
         for(i=0; i < n_text; i++)
         {/* All strings should be non-NULL */
-            if(text[i].text == NULL || text[i].language_tag == NULL || text[i].translated_keyword == NULL)
+            if(text[i].text == NULL ||
+               text[i].keyword == NULL ||
+               text[i].language_tag == NULL ||
+               text[i].translated_keyword == NULL ||
+               memchr(text[i].keyword, 0, 80) == NULL)
             {
                 spng_ctx_free(ctx);
                 if(out != NULL) free(out);
@@ -127,7 +131,24 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_get_bkgd(ctx, &bkgd);
     spng_get_hist(ctx, &hist);
     spng_get_phys(ctx, &phys);
-    spng_get_splt(ctx, splt, &n_splt);
+
+    if(spng_get_splt(ctx, splt, &n_splt))
+    {/* Up to 4 entries were read, get the actual count */
+        spng_get_splt(ctx, NULL, &n_splt);
+
+        uint32_t i;
+        for(i=0; i < n_splt; i++)
+        {
+            if(splt[i].name == NULL ||
+               splt[i].entries == NULL ||
+               memchr(splt[i].name, 0, 80) == NULL)
+            {
+                spng_ctx_free(ctx);
+                if(out != NULL) free(out);
+                return 1;
+            }
+        }
+    }
 
     if(progressive)
     {
