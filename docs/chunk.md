@@ -91,6 +91,9 @@ Copies text information to `text`.
 If `text` is NULL and `n_text` is non-NULL then `n_text` is set to the number
 of stored text chunks.
 
+Strings may be zero-length (single '\0' character) with the exception of `text.keyword`,
+all strings are guaranteed to be non-NULL.
+
 !!! note
     Due to the structure of PNG files it is recommended to call this function
     after `spng_decode_image()` to retrieve all text chunks.
