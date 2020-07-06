@@ -54,11 +54,11 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     struct spng_iccp iccp;
     struct spng_sbit sbit;
     uint8_t srgb_rendering_intent;
-    struct spng_text text[4];
+    struct spng_text text[4] = {0};
     struct spng_bkgd bkgd;
     struct spng_hist hist;
     struct spng_phys phys;
-    struct spng_splt splt[4];
+    struct spng_splt splt[4] = {0};
     struct spng_time time;
     uint32_t n_text = 4, n_splt = 4;
 
