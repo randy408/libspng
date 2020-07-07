@@ -33,10 +33,12 @@ if get_option('enable_opt') == false
     add_project_arguments('-DSPNG_DISABLE_OPT', language : 'c')
 endif
 
-static_subproject = false
 if get_option('default_library') == 'static'
+    spng_args = '-DSPNG_STATIC'
     static_subproject = meson.is_subproject()
-    add_project_arguments('-DSPNG_STATIC', language : 'c')
+else
+    spng_args = []
+    static_subproject = false
 endif
 
 # Check for GNU target_clones attribute
@@ -53,6 +55,7 @@ spng_src = files('spng/spng.c')
 
 spng_lib = library(
     'spng', spng_src,
+    c_args : spng_args,
     dependencies : spng_deps,
     version : '0.6.0',
     soversion : '0.6.0',
@@ -60,6 +63,7 @@ spng_lib = library(
 
 spng_dep = declare_dependency(
     link_with : spng_lib,
+    compile_args : spng_args,
     dependencies : spng_deps,
     include_directories : spng_inc,
     version : meson.project_version())
@@ -79,6 +83,7 @@ if not static_subproject
     pkg.generate(
         name : 'spng',
         libraries : spng_lib,
+        extra_cflags : spng_args,
         version : meson.project_version(),
         description : 'PNG decoding and encoding library',
         libraries_private : [ '-lm', '-lz' ])
