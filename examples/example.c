@@ -24,15 +24,23 @@ int main(int argc, char **argv)
     }
 
     ctx = spng_ctx_new(0);
+
     if(ctx == NULL)
     {
         printf("spng_ctx_new() failed\n");
         goto error;
     }
 
+    /* Ignore and don't calculate chunk CRC's */
     spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
 
-    spng_set_png_file(ctx, png);
+    /* Set memory usage limits for storing standard and unknown chunks,
+       this is important when reading arbitrary files! */
+    size_t limit = 1024 * 1024 * 64;
+    spng_set_chunk_limits(ctx, limit, limit);
+
+    /* Set source PNG */
+    spng_set_png_file(ctx, png); /* or _buffer(), _stream() */
 
     struct spng_ihdr ihdr;
     r = spng_get_ihdr(ctx, &ihdr);
@@ -44,6 +52,7 @@ int main(int argc, char **argv)
     }
 
     char *clr_type_str;
+
     if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
         clr_type_str = "grayscale";
     else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
@@ -54,6 +63,7 @@ int main(int argc, char **argv)
         clr_type_str = "grayscale with alpha";
     else
         clr_type_str = "truecolor with alpha";
+
 
     printf("width: %" PRIu32 "\nheight: %" PRIu32 "\n"
            "bit depth: %" PRIu8 "\ncolor type: %" PRIu8 " - %s\n",
