@@ -58,7 +58,6 @@ spng_lib = library(
     c_args : spng_args,
     dependencies : spng_deps,
     version : '0.6.0',
-    soversion : '0.6.0',
     install : not static_subproject)
 
 spng_dep = declare_dependency(
