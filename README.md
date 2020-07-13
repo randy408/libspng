@@ -83,9 +83,9 @@ All integer arithmetic is checked for overflow and all error conditions are hand
 The library is continuously fuzzed by [OSS-Fuzz](https://github.com/google/oss-fuzz),
 code is also scanned with Clang Static Analyzer, Coverity Scan and PVS-Studio.
 
-The test suite consists of over 700 test cases,
+The test suite consists of over 1000 test cases,
 175 [test images](http://www.schaik.com/pngsuite/) are decoded with all possible
-output format and flag combinations and compared against libpng for correctness.
+output format and flag combinations and compared against libpng for [correctness](tests/README.md#Correctness).
 
 ## Versioning
 
