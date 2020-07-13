@@ -91,7 +91,7 @@ Copies text information to `text`.
 If `text` is NULL and `n_text` is non-NULL then `n_text` is set to the number
 of stored text chunks.
 
-Strings may be zero-length (single '\0' character) with the exception of `text.keyword`,
+Strings may be zero-length (single `'\0'` character) with the exception of `text.keyword`,
 all strings are guaranteed to be non-NULL.
 
 !!! note

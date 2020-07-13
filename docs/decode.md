@@ -35,11 +35,12 @@ The channels are always in [byte-order](https://en.wikipedia.org/wiki/RGBA_color
 ```c
 enum spng_decode_flags
 {
-    SPNG_DECODE_USE_TRNS = 1, /* deprecated */
-    SPNG_DECODE_USE_GAMA = 2, /* deprecated */
+    SPNG_DECODE_USE_TRNS = 1, /* Deprecated */
+    SPNG_DECODE_USE_GAMA = 2, /* Deprecated */
 
-    SPNG_DECODE_TRNS = 1,
-    SPNG_DECODE_GAMMA = 2
+    SPNG_DECODE_TRNS = 1, /* Apply transparency */
+    SPNG_DECODE_GAMMA = 2, /* Apply gamma correction */
+    SPNG_DECODE_PROGRESSIVE = 256 /* Initialize for progressive reads */
 };
 ```
 
@@ -60,6 +61,8 @@ enum spng_decode_flags
 \* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
 
 \*\* Gamma correction is not implemented
+
+The `SPNG_DECODE_PROGRESSIVE` flag is supported in all cases.
 
 # API
 

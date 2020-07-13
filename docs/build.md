@@ -1,4 +1,6 @@
-# Platform requirements
+# Build
+
+## Platform requirements
 
 * Requires [zlib](http://zlib.net) or a zlib-compatible library
 * Integers must be two's complement.
@@ -8,8 +10,6 @@
 * `size_t` and `int` must be at least 32-bit, 16-bit platforms are not
 supported.
 * Floating point support and math functions
-
-# Build
 
 ## CMake
 
@@ -35,7 +35,7 @@ ninja install
 The source files `spng.c`/`spng.h` can be embedded in a project without
 any configuration, SSE2 intrinsics are enabled by default on x86.
 
-# Build options
+## Build options
 
 | Meson       | CMake      | Compiler option             | Default | Description                                        |
 |-------------|------------|-----------------------------|---------|----------------------------------------------------|
@@ -73,7 +73,7 @@ this handles some minor issues with the API.
 Performance is mostly identical, slightly better in some cases
 compared to stock zlib.
 
-# Profile-guided optimization
+## Profile-guided optimization
 
 [Profile-guided optimization (PGO)](https://clang.llvm.org/docs/UsersManual.html#profile-guided-optimization)
 improves performance by up to 10%.
