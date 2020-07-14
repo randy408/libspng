@@ -135,7 +135,11 @@ int main(int argc, char **argv)
 
     r = spng_get_text(ctx, NULL, &n_text);
 
-    if(r == SPNG_ECHUNKAVAIL) goto no_text; /* no text chunks found in file */
+    if(r == SPNG_ECHUNKAVAIL)
+    {
+        r = 0;
+        goto no_text; /* no text chunks found in file */
+    }
 
     if(r)
     {
