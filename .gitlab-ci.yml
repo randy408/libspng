@@ -6,7 +6,7 @@ stages:
 
 before_script:
   - apt update
-  - apt install -y build-essential meson clang-tools clang-tidy libfuzzer-7-dev libubsan1 zlib1g-dev libpng-dev pkg-config gcovr wget tar curl
+  - apt install -y build-essential meson git unzip clang-tools clang-tidy libfuzzer-7-dev libubsan1 zlib1g-dev libpng-dev pkg-config gcovr wget tar curl
 
 test:
   stage: test
