@@ -4078,17 +4078,42 @@ const char *spng_version_string(void)
     #pragma warning(pop)
 #endif
 
-/* filter_sse2_intrinsics.c - SSE2 optimized filter functions
- *
- * Copyright (c) 2018 Cosmin Truta
- * Copyright (c) 2016-2017 Glenn Randers-Pehrson
- * Written by Mike Klein and Matt Sarett
- * Derived from arm/filter_neon_intrinsics.c
- *
- * This code is released under the libpng license.
- * For conditions of distribution and use, see the disclaimer
- * and license in png.h
- */
+/* The following SIMD optimizations are derived from libpng source code. */
+
+/*
+* PNG Reference Library License version 2
+*
+* Copyright (c) 1995-2019 The PNG Reference Library Authors.
+* Copyright (c) 2018-2019 Cosmin Truta.
+* Copyright (c) 2000-2002, 2004, 2006-2018 Glenn Randers-Pehrson.
+* Copyright (c) 1996-1997 Andreas Dilger.
+* Copyright (c) 1995-1996 Guy Eric Schalnat, Group 42, Inc.
+*
+* The software is supplied "as is", without warranty of any kind,
+* express or implied, including, without limitation, the warranties
+* of merchantability, fitness for a particular purpose, title, and
+* non-infringement.  In no event shall the Copyright owners, or
+* anyone distributing the software, be liable for any damages or
+* other liability, whether in contract, tort or otherwise, arising
+* from, out of, or in connection with the software, or the use or
+* other dealings in the software, even if advised of the possibility
+* of such damage.
+*
+* Permission is hereby granted to use, copy, modify, and distribute
+* this software, or portions hereof, for any purpose, without fee,
+* subject to the following restrictions:
+*
+*  1. The origin of this software must not be misrepresented; you
+*     must not claim that you wrote the original software.  If you
+*     use this software in a product, an acknowledgment in the product
+*     documentation would be appreciated, but is not required.
+*
+*  2. Altered source versions must be plainly marked as such, and must
+*     not be misrepresented as being the original software.
+*
+*  3. This Copyright notice may not be removed or altered from any
+*     source or altered source distribution.
+*/
 
 #if defined(SPNG_X86)
 
@@ -4105,6 +4130,19 @@ const char *spng_version_string(void)
         #pragma GCC target("sse2")
     #endif
 #endif
+
+/* SSE2 optimised filter functions
+ * Derived from filter_neon_intrinsics.c
+ *
+ * Copyright (c) 2018 Cosmin Truta
+ * Copyright (c) 2016-2017 Glenn Randers-Pehrson
+ * Written by Mike Klein and Matt Sarett
+ * Derived from arm/filter_neon_intrinsics.c
+ *
+ * This code is derived from libpng source code.
+ * For conditions of distribution and use, see the disclaimer
+ * and license above.
+ */
 
 #include <immintrin.h>
 #include <inttypes.h>
@@ -4461,20 +4499,20 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
 #endif /* SPNG_X86 */
 
 
-/* filter_neon_intrinsics.c - NEON optimised filter functions
+#if defined(SPNG_ARM)
+
+/* NEON optimised filter functions
+ * Derived from filter_neon_intrinsics.c
  *
  * Copyright (c) 2018 Cosmin Truta
  * Copyright (c) 2014,2016 Glenn Randers-Pehrson
  * Written by James Yu <james.yu at linaro.org>, October 2013.
  * Based on filter_neon.S, written by Mans Rullgard, 2011.
  *
- * This code is released under the libpng license.
+ * This code is derived from libpng source code.
  * For conditions of distribution and use, see the disclaimer
- * and license in png.h
+ * and license in this file.
  */
-
-
-#if defined(SPNG_ARM)
 
 #define png_aligncast(type, value) ((void*)(value))
 #define png_aligncastconst(type, value) ((const void*)(value))
