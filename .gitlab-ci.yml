@@ -11,11 +11,9 @@ before_script:
 test:
   stage: test
   script:
-    - CC=clang-7 CXX=clang++-7 meson -Ddev_build=true -Db_sanitize=address,undefined -Db_lundef=false --wrap-mode=forcefallback -Doptimization=1 -Doss_fuzz=true clang_build
+    - CC=clang-7 CXX=clang++-7 meson -Ddev_build=true -Duse_miniz=true -Db_sanitize=address,undefined -Db_lundef=false --wrap-mode=forcefallback -Doptimization=1 -Doss_fuzz=true clang_build
     - cd clang_build
-    - ninja test
     - ninja scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
-    - meson configure -Duse_miniz=true
     - ninja test
     - meson configure -Db_sanitize=memory
     - MSAN_OPTIONS=exitcode=100 ninja test
