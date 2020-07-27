@@ -2,7 +2,7 @@ add_languages('cpp', native : false)
 cpp = meson.get_compiler('cpp')
 
 if cc.has_function('fmemopen', prefix : '#include <stdio.h>', args : '-D_GNU_SOURCE')
-    repro_exe = executable(
+    read_fuzzer = executable(
         'fuzz_repro',
         'fuzz_main.c', 'spng_read_fuzzer.c',
         c_args : '-D_GNU_SOURCE',
@@ -27,6 +27,6 @@ if get_option('oss_fuzz') == true
     corpora = subproject('fuzzing_corpora').get_variable('corpora')
 
     foreach case : corpora
-        test('testcase', test_exe, args : case, should_fail : true)
+        test('testcase', read_fuzzer, args : case)
     endforeach
 endif
