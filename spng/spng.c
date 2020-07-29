@@ -1885,7 +1885,14 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 }
                 ctx->trns.n_type3_entries = chunk.length;
             }
-            else return SPNG_ETRNS_COLOR_TYPE;
+
+            /* The standard explicitly forbids tRNS chunks for grayscale alpha,
+                truecolor alpha images but libpng only emits a warning by default. */
+            if(ctx->ihdr.color_type == 4 || ctx->ihdr.color_type == 6)
+            {
+                if(ctx->strict) return SPNG_ETRNS_COLOR_TYPE;
+                else continue;
+            }
 
             ctx->file.trns = 1;
             ctx->stored.trns = 1;
