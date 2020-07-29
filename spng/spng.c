@@ -208,6 +208,7 @@ struct spng_ctx
     unsigned streaming: 1;
 
     unsigned encode_only: 1;
+    unsigned strict : 1;
 
     /* input file contains this chunk */
     struct spng_chunk_bitfield file;
