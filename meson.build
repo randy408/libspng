@@ -1,6 +1,6 @@
 project(
     'libspng', 'c',
-    version : '0.6.0',
+    version : '0.6.1',
     license : [ 'bsd', 'libpng2' ],
     default_options : ['c_std=c99']
 )
@@ -57,7 +57,7 @@ spng_lib = library(
     'spng', spng_src,
     c_args : spng_args,
     dependencies : spng_deps,
-    version : '0.6.0',
+    version : '0.6.1',
     install : not static_subproject)
 
 spng_dep = declare_dependency(

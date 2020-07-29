@@ -65,7 +65,7 @@ spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 spng_ctx_free(ctx);
 ```
 
-See [example.c](https://github.com/randy408/libspng/blob/v0.6.0/examples/example.c).
+See [example.c](https://github.com/randy408/libspng/blob/v0.6.1/examples/example.c).
 
 ## License
 
