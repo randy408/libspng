@@ -91,3 +91,12 @@ meson configure -Db_pgo=use
 ninja
 ninja install
 ```
+
+## Documentation
+
+Documentation is built with [mkdocs](https://www.mkdocs.org/):
+
+```bash
+# Run in root directory
+mkdocs build
+```
