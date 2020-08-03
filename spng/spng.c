@@ -43,7 +43,7 @@
         /* #define SPNG_ARM */ /* buffer overflow for rgb8 images */
         #define SPNG_DISABLE_OPT
     #else
-        #warning "disabling optimizations for unknown platform"
+        #warning "disabling SIMD optimizations for unknown target"
         #define SPNG_DISABLE_OPT
     #endif
 
