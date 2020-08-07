@@ -63,7 +63,6 @@ spng_lib = library(
 spng_dep = declare_dependency(
     link_with : spng_lib,
     compile_args : spng_args,
-    dependencies : spng_deps,
     include_directories : spng_inc,
     version : meson.project_version())
 
