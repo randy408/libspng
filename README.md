@@ -49,6 +49,8 @@ you can also build with CMake or Meson. Refer to the [documentation](https://lib
 ## Usage
 
 ```c
+#include <spng.h>
+
 /* Create a context */
 spng_ctx *ctx = spng_ctx_new(0);
 

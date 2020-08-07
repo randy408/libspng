@@ -7,6 +7,7 @@ the latter does not support any transforms e.g. gamma correction.
 
 
 ```c
+#include <spng.h>
 
 /* Create a context */
 spng_ctx *ctx = spng_ctx_new(0);
