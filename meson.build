@@ -64,8 +64,8 @@ if meson.version().version_compare('>= 0.54.0')
     meson.override_dependency('spng', spng_dep)
 endif
 
-subdir('tests')
 subdir('examples')
+subdir('tests')
 
 if get_option('benchmarks') == true
     subproject('spngt')
