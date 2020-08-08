@@ -70,10 +70,11 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     {
         if(file_stream)
         {
+#if defined(SPNGT_HAVE_FMEMOPEN)
             file = fmemopen((void*)data, size, "rb");
 
             if(file == NULL) goto err;
-
+#endif
             ret = spng_set_png_file(ctx, file);
         }
         else ret = spng_set_png_stream(ctx, buffer_read_fn, &state);
