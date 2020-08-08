@@ -1,3 +1,7 @@
+if get_option('dev_build') == false
+    subdir_done()
+endif
+
 add_languages('cpp', native : false)
 cpp = meson.get_compiler('cpp')
 

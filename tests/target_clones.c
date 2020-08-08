@@ -1,3 +1,5 @@
+/* This will only be available for GCC with glibc for the foreseeable future */
+
  __attribute__((target_clones("default,avx2"))) int f(int x)
 {
     return x + 3;
