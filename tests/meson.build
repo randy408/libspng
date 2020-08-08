@@ -32,10 +32,12 @@ test('cpp_test', cpp_exe)
 subdir('images')
 subdir('crashers')
 
-if get_option('oss_fuzz') == true
-    corpora = subproject('fuzzing_corpora').get_variable('corpora')
-
-    foreach case : corpora
-        test('testcase', read_fuzzer, args : case)
-    endforeach
+if get_option('oss_fuzz') == false
+    subdir_done()
 endif
+
+corpora = subproject('fuzzing_corpora').get_variable('corpora')
+
+foreach case : corpora
+    test('testcase', read_fuzzer, args : case)
+endforeach
