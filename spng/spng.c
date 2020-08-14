@@ -2195,7 +2195,11 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     language_tag_offset = keyword_len;
                     translated_keyword_offset = keyword_len;
 
-                    if(check_png_text(text->text, text->text_length)) return SPNG_ETEXT;
+                    if(ctx->strict && check_png_text(text->text, text->text_length))
+                    {
+                        if(text->type == SPNG_ZTXT) return SPNG_EZTXT;
+                        else return SPNG_ETEXT;
+                    }
                 }
 
                 text->language_tag = text->keyword + language_tag_offset;
