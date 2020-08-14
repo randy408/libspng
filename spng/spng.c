@@ -285,12 +285,12 @@ struct spng_ctx
 
 static const uint32_t png_u32max = 2147483647;
 
-static const uint8_t png_signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+static const uint32_t adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
+static const uint32_t adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
+static const uint32_t adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
+static const uint32_t adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
 
-static const unsigned int adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
-static const unsigned int adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
-static const unsigned int adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
-static const unsigned int adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
+static const uint8_t png_signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
 static const uint8_t type_ihdr[4] = { 73, 72, 68, 82 };
 static const uint8_t type_plte[4] = { 80, 76, 84, 69 };
