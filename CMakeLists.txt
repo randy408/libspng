@@ -29,7 +29,7 @@ if(NOT ENABLE_OPT)
 endif()
 
 if(SPNG_SHARED)
-	add_library(spng SHARED ${spng_SOURCES})
+    add_library(spng SHARED ${spng_SOURCES})
     target_link_libraries(spng ${spng_LIBS})
     install(TARGETS spng DESTINATION lib)
 
@@ -39,7 +39,7 @@ if(SPNG_SHARED)
 endif()
 
 if(SPNG_STATIC)
-	add_library(spng_static STATIC ${spng_SOURCES})
+    add_library(spng_static STATIC ${spng_SOURCES})
     target_compile_definitions(spng_static PUBLIC SPNG_STATIC)
     install(TARGETS spng_static DESTINATION lib)
 endif()
@@ -56,5 +56,5 @@ if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
 
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/tests/libspng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/tests/libspng.pc @ONLY)
 
-	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/libspng.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/libspng.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 endif()
