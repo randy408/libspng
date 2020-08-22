@@ -531,7 +531,7 @@ int main(int argc, char **argv)
     add_test_case(SPNGT_FMT_VIPS, SPNG_DECODE_TRNS, 0);
 
     int ret = 0;
-    uint32_t i;
+    int i;
     for(i=0; i < n_test_cases; i++)
     {
         print_test_args(&test_cases[i]);
