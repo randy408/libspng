@@ -750,7 +750,7 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 
    Takes into account the chunk size and cache limits.
 */
-static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, int extra, const void *start_buf, size_t start_len)
+static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t extra, const void *start_buf, size_t start_len)
 {
     int ret = spng__inflate_init(ctx);
     if(ret) return ret;
@@ -2899,7 +2899,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
         float file_gamma = (float)ctx->gama / 100000.0f;
         float max;
 
-        uint32_t lut_entries;
+        unsigned lut_entries;
 
         if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
         {
@@ -2928,7 +2928,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
         exponent = 1.0f / exponent;
 
-        int i;
+        unsigned i;
         for(i=0; i < lut_entries; i++)
         {
             float c = pow((float)i / max, exponent) * max;
@@ -3008,7 +3008,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     /* Pre-process palette entries */
     if(f.indexed)
     {
-        int i;
+        uint32_t i;
         for(i=0; i < 256; i++)
         {
             if(f.apply_trns && i < ctx->trns.n_type3_entries)
@@ -3086,7 +3086,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     else if(fmt == SPNG_FMT_G8) pixel_size = 1;
     else if(fmt == SPNG_FMT_GA8) pixel_size = 2;
 
-    uint32_t i;
+    int i;
     for(i=ri->pass; i <= ctx->last_pass; i++)
     {
         if(!sub[i].scanline_width) continue;

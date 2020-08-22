@@ -166,7 +166,7 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
         return NULL;
     }
 
-    int k;
+    uint32_t k;
     for(k=0; k < height; k++)
     {
         row_pointers[k] = image + k * rowbytes;
