@@ -3,7 +3,7 @@
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/libspng.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#libspng)
 [![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
 [![coverage](https://gitlab.com/randy408/libspng-ci/badges/master/coverage.svg)](https://gitlab.com/randy408/libspng-ci/-/graphs/master/charts)
-[![tag](https://img.shields.io/github/tag-date/randy408/libspng.svg)](https://libspng.org/download.html)
+[![tag](https://img.shields.io/github/tag-date/randy408/libspng.svg)](https://libspng.org/download)
 
 # libspng
 
