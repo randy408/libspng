@@ -1,13 +1,22 @@
+if get_option('dev_build') == false
+    subdir_done()
+endif
+
 add_languages('cpp', native : false)
 cpp = meson.get_compiler('cpp')
 
+fuzzer_args = []
+
 if cc.has_function('fmemopen', prefix : '#include <stdio.h>', args : '-D_GNU_SOURCE')
-    read_fuzzer = executable(
-        'fuzz_repro',
-        'fuzz_main.c', 'spng_read_fuzzer.c',
-        c_args : '-D_GNU_SOURCE',
-        link_with : spng_lib)
+    fuzzer_args = [ '-D_GNU_SOURCE', '-DSPNGT_HAVE_FMEMOPEN' ]
 endif
+
+read_fuzzer = executable('fuzz_repro',
+    'fuzz_main.c',
+    'spng_read_fuzzer.c',
+    c_args : fuzzer_args,
+    link_with : spng_lib
+)
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
@@ -23,10 +32,12 @@ test('cpp_test', cpp_exe)
 subdir('images')
 subdir('crashers')
 
-if get_option('oss_fuzz') == true
-    corpora = subproject('fuzzing_corpora').get_variable('corpora')
-
-    foreach case : corpora
-        test('testcase', read_fuzzer, args : case)
-    endforeach
+if get_option('oss_fuzz') == false
+    subdir_done()
 endif
+
+corpora = subproject('fuzzing_corpora').get_variable('corpora')
+
+foreach case : corpora
+    test('testcase', read_fuzzer, args : case)
+endforeach

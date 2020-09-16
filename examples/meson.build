@@ -1,0 +1,1 @@
+example_exe = executable('example', 'example.c', dependencies : spng_dep)
