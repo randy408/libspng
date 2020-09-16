@@ -24,7 +24,7 @@ it outperforms the reference implementation in common use cases.
 
 ## Features
 
-| Feature                              | libspng | libpng             | stb_image | lodepng |
+| Feature                              |   spng  | libpng             | stb_image | lodepng |
 |--------------------------------------|---------|--------------------|-----------|---------|
 | Decode from stream                   | ✅      |  ✅               | ✅       | ❌      |
 | Gamma correction                     | ✅      |  ✅               | ❌       | ❌      |
