@@ -1792,7 +1792,11 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             }
             else if(ctx->ihdr.color_type == 6)
             {
-                if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
+                if(chunk.length != 4)
+                {
+                    if(ctx->strict) return SPNG_ECHUNK_SIZE;
+                    else continue;
+                }
 
                 memcpy(&ctx->sbit.red_bits, data, 1);
                 memcpy(&ctx->sbit.green_bits, data + 1, 1);
