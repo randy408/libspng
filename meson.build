@@ -38,13 +38,12 @@ else
     spng_deps += zlib_dep.found() ? zlib_dep : cc.find_library('z')
 endif
 
+spng_inc = [include_directories('include')]
 subdir('include/spng')
-spng_inc = include_directories('include')
 
 spng_src = files('src/spng.c')
 
-spng_lib = library('spng',
-    spng_src,
+spng_lib = library('spng', spng_src,
     include_directories : spng_inc,
     dependencies : spng_deps,
     install : not static_subproject,
@@ -68,7 +67,9 @@ endif
 install_headers('include/spng.h')
 
 subdir('examples')
-subdir('tests')
+if get_option('dev_build')
+    subdir('tests')
+endif
 if get_option('benchmarks')
     subproject('spngt')
 endif

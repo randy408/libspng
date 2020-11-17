@@ -1,7 +1,3 @@
-if get_option('dev_build') == false
-    subdir_done()
-endif
-
 add_languages('cpp', native : false)
 cpp = meson.get_compiler('cpp')
 
@@ -15,7 +11,7 @@ read_fuzzer = executable('fuzz_repro',
     'fuzz_main.c',
     'spng_read_fuzzer.c',
     c_args : fuzzer_args,
-    link_with : spng_lib
+    dependencies: spng_dep
 )
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
