@@ -1650,6 +1650,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
         if(discard)
         {
             memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
+            discard = 0;
         }
 
         memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
