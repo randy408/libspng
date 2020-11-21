@@ -1635,12 +1635,34 @@ static int read_ihdr(spng_ctx *ctx)
     return 0;
 }
 
+static void splt_undo(spng_ctx *ctx)
+{
+    struct spng_splt *splt = &ctx->splt_list[ctx->n_splt - 1];
+
+    if(splt->entries) spng__free(ctx, splt->entries);
+
+    ctx->n_splt--;
+}
+
+static void text_undo(spng_ctx *ctx)
+{
+    struct spng_text *text = &ctx->text_list[ctx->n_text - 1];
+
+    if(ctx->text_list->keyword) spng__free(ctx, ctx->text_list->keyword);
+    if(ctx->text_list->text) spng__free(ctx, ctx->text_list->keyword);
+
+    ctx->n_text--;
+}
+
+typedef void spng__undo(spng_ctx *ctx);
+
 static int read_non_idat_chunks(spng_ctx *ctx)
 {
     int ret, discard = 0;
     int prev_was_idat = ctx->state == SPNG_STATE_AFTER_IDAT ? 1 : 0;
     struct spng_chunk chunk;
     const unsigned char *data;
+    spng__undo *undo = NULL;
 
     struct spng_chunk_bitfield stored;
     memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
@@ -1649,9 +1671,13 @@ static int read_non_idat_chunks(spng_ctx *ctx)
     {
         if(discard)
         {
+            if(undo) undo(ctx);
+
             memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
-            discard = 0;
         }
+
+        discard = 0;
+        undo = NULL;
 
         memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
 
@@ -2056,27 +2082,19 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ctx->file.text = 1;
+                undo = text_undo;
 
                 if(ctx->user.text) goto discard;
 
                 if(increase_cache_usage(ctx, sizeof(struct spng_text2))) return SPNG_EMEM;
 
-                if(!ctx->stored.text)
-                {
-                    ctx->n_text = 1;
-                    ctx->text_list = spng__calloc(ctx, 1, sizeof(struct spng_text2));
-                    if(ctx->text_list == NULL) return SPNG_EMEM;
-                }
-                else
-                {
-                    ctx->n_text++;
-                    if(ctx->n_text < 1) return SPNG_EOVERFLOW;
-                    if(sizeof(struct spng_text2) > SIZE_MAX / ctx->n_text) return SPNG_EOVERFLOW;
+                ctx->n_text++;
+                if(ctx->n_text < 1) return SPNG_EOVERFLOW;
+                if(sizeof(struct spng_text2) > SIZE_MAX / ctx->n_text) return SPNG_EOVERFLOW;
 
-                    void *buf = spng__realloc(ctx, ctx->text_list, ctx->n_text * sizeof(struct spng_text2));
-                    if(buf == NULL) return SPNG_EMEM;
-                    ctx->text_list = buf;
-                }
+                void *buf = spng__realloc(ctx, ctx->text_list, ctx->n_text * sizeof(struct spng_text2));
+                if(buf == NULL) return SPNG_EMEM;
+                ctx->text_list = buf;
 
                 struct spng_text2 *text = &ctx->text_list[ctx->n_text - 1];
                 memset(text, 0, sizeof(struct spng_text2));
@@ -2223,26 +2241,18 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ctx->file.splt = 1;
+                undo = splt_undo;
 
                 /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spnt_splt_entry) */
                 if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_EMEM;
 
-                if(!ctx->stored.splt)
-                {
-                    ctx->n_splt = 1;
-                    ctx->splt_list = spng__calloc(ctx, 1, sizeof(struct spng_splt));
-                    if(ctx->splt_list == NULL) return SPNG_EMEM;
-                }
-                else
-                {
-                    ctx->n_splt++;
-                    if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
-                    if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
+                ctx->n_splt++;
+                if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
+                if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
 
-                    void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
-                    if(buf == NULL) return SPNG_EMEM;
-                    ctx->splt_list = buf;
-                }
+                void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
+                if(buf == NULL) return SPNG_EMEM;
+                ctx->splt_list = buf;
 
                 struct spng_splt *splt = &ctx->splt_list[ctx->n_splt - 1];
 
