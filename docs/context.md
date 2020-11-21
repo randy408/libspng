@@ -79,9 +79,6 @@ int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
 
 Set how chunk CRC errors should be handled for critical and ancillary chunks.
 
-!!!note
-    Partially implemented, `SPNG_CRC_DISCARD` has no effect.
-
 # spng_set_chunk_limits()
 ```c
 int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
