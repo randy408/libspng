@@ -35,6 +35,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     int stream = data[size - 4] & 1;
     int progressive = data[size - 4] & 2;
     int file_stream = data[size - 4] & 4;
+    int discard = data[size - 4] & 8;
 
     size -= 4;
 
@@ -87,7 +88,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     spng_set_chunk_limits(ctx, 4 * 1000 * 1000, 8 * 1000 * 1000);
 
-    spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+    spng_set_crc_action(ctx, SPNG_CRC_USE, discard ? SPNG_CRC_DISCARD : SPNG_CRC_USE);
 
     size_t out_size;
     if(spng_decoded_image_size(ctx, fmt, &out_size)) goto err;
