@@ -3171,6 +3171,9 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 
     ctx->state = SPNG_STATE_INIT;
 
+    ctx->crc_action_critical = SPNG_CRC_ERROR;
+    ctx->crc_action_ancillary = SPNG_CRC_DISCARD;
+
     ctx->flags = flags;
 
     return ctx;
