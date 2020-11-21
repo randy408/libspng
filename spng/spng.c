@@ -1639,17 +1639,22 @@ static void splt_undo(spng_ctx *ctx)
 {
     struct spng_splt *splt = &ctx->splt_list[ctx->n_splt - 1];
 
-    if(splt->entries) spng__free(ctx, splt->entries);
+    spng__free(ctx, splt->entries);
+
+    splt->entries = NULL;
 
     ctx->n_splt--;
 }
 
 static void text_undo(spng_ctx *ctx)
 {
-    struct spng_text *text = &ctx->text_list[ctx->n_text - 1];
+    struct spng_text2 *text = &ctx->text_list[ctx->n_text - 1];
 
-    if(ctx->text_list->keyword) spng__free(ctx, ctx->text_list->keyword);
-    if(ctx->text_list->text) spng__free(ctx, ctx->text_list->keyword);
+    spng__free(ctx, text->keyword);
+    if(text->compression_flag) spng__free(ctx, text->text);
+
+    text->keyword = NULL;
+    text->text = NULL;
 
     ctx->n_text--;
 }
