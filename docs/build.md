@@ -58,9 +58,9 @@ Valid values for `SPNG_SSE`:
 
 Currently only SSE2 optimizations are tested.
 
-Compiler-specific macros are used to omit the need for the `-msse2` and
-`-mssse3` compiler flags, if the code does not compile without these flags
-you should file a bug report.
+The source code alone can be built without any compiler flags,
+compiler-specific macros are used to omit the need for options
+such as `-msse2`, `-mssse3`.
 
 ## miniz
 
@@ -68,8 +68,8 @@ you should file a bug report.
 linking against miniz allows libspng to be embedded into a project with just
 four files: `spng.c`, `miniz.c` and their headers.
 
-For building with miniz use the `SPNG_USE_MINIZ` compiler option,
-this handles some minor issues with the API.
+For building with miniz add the `SPNG_USE_MINIZ` compiler option,
+this handles some minor differences in the API.
 Performance is mostly identical, slightly better in some cases
 compared to stock zlib.
 
