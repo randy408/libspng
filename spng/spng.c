@@ -134,6 +134,8 @@ struct spng_text2
     uint8_t compression_flag; /* iTXt only */
     char *language_tag; /* iTXt only */
     char *translated_keyword; /* iTXt only */
+
+    size_t cache_usage;
 };
 
 struct decode_flags
@@ -1641,6 +1643,9 @@ static void splt_undo(spng_ctx *ctx)
 
     spng__free(ctx, splt->entries);
 
+    decrease_cache_usage(ctx, sizeof(struct spng_splt));
+    decrease_cache_usage(ctx, splt->n_entries * sizeof(struct spng_splt_entry));
+
     splt->entries = NULL;
 
     ctx->n_splt--;
@@ -1652,6 +1657,9 @@ static void text_undo(spng_ctx *ctx)
 
     spng__free(ctx, text->keyword);
     if(text->compression_flag) spng__free(ctx, text->text);
+
+    decrease_cache_usage(ctx, text->cache_usage);
+    decrease_cache_usage(ctx, sizeof(struct spng_text2));
 
     text->keyword = NULL;
     text->text = NULL;
@@ -2195,6 +2203,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     if(ret) return ret;
 
                     text->text[text->text_length - 1] = '\0';
+                    text->cache_usage = text->text_length + peek_bytes;
                 }
                 else
                 {
@@ -2216,6 +2225,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     text->text_length = chunk.length - text_offset;
 
                     text->text[text->text_length] = '\0';
+                    text->cache_usage = chunk.length + 1;
                 }
 
                 if(check_png_keyword(text->keyword)) return SPNG_ETEXT_KEYWORD;
@@ -2248,7 +2258,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 ctx->file.splt = 1;
                 undo = splt_undo;
 
-                /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spnt_splt_entry) */
+                /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spng_splt_entry) */
                 if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_EMEM;
 
                 ctx->n_splt++;
