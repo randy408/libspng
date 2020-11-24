@@ -28,7 +28,7 @@ enum spng_format
 };
 ```
 
-The channels are always in [byte-order](https://en.wikipedia.org/wiki/RGBA_color_model#RGBA_(byte-order)) representation.
+The channels are always in [byte-order](https://en.wikipedia.org/wiki/RGBA_color_model#RGBA8888) representation.
 
 # spng_decode_flags
 
@@ -115,8 +115,8 @@ Interlaced images are deinterlaced, 16-bit images are converted to host-endian.
 `spng_decoded_image_size()` with the same output format.
 
 If the `SPNG_DECODE_PROGRESSIVE` flag is set the decoder will be
-initialized with `fmt`, `flags` for progressive decoding,
-the image is not decoded and the values of `out`, `len` are ignored.
+initialized with `fmt` and `flags` for progressive decoding,
+the values of `out`, `len` are ignored.
 
 The `SPNG_DECODE_TNRS` flag is silently ignored if the PNG does not
 contain a tRNS chunk or is not applicable for the color type.
