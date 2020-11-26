@@ -528,6 +528,8 @@ int main(int argc, char **argv)
         add_test_case(SPNG_FMT_GA16, SPNG_DECODE_TRNS, 0);
     }
 
+    /* This tests the input->output format logic used in libvips,
+       it emulates the behavior of their old PNG loader which used libpng. */
     add_test_case(SPNGT_FMT_VIPS, SPNG_DECODE_TRNS, 0);
 
     int ret = 0;
