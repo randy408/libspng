@@ -369,7 +369,9 @@ static int spng__inflate_init(spng_ctx *ctx)
     if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
 
 #if ZLIB_VERNUM >= 0x1290 && !defined(SPNG_USE_MINIZ)
-    if(inflateValidate(&ctx->zstream, ctx->flags & SPNG_CTX_IGNORE_ADLER32)) return SPNG_EZLIB;
+    int validate = 1;
+    if(ctx->flags & SPNG_CTX_IGNORE_ADLER32) validate = 0;
+    if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB;
 #else /* This requires zlib >= 1.2.11 */
     #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
 #endif
