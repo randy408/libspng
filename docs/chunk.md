@@ -2,7 +2,9 @@
 
 * Chunk data is stored in `spng_ctx`.
 * When calling `spng_get_*()` or `spng_set_*()` functions all
-  chunks up to the first IDAT are read, validated then stored.
+  chunks up to the first IDAT are read, validated then stored,
+  with the exception of `spng_get_ihdr()`, which only reads the
+  the header.
 * When calling `spng_get_*()` after the image has been decoded all
   chunks up to the IEND marker are read.
 * `spng_set_*()` functions replace stored chunk data for that type.
