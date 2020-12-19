@@ -1,7 +1,14 @@
 project('libspng', 'c',
     version : '0.6.2',
     license : [ 'BSD-2-Clause', 'libpng-2.0' ],
-    default_options : 'c_std=c99'
+    default_options : [
+        'b_lto=true',
+        'b_ndebug=if-release',
+        'buildtype=debugoptimized',
+        'c_std=c99',
+        'warning_level=3',
+    #   'werror=true',
+    ],
 )
 
 spng_args = []
