@@ -1,6 +1,6 @@
 project('libspng', 'c',
     version : '0.6.2',
-    license : [ 'bsd', 'libpng2' ],
+    license : [ 'BSD-2-Clause', 'libpng-2.0' ],
     default_options : 'c_std=c99'
 )
 
