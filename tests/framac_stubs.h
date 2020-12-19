@@ -1,5 +1,5 @@
-#ifndef SPNG_FRAMAC_STUBS_H
-#define SPNG_FRAMAC_STUBS_H
+#ifndef FRAMAC_STUBS_H
+#define FRAMAC_STUBS_H
 
 #include <stddef.h>
 
@@ -86,4 +86,4 @@ unsigned long crc32(unsigned long crc, const unsigned char *buf, unsigned int le
     return crc+len;
 }
 
-#endif /* SPNG_FRAMAC_STUBS_H */
+#endif /* FRAMAC_STUBS_H */
