@@ -74,6 +74,18 @@ int main(int argc, char **argv)
            ihdr.compression_method, ihdr.filter_method,
            ihdr.interlace_method);
 
+    struct spng_plte plte;
+    r = spng_get_plte(ctx, &plte);
+
+    if(r && r != SPNG_ECHUNKAVAIL)
+    {
+        printf("spng_get_plte() error: %s\n", spng_strerror(r));
+        goto error;
+    }
+
+    if(!r) printf("palette entries: %" PRIu32 "\n", plte.n_entries);
+
+
     size_t out_size, out_width;
 
     /* Output format, does not depend on source PNG format except for
