@@ -74,19 +74,16 @@ int main(int argc, char **argv)
            ihdr.compression_method, ihdr.filter_method,
            ihdr.interlace_method);
 
-    if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+    struct spng_plte plte;
+    r = spng_get_plte(ctx, &plte);
+
+    if(r && r != SPNG_ECHUNKAVAIL)
     {
-        struct spng_plte plte;
-        r = spng_get_plte(ctx, &plte);
-
-        if(r)
-        {
-            printf("spng_get_plte() error: %s\n", spng_strerror(r));
-            goto error;
-        }
-
-        printf("palette entries: %" PRIu32 "\n", plte.n_entries);
+        printf("spng_get_plte() error: %s\n", spng_strerror(r));
+        goto error;
     }
+    else printf("palette entries: %" PRIu32 "\n", plte.n_entries);
+
 
     size_t out_size, out_width;
 
