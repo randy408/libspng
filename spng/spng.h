@@ -176,11 +176,12 @@ enum spng_crc_action
     /* Default for critical chunks */
     SPNG_CRC_ERROR = 0,
 
-    /* Discard chunk, invalid for critical chunks,
-       since v0.6.2: default for ancillary chunks */
+    /* Discard chunk, invalid for critical chunks.
+       Since v0.6.2: default for ancillary chunks */
     SPNG_CRC_DISCARD = 1,
 
-    /* Ignore and don't calculate checksum */
+    /* Ignore and don't calculate checksum.
+       Since v0.6.2: also ignores checksums in DEFLATE streams */
     SPNG_CRC_USE = 2
 };
 
