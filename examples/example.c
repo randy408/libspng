@@ -82,7 +82,8 @@ int main(int argc, char **argv)
         printf("spng_get_plte() error: %s\n", spng_strerror(r));
         goto error;
     }
-    else printf("palette entries: %" PRIu32 "\n", plte.n_entries);
+
+    if(!r) printf("palette entries: %" PRIu32 "\n", plte.n_entries);
 
 
     size_t out_size, out_width;
