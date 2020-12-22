@@ -788,48 +788,45 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
     {
         ret = inflate(stream, 0);
 
-        if(ret == Z_OK) continue;
-
         if(ret == Z_STREAM_END) break;
 
-        if(ret == Z_BUF_ERROR)
-        {
-            if(!stream->avail_out) /* Resize buffer */
-            {
-                /* overflow or reached chunk/cache limit */
-                if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
-
-                size *= 2;
-
-                t = spng__realloc(ctx, buf, size);
-                if(t == NULL) goto mem;
-
-                buf = t;
-
-                stream->avail_out = size / 2;
-                stream->next_out = (unsigned char*)buf + size / 2;
-            }
-
-            if(!stream->avail_in) /* Read more chunk bytes */
-            {
-                read_size = ctx->cur_chunk_bytes_left;
-                if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
-
-                ret = read_chunk_bytes(ctx, read_size);
-                if(ret)
-                {
-                    spng__free(ctx, buf);
-                    return ret;
-                }
-
-                stream->avail_in = read_size;
-                stream->next_in = ctx->data;
-            }
-        }
-        else
+        if(ret != Z_OK && ret != Z_BUF_ERROR)
         {
             spng__free(ctx, buf);
             return SPNG_EZLIB;
+        }
+
+        if(!stream->avail_out) /* Resize buffer */
+        {
+            /* overflow or reached chunk/cache limit */
+            if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
+
+            size *= 2;
+
+            t = spng__realloc(ctx, buf, size);
+            if(t == NULL) goto mem;
+
+            buf = t;
+
+            stream->avail_out = size / 2;
+            stream->next_out = (unsigned char*)buf + size / 2;
+        }
+        else if(!stream->avail_in) /* Read more chunk bytes */
+        {
+            read_size = ctx->cur_chunk_bytes_left;
+            if(ctx->streaming && read_size > SPNG_READ_SIZE) read_size = SPNG_READ_SIZE;
+
+            ret = read_chunk_bytes(ctx, read_size);
+
+            if(ret)
+            {
+                if(!read_size) ret = SPNG_EZLIB;
+                spng__free(ctx, buf);
+                return ret;
+            }
+
+            stream->avail_in = read_size;
+            stream->next_in = ctx->data;
         }
     }
 
