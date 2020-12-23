@@ -358,27 +358,6 @@ static void spng__zfree(void *opqaue, void *ptr)
     spng__free(ctx, ptr);
 }
 
-static int spng__inflate_init(spng_ctx *ctx)
-{
-    if(ctx->zstream.state) inflateEnd(&ctx->zstream);
-
-    ctx->zstream.zalloc = spng__zalloc;
-    ctx->zstream.zfree = spng__zfree;
-    ctx->zstream.opaque = ctx;
-
-    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
-
-#if ZLIB_VERNUM >= 0x1290 && !defined(SPNG_USE_MINIZ)
-    int validate = 1;
-    if(ctx->flags & SPNG_CTX_IGNORE_ADLER32) validate = 0;
-    if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB;
-#else /* This requires zlib >= 1.2.11 */
-    #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
-#endif
-
-    return 0;
-}
-
 static inline uint16_t read_u16(const void *_data)
 {
     const unsigned char *data = _data;
@@ -739,6 +718,40 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
         ret = read_chunk_bytes(ctx, bytes);
         if(ret) return ret;
     }
+
+    return 0;
+}
+
+static int spng__inflate_init(spng_ctx *ctx)
+{
+    if(ctx->zstream.state) inflateEnd(&ctx->zstream);
+
+    ctx->zstream.zalloc = spng__zalloc;
+    ctx->zstream.zfree = spng__zfree;
+    ctx->zstream.opaque = ctx;
+
+    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+
+#if ZLIB_VERNUM >= 0x1290 && !defined(SPNG_USE_MINIZ)
+
+    int validate = 1;
+
+    if(ctx->flags & SPNG_CTX_IGNORE_ADLER32) validate = 0;
+
+    if(is_critical_chunk(&ctx->current_chunk))
+    {
+        if(ctx->crc_action_critical == SPNG_CRC_USE) validate = 0;
+    }
+    else /* ancillary */
+    {
+        if(ctx->crc_action_ancillary == SPNG_CRC_USE) validate = 0;
+    }
+
+    if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB;
+
+#else /* This requires zlib >= 1.2.11 */
+    #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
+#endif
 
     return 0;
 }
