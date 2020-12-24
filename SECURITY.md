@@ -13,4 +13,4 @@ Currently there is only one release branch.
 
 Security issues should be sent to contact@libspng.org - [GPG key](https://libspng.org/randy-pubkey.asc)
 
-Reponse time may vary, issues are proritized by severity and impact.
+Response time may vary, issues are prioritized by severity and impact.
