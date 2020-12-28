@@ -2092,7 +2092,16 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(ctx->data[keyword_len + 1] != 0) return SPNG_EICCP_COMPRESSION_METHOD;
 
                 ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, 0, ctx->data + keyword_len + 2, peek_bytes - (keyword_len + 2));
-                if(ret) return ret;
+
+                if(ret)
+                {
+                    if(!ctx->strict && ret == SPNG_EZLIB)
+                    {
+                        discard = 1;
+                        goto discard;
+                    }
+                    else return ret;
+                }
 
                 ctx->stored.iccp = 1;
             }
@@ -2208,7 +2217,16 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     zlib_stream = ctx->data + text_offset;
 
                     ret = spng__inflate_stream(ctx, &text->text, &text->text_length, 1, zlib_stream, peek_bytes - text_offset);
-                    if(ret) return ret;
+
+                    if(ret)
+                    {
+                        if(!ctx->strict && ret == SPNG_EZLIB)
+                        {
+                            discard = 1;
+                            goto discard;
+                        }
+                        else return ret;
+                    }
 
                     text->text[text->text_length - 1] = '\0';
                     text->cache_usage = text->text_length + peek_bytes;
