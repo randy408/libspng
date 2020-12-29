@@ -513,10 +513,9 @@ static int increase_cache_usage(spng_ctx *ctx, size_t bytes)
 
     size_t new_usage = ctx->chunk_cache_usage + bytes;
 
-    /* Overflow, treat it as a normal error though */
-    if(new_usage < ctx->chunk_cache_usage) return 1;
+    if(new_usage < ctx->chunk_cache_usage) return SPNG_EOVERFLOW;
 
-    if(new_usage > ctx->chunk_cache_limit) return 1;
+    if(new_usage > ctx->chunk_cache_limit) return SPNG_ECHUNK_LIMITS;
 
     ctx->chunk_cache_usage = new_usage;
 
@@ -730,7 +729,7 @@ static int spng__inflate_init(spng_ctx *ctx)
     ctx->zstream.zfree = spng__zfree;
     ctx->zstream.opaque = ctx;
 
-    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB;
+    if(inflateInit(&ctx->zstream) != Z_OK) return SPNG_EZLIB_INIT;
 
 #if ZLIB_VERNUM >= 0x1290 && !defined(SPNG_USE_MINIZ)
 
@@ -747,7 +746,7 @@ static int spng__inflate_init(spng_ctx *ctx)
         if(ctx->crc_action_ancillary == SPNG_CRC_USE) validate = 0;
     }
 
-    if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB;
+    if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB_INIT;
 
 #else /* This requires zlib >= 1.2.11 */
     #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
@@ -772,7 +771,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
     if(ctx->max_chunk_size < max) max = ctx->max_chunk_size;
 
-    if(extra > max) return SPNG_EMEM;
+    if(extra > max) return SPNG_ECHUNK_LIMITS;
     max -= extra;
 
     uint32_t read_size;
@@ -805,14 +804,18 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
         if(ret != Z_OK && ret != Z_BUF_ERROR)
         {
-            spng__free(ctx, buf);
-            return SPNG_EZLIB;
+            ret = SPNG_EZLIB;
+            goto err;
         }
 
         if(!stream->avail_out) /* Resize buffer */
         {
             /* overflow or reached chunk/cache limit */
-            if( (2 > SIZE_MAX / size) || (size > max / 2) ) goto mem;
+            if( (2 > SIZE_MAX / size) || (size > max / 2) )
+            {
+                ret = SPNG_ECHUNK_LIMITS;
+                goto err;
+            }
 
             size *= 2;
 
@@ -834,8 +837,8 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
             if(ret)
             {
                 if(!read_size) ret = SPNG_EZLIB;
-                spng__free(ctx, buf);
-                return ret;
+
+                goto err;
             }
 
             stream->avail_in = read_size;
@@ -847,8 +850,8 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
     if(!size)
     {
-        spng__free(ctx, buf);
-        return SPNG_EZLIB;
+        ret = SPNG_EZLIB;
+        goto err;
     }
 
     size += extra;
@@ -867,7 +870,11 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
     return 0;
 
 mem:
+    ret = SPNG_EMEM;
+err:
     spng__free(ctx, buf);
+    if(ret) return ret;
+
     return SPNG_EMEM;
 }
 
@@ -2036,7 +2043,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 if(ctx->user.exif) goto discard;
 
-                if(increase_cache_usage(ctx, chunk.length)) return SPNG_EMEM;
+                if(increase_cache_usage(ctx, chunk.length)) return SPNG_ECHUNK_LIMITS;
 
                 struct spng_exif exif;
 
@@ -2116,7 +2123,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 if(ctx->user.text) goto discard;
 
-                if(increase_cache_usage(ctx, sizeof(struct spng_text2))) return SPNG_EMEM;
+                if(increase_cache_usage(ctx, sizeof(struct spng_text2))) return SPNG_ECHUNK_LIMITS;
 
                 ctx->n_text++;
                 if(ctx->n_text < 1) return SPNG_EOVERFLOW;
@@ -2207,7 +2214,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(text->compression_flag)
                 {
                     /* cache usage = peek_bytes + decompressed text size + nul */
-                    if(increase_cache_usage(ctx, peek_bytes)) return SPNG_EMEM;
+                    if(increase_cache_usage(ctx, peek_bytes)) return SPNG_ECHUNK_LIMITS;
 
                     text->keyword = spng__calloc(ctx, 1, peek_bytes);
                     if(text->keyword == NULL) return SPNG_EMEM;
@@ -2233,7 +2240,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 }
                 else
                 {
-                    if(increase_cache_usage(ctx, chunk.length + 1)) return SPNG_EMEM;
+                    if(increase_cache_usage(ctx, chunk.length + 1)) return SPNG_ECHUNK_LIMITS;
 
                     text->keyword = spng__malloc(ctx, chunk.length + 1);
                     if(text->keyword == NULL) return SPNG_EMEM;
@@ -2285,7 +2292,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 undo = splt_undo;
 
                 /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spng_splt_entry) */
-                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_EMEM;
+                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_ECHUNK_LIMITS;
 
                 ctx->n_splt++;
                 if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
@@ -2352,7 +2359,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 list_size *= sizeof(struct spng_splt_entry);
 
-                if(increase_cache_usage(ctx, list_size)) return SPNG_EMEM;
+                if(increase_cache_usage(ctx, list_size)) return SPNG_ECHUNK_LIMITS;
 
                 splt->entries = spng__malloc(ctx, list_size);
                 if(splt->entries == NULL)
@@ -4140,6 +4147,8 @@ const char *spng_strerror(int err)
         case SPNG_ENCODE_ONLY: return "encode only context";
         case SPNG_EOI: return "reached end-of-image state";
         case SPNG_ENOPLTE: return "missing PLTE for indexed image";
+        case SPNG_ECHUNK_LIMITS: return "reached chunk/cache limit";
+        case SPNG_EZLIB_INIT: return "zlib init error";
         default: return "unknown error";
     }
 }
