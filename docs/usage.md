@@ -29,9 +29,9 @@ spng_ctx_free(ctx);
 For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.6.2/examples/example.c)
 
 
-## Decoding arbitrary files
+## Decoding untrusted files
 
-To decode arbitrary files safely it is required to at least:
+To decode untrusted files safely it is required to at least:
 
 * Set an upper image width and height limit with `spng_set_image_limits()`.
 
