@@ -175,8 +175,8 @@ struct spng_chunk_bitfield
 struct spng__iter
 {
     const uint8_t mask;
-    const unsigned initial_shift;
-    unsigned shift_amount, bit_depth;
+    unsigned shift_amount;
+    const unsigned initial_shift, bit_depth;
     const unsigned char *samples;
 };
 
