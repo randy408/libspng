@@ -3285,6 +3285,8 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
 {
     if(n > ctx->bytes_left) return SPNG_IO_EOF;
 
+    (void)user;
+    (void)data;
     ctx->data = ctx->data + ctx->last_read_size;
 
     ctx->last_read_size = n;
@@ -3296,6 +3298,7 @@ static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
 static int file_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
 {
     FILE *file = user;
+    (void)ctx;
 
     if(fread(data, n, 1, file) != 1)
     {
