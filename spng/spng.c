@@ -862,7 +862,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
     buf = t;
 
-    increase_cache_usage(ctx, size);
+    (void)increase_cache_usage(ctx, size);
 
     *out = buf;
     *len = size;
@@ -873,9 +873,7 @@ mem:
     ret = SPNG_EMEM;
 err:
     spng__free(ctx, buf);
-    if(ret) return ret;
-
-    return SPNG_EMEM;
+    return ret;
 }
 
 /* Read at least one byte from the IDAT stream */
