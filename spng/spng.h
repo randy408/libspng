@@ -105,6 +105,8 @@ enum spng_errno
     SPNG_ENCODE_ONLY,
     SPNG_EOI,
     SPNG_ENOPLTE,
+    SPNG_ECHUNK_LIMITS,
+    SPNG_EZLIB_INIT,
 };
 
 enum spng_text_type
