@@ -547,9 +547,14 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
 
     if(ctx->streaming && (bytes > SPNG_READ_SIZE)) return 1;
 
-    int ret;
-    ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->stream_buf, bytes);
-    if(ret) return ret;
+    int ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->stream_buf, bytes);
+
+    if(ret)
+    {
+        if(ret > 0 || ret < SPNG_IO_ERROR) ret = SPNG_IO_ERROR;
+
+        return ret;
+    }
 
     ctx->bytes_read += bytes;
     if(ctx->bytes_read < bytes) return SPNG_EOVERFLOW;
