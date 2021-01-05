@@ -619,7 +619,7 @@ static inline int read_header(spng_ctx *ctx, int *discard)
 
     memcpy(&chunk.type, ctx->data + 4, 4);
 
-    if(chunk.length > png_u32max) return SPNG_ECHUNK_SIZE;
+    if(chunk.length > png_u32max) return SPNG_ECHUNK_STDLEN;
 
     ctx->cur_chunk_bytes_left = chunk.length;
 
@@ -1528,7 +1528,7 @@ static int check_exif(const struct spng_exif *exif)
     if(exif->data == NULL) return 1;
 
     if(exif->length < 4) return SPNG_ECHUNK_SIZE;
-    if(exif->length > png_u32max) return SPNG_ECHUNK_SIZE;
+    if(exif->length > png_u32max) return SPNG_ECHUNK_STDLEN;
 
     const uint8_t exif_le[4] = { 73, 73, 42, 0 };
     const uint8_t exif_be[4] = { 77, 77, 0, 42 };
@@ -4155,6 +4155,7 @@ const char *spng_strerror(int err)
         case SPNG_ENOPLTE: return "missing PLTE for indexed image";
         case SPNG_ECHUNK_LIMITS: return "reached chunk/cache limit";
         case SPNG_EZLIB_INIT: return "zlib init error";
+        case SPNG_ECHUNK_STDLEN: return "chunk exceeds maximum standard length";
         default: return "unknown error";
     }
 }
