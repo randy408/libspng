@@ -1738,7 +1738,11 @@ static int read_non_idat_chunks(spng_ctx *ctx)
         prev_was_idat = 0;
 
         if(is_small_chunk(chunk.type))
-        {/* The largest of these chunks is PLTE with 256 entries */
+        {
+            /* None of the known chunks can be zero length */
+            if(!chunk.length) return SPNG_ECHUNK_SIZE;
+
+            /* The largest of these chunks is PLTE with 256 entries */
             ret = read_chunk_bytes(ctx, chunk.length > 768 ? 768 : chunk.length);
             if(ret) return ret;
         }
