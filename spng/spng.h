@@ -108,6 +108,7 @@ enum spng_errno
     SPNG_ECHUNK_LIMITS,
     SPNG_EZLIB_INIT,
     SPNG_ECHUNK_STDLEN,
+    SPNG_EINTERNAL,
 };
 
 enum spng_text_type

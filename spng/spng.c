@@ -440,7 +440,7 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
 /* Calculate scanline width in bits, round up to the nearest byte */
 static int calculate_scanline_width(struct spng_ctx *ctx, uint32_t width, size_t *scanline_width)
 {
-    if(!width) return 1;
+    if(!width) return SPNG_EINTERNAL;
 
     size_t res = ctx->channels * ctx->ihdr.bit_depth;
 
@@ -462,7 +462,7 @@ static int calculate_scanline_width(struct spng_ctx *ctx, uint32_t width, size_t
 
 static int calculate_subimages(struct spng_ctx *ctx)
 {
-    if(ctx == NULL) return 1;
+    if(ctx == NULL) return SPNG_EINTERNAL;
 
     struct spng_ihdr *ihdr = &ctx->ihdr;
     struct spng_subimage *sub = ctx->subimage;
@@ -509,7 +509,7 @@ static int calculate_subimages(struct spng_ctx *ctx)
 
 static int increase_cache_usage(spng_ctx *ctx, size_t bytes)
 {
-    if(ctx == NULL || !bytes) return 1;
+    if(ctx == NULL || !bytes) return SPNG_EINTERNAL;
 
     size_t new_usage = ctx->chunk_cache_usage + bytes;
 
@@ -524,8 +524,8 @@ static int increase_cache_usage(spng_ctx *ctx, size_t bytes)
 
 static int decrease_cache_usage(spng_ctx *ctx, size_t usage)
 {
-    if(ctx == NULL || !usage) return 1;
-    if(usage > ctx->chunk_cache_usage) return 1;
+    if(ctx == NULL || !usage) return SPNG_EINTERNAL;
+    if(usage > ctx->chunk_cache_usage) return SPNG_EINTERNAL;
 
     ctx->chunk_cache_usage -= usage;
 
@@ -542,10 +542,10 @@ static int is_critical_chunk(struct spng_chunk *chunk)
 
 static inline int read_data(spng_ctx *ctx, size_t bytes)
 {
-    if(ctx == NULL) return 1;
+    if(ctx == NULL) return SPNG_EINTERNAL;
     if(!bytes) return 0;
 
-    if(ctx->streaming && (bytes > SPNG_READ_SIZE)) return 1;
+    if(ctx->streaming && (bytes > SPNG_READ_SIZE)) return SPNG_EINTERNAL;
 
     int ret = ctx->read_fn(ctx, ctx->read_user_ptr, ctx->stream_buf, bytes);
 
@@ -566,7 +566,7 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
    returns -SPNG_CRC_DISCARD if the chunk should be discarded */
 static inline int read_and_check_crc(spng_ctx *ctx)
 {
-    if(ctx == NULL) return 1;
+    if(ctx == NULL) return SPNG_EINTERNAL;
 
     int ret;
     ret = read_data(ctx, 4);
@@ -595,7 +595,7 @@ static inline int read_and_check_crc(spng_ctx *ctx)
 /* Read and validate the current chunk's crc and the next chunk header */
 static inline int read_header(spng_ctx *ctx, int *discard)
 {
-    if(ctx == NULL) return 1;
+    if(ctx == NULL) return SPNG_EINTERNAL;
 
     int ret;
     struct spng_chunk chunk = { 0 };
@@ -634,9 +634,9 @@ static inline int read_header(spng_ctx *ctx, int *discard)
 /* Read chunk bytes and update crc */
 static int read_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
-    if(ctx == NULL) return 1;
-    if(!ctx->cur_chunk_bytes_left || !bytes) return 1;
-    if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
+    if(ctx == NULL) return SPNG_EINTERNAL;
+    if(!ctx->cur_chunk_bytes_left || !bytes) return SPNG_EINTERNAL;
+    if(bytes > ctx->cur_chunk_bytes_left) return SPNG_EINTERNAL; /* XXX: more specific error? */
 
     int ret;
 
@@ -658,9 +658,9 @@ skip_crc:
 /* read_chunk_bytes() + read_data() with custom output buffer */
 static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
 {
-    if(ctx == NULL) return 1;
-    if(!ctx->cur_chunk_bytes_left || !bytes) return 1;
-    if(bytes > ctx->cur_chunk_bytes_left) return 1; /* XXX: more specific error? */
+    if(ctx == NULL) return SPNG_EINTERNAL;
+    if(!ctx->cur_chunk_bytes_left || !bytes) return SPNG_EINTERNAL;
+    if(bytes > ctx->cur_chunk_bytes_left) return SPNG_EINTERNAL; /* XXX: more specific error? */
 
     int ret;
     uint32_t len = bytes;
@@ -698,7 +698,7 @@ skip_crc:
 
 static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
 {
-    if(ctx == NULL) return 1;
+    if(ctx == NULL) return SPNG_EINTERNAL;
     if(!bytes) return 0;
 
     int ret;
@@ -884,7 +884,7 @@ err:
 /* Read at least one byte from the IDAT stream */
 static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
 {
-    if(ctx == NULL || bytes_read == NULL) return 1;
+    if(ctx == NULL || bytes_read == NULL) return SPNG_EINTERNAL;
     if(memcmp(ctx->current_chunk.type, type_idat, 4)) return SPNG_EIDAT_TOO_SHORT;
 
     int ret;
@@ -914,7 +914,7 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
 
 static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 {
-    if(ctx == NULL || dest == NULL) return 1;
+    if(ctx == NULL || dest == NULL) return SPNG_EINTERNAL;
 
     int ret = Z_OK;
     uint32_t bytes_read;
@@ -978,7 +978,7 @@ static void defilter_up(size_t bytes, unsigned char *row, const unsigned char *p
 static int defilter_scanline(const unsigned char *prev_scanline, unsigned char *scanline,
                              size_t scanline_width, unsigned bytes_per_pixel, unsigned filter)
 {
-    if(prev_scanline == NULL || scanline == NULL || !scanline_width) return 1;
+    if(prev_scanline == NULL || scanline == NULL || !scanline_width) return SPNG_EINTERNAL;
 
     size_t i;
     scanline_width--;
@@ -2215,7 +2215,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     text_offset = zlib_stream - data + 1;
                     text->text_length = chunk.length - text_offset;
                 }
-                else return 1;
+                else return SPNG_EINTERNAL;
 
 
                 if(text->compression_flag)
@@ -2420,12 +2420,12 @@ discard:
 /* Read chunks before or after the IDAT chunks depending on state */
 static int read_chunks(spng_ctx *ctx, int only_ihdr)
 {
-    if(ctx == NULL) return 1;
+    if(ctx == NULL) return SPNG_EINTERNAL;
     if(!ctx->state) return SPNG_EBADSTATE;
     if(ctx->data == NULL)
     {
         if(ctx->encode_only) return 0;
-        else return 1;
+        else return SPNG_EINTERNAL;
     }
 
     int ret = 0;
@@ -4160,6 +4160,7 @@ const char *spng_strerror(int err)
         case SPNG_ECHUNK_LIMITS: return "reached chunk/cache limit";
         case SPNG_EZLIB_INIT: return "zlib init error";
         case SPNG_ECHUNK_STDLEN: return "chunk exceeds maximum standard length";
+        case SPNG_EINTERNAL: return "internal error";
         default: return "unknown error";
     }
 }
