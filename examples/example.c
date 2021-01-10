@@ -130,6 +130,11 @@ int main(int argc, char **argv)
     if(r != SPNG_EOI)
     {
         printf("progressive decode error: %s\n", spng_strerror(r));
+
+        if(ihdr.interlace_method)
+            printf("last pass: %d, scanline: %" PRIu32 "\n", row_info.pass, row_info.scanline_idx);
+        else
+            printf("last row: %" PRIu32 "\n", row_info.row_num);
     }
 
     /* Alternatively you can decode the image in one go,
