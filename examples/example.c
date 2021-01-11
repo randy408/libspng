@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
 
     /* Set memory usage limits for storing standard and unknown chunks,
-       this is important when reading arbitrary files! */
+       this is important when reading untrusted files! */
     size_t limit = 1024 * 1024 * 64;
     spng_set_chunk_limits(ctx, limit, limit);
 
