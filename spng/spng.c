@@ -4157,7 +4157,7 @@ const char *spng_strerror(int err)
         case SPNG_ENCODE_ONLY: return "encode only context";
         case SPNG_EOI: return "reached end-of-image state";
         case SPNG_ENOPLTE: return "missing PLTE for indexed image";
-        case SPNG_ECHUNK_LIMITS: return "reached chunk/cache limit";
+        case SPNG_ECHUNK_LIMITS: return "reached chunk/cache limits";
         case SPNG_EZLIB_INIT: return "zlib init error";
         case SPNG_ECHUNK_STDLEN: return "chunk exceeds maximum standard length";
         case SPNG_EINTERNAL: return "internal error";
