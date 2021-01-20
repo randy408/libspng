@@ -4,7 +4,6 @@ option('use_miniz', type : 'boolean', value : false, description : 'Compile with
 option('static_zlib', type : 'boolean', value : false, description : 'Link zlib statically')
 option('benchmarks', type : 'boolean', value : false, description : 'Enable benchmarks, requires Git LFS')
 
-
 # Not for end-users
 option('multithreading', type : 'feature', value : 'disabled', description : 'Experimental multithreading features')
 option('oss_fuzz', type : 'boolean', value : false, description : 'Enable regression tests with OSS-Fuzz corpora')

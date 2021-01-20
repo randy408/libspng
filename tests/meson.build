@@ -1,7 +1,3 @@
-if get_option('dev_build') == false
-    subdir_done()
-endif
-
 add_languages('cpp', native : false)
 cpp = meson.get_compiler('cpp')
 
@@ -11,14 +7,17 @@ if cc.has_function('fmemopen', prefix : '#include <stdio.h>', args : '-D_GNU_SOU
     fuzzer_args = [ '-D_GNU_SOURCE', '-DSPNGT_HAVE_FMEMOPEN' ]
 endif
 
-read_fuzzer = executable('fuzz_repro',
-    'fuzz_main.c',
-    'spng_read_fuzzer.c',
+read_fuzzer = executable('fuzz_repro', 'fuzz_main.c', 'spng_read_fuzzer.c',
     c_args : fuzzer_args,
-    link_with : spng_lib
+    include_directories : spng_inc,
+    link_with : spng_lib,
 )
 
-png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
+png_dep = dependency('libpng',
+    version : '>=1.6.0',
+    fallback : [ 'libpng', 'png_dep' ],
+    default_options : [ 'default_library=static' ],
+)
 
 test_deps = [ spng_dep, png_dep ]
 
@@ -29,10 +28,10 @@ test('info', test_exe, args : 'info')
 cpp_exe = executable('cpp_exe', 'test.cpp', dependencies : spng_dep)
 test('cpp_test', cpp_exe)
 
-subdir('images')
 subdir('crashers')
+subdir('images')
 
-if get_option('oss_fuzz') == false
+if not get_option('oss_fuzz')
     subdir_done()
 endif
 
