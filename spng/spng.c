@@ -97,15 +97,17 @@ enum spng_state
                             SPNG_STR(SPNG_VERSION_PATCH)
 
 #define SPNG_GET_CHUNK_BOILERPLATE(chunk) \
-    if(ctx == NULL || chunk == NULL) return 1; \
+    if(ctx == NULL) return 1; \
     int ret = read_chunks(ctx, 0); \
-    if(ret) return ret;
+    if(ret) return ret; \
+    if(!ctx->stored.chunk) return SPNG_ECHUNKAVAIL; \
+    if(chunk == NULL) return 1
 
 #define SPNG_SET_CHUNK_BOILERPLATE(chunk) \
     if(ctx == NULL || chunk == NULL) return 1; \
     if(ctx->data == NULL) ctx->encode_only = 1; \
     int ret = read_chunks(ctx, 0); \
-    if(ret) return ret;
+    if(ret) return ret
 
 struct spng_subimage
 {
@@ -3489,10 +3491,10 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
 
 int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
 {
-    if(ctx == NULL || ihdr == NULL) return 1;
-
+    if(ctx == NULL) return 1;
     int ret = read_chunks(ctx, 1);
     if(ret) return ret;
+    if(ihdr == NULL) return 1;
 
     memcpy(ihdr, &ctx->ihdr, sizeof(struct spng_ihdr));
 
@@ -3503,8 +3505,6 @@ int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte)
 {
     SPNG_GET_CHUNK_BOILERPLATE(plte);
 
-    if(!ctx->stored.plte) return SPNG_ECHUNKAVAIL;
-
     memcpy(plte, &ctx->plte, sizeof(struct spng_plte));
 
     return 0;
@@ -3514,8 +3514,6 @@ int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
     SPNG_GET_CHUNK_BOILERPLATE(trns);
 
-    if(!ctx->stored.trns) return SPNG_ECHUNKAVAIL;
-
     memcpy(trns, &ctx->trns, sizeof(struct spng_trns));
 
     return 0;
@@ -3524,8 +3522,6 @@ int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns)
 int spng_get_chrm(spng_ctx *ctx, struct spng_chrm *chrm)
 {
     SPNG_GET_CHUNK_BOILERPLATE(chrm);
-
-    if(!ctx->stored.chrm) return SPNG_ECHUNKAVAIL;
 
     chrm->white_point_x = (double)ctx->chrm_int.white_point_x / 100000.0;
     chrm->white_point_y = (double)ctx->chrm_int.white_point_y / 100000.0;
@@ -3543,8 +3539,6 @@ int spng_get_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm)
 {
     SPNG_GET_CHUNK_BOILERPLATE(chrm);
 
-    if(!ctx->stored.chrm) return SPNG_ECHUNKAVAIL;
-
     memcpy(chrm, &ctx->chrm_int, sizeof(struct spng_chrm_int));
 
     return 0;
@@ -3552,11 +3546,10 @@ int spng_get_chrm_int(spng_ctx *ctx, struct spng_chrm_int *chrm)
 
 int spng_get_gama(spng_ctx *ctx, double *gamma)
 {
-    SPNG_GET_CHUNK_BOILERPLATE(gamma);
+    double *gama = gamma;
+    SPNG_GET_CHUNK_BOILERPLATE(gama);
 
-    if(!ctx->stored.gama) return SPNG_ECHUNKAVAIL;
-
-    *gamma = (double)ctx->gama / 100000.0;
+    *gama = (double)ctx->gama / 100000.0;
 
     return 0;
 }
@@ -3564,8 +3557,6 @@ int spng_get_gama(spng_ctx *ctx, double *gamma)
 int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
     SPNG_GET_CHUNK_BOILERPLATE(iccp);
-
-    if(!ctx->stored.iccp) return SPNG_ECHUNKAVAIL;
 
     memcpy(iccp, &ctx->iccp, sizeof(struct spng_iccp));
 
@@ -3576,8 +3567,6 @@ int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 {
     SPNG_GET_CHUNK_BOILERPLATE(sbit);
 
-    if(!ctx->stored.sbit) return SPNG_ECHUNKAVAIL;
-
     memcpy(sbit, &ctx->sbit, sizeof(struct spng_sbit));
 
     return 0;
@@ -3585,29 +3574,27 @@ int spng_get_sbit(spng_ctx *ctx, struct spng_sbit *sbit)
 
 int spng_get_srgb(spng_ctx *ctx, uint8_t *rendering_intent)
 {
-    SPNG_GET_CHUNK_BOILERPLATE(rendering_intent);
+    uint8_t *srgb = rendering_intent;
+    SPNG_GET_CHUNK_BOILERPLATE(srgb);
 
-    if(!ctx->stored.srgb) return SPNG_ECHUNKAVAIL;
-
-    *rendering_intent = ctx->srgb_rendering_intent;
+    *srgb = ctx->srgb_rendering_intent;
 
     return 0;
 }
 
 int spng_get_text(spng_ctx *ctx, struct spng_text *text, uint32_t *n_text)
 {
-    if(ctx == NULL || n_text == NULL) return 1;
-
+    if(ctx == NULL) return 1;
+    int ret = read_chunks(ctx, 0);
+    if(ret) return ret;
     if(!ctx->stored.text) return SPNG_ECHUNKAVAIL;
+    if(n_text == NULL) return 1;
 
     if(text == NULL)
     {
         *n_text = ctx->n_text;
         return 0;
     }
-
-    int ret = read_chunks(ctx, 0);
-    if(ret) return ret;
 
     if(*n_text < ctx->n_text) return 1;
 
@@ -3631,8 +3618,6 @@ int spng_get_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 {
     SPNG_GET_CHUNK_BOILERPLATE(bkgd);
 
-    if(!ctx->stored.bkgd) return SPNG_ECHUNKAVAIL;
-
     memcpy(bkgd, &ctx->bkgd, sizeof(struct spng_bkgd));
 
     return 0;
@@ -3641,8 +3626,6 @@ int spng_get_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 int spng_get_hist(spng_ctx *ctx, struct spng_hist *hist)
 {
     SPNG_GET_CHUNK_BOILERPLATE(hist);
-
-    if(!ctx->stored.hist) return SPNG_ECHUNKAVAIL;
 
     memcpy(hist, &ctx->hist, sizeof(struct spng_hist));
 
@@ -3653,8 +3636,6 @@ int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys)
 {
     SPNG_GET_CHUNK_BOILERPLATE(phys);
 
-    if(!ctx->stored.phys) return SPNG_ECHUNKAVAIL;
-
     memcpy(phys, &ctx->phys, sizeof(struct spng_phys));
 
     return 0;
@@ -3662,18 +3643,17 @@ int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys)
 
 int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 {
-    if(ctx == NULL || n_splt == NULL) return 1;
-
+    if(ctx == NULL) return 1;
+    int ret = read_chunks(ctx, 0);
+    if(ret) return ret;
     if(!ctx->stored.splt) return SPNG_ECHUNKAVAIL;
+    if(n_splt == NULL) return 1;
 
     if(splt == NULL)
     {
         *n_splt = ctx->n_splt;
         return 0;
     }
-
-    int ret = read_chunks(ctx, 0);
-    if(ret) return ret;
 
     if(*n_splt < ctx->n_splt) return 1;
 
@@ -3686,8 +3666,6 @@ int spng_get_time(spng_ctx *ctx, struct spng_time *time)
 {
     SPNG_GET_CHUNK_BOILERPLATE(time);
 
-    if(!ctx->stored.time) return SPNG_ECHUNKAVAIL;
-
     memcpy(time, &ctx->time, sizeof(struct spng_time));
 
     return 0;
@@ -3697,8 +3675,6 @@ int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
     SPNG_GET_CHUNK_BOILERPLATE(offs);
 
-    if(!ctx->stored.offs) return SPNG_ECHUNKAVAIL;
-
     memcpy(offs, &ctx->offs, sizeof(struct spng_offs));
 
     return 0;
@@ -3707,8 +3683,6 @@ int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
 int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif)
 {
     SPNG_GET_CHUNK_BOILERPLATE(exif);
-
-    if(!ctx->stored.exif) return SPNG_ECHUNKAVAIL;
 
     memcpy(exif, &ctx->exif, sizeof(struct spng_exif));
 
