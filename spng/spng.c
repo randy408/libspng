@@ -1907,8 +1907,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(chunk.length != 6)
                 {
                     if(ctx->strict) return SPNG_ECHUNK_SIZE;
-                    discard = 1;
-                    goto discard;
+                    else continue;
                 }
 
                 ctx->bkgd.red = read_u16(data) & mask;
