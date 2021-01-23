@@ -1904,7 +1904,11 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             }
             else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
             {
-                if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
+                if(chunk.length != 6)
+                {
+                    if(ctx->strict) return SPNG_ECHUNK_SIZE;
+                    else continue;
+                }
 
                 ctx->bkgd.red = read_u16(data) & mask;
                 ctx->bkgd.green = read_u16(data + 2) & mask;
