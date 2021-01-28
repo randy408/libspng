@@ -41,7 +41,7 @@ it outperforms the reference implementation in common use cases.
 
 <sup>[3]</sup> With a 3rd party patch
 
-## Getting libspng
+## Getting spng
 
 Download the [latest release](https://libspng.org/download) and include `spng.c/spng.h` in your project,
 you can also build with CMake or Meson. Refer to the [documentation](docs/build.md) for details.
@@ -108,3 +108,29 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
  for all PNG color type and bit depth combinations, see documentation for details.
 * Gamma correction is not implemented for `SPNG_FMT_PNG`, `SPNG_FMT_G8`, `SPNG_FMT_GA8`
  and `SPNG_FMT_GA16` output formats.
+* Non-critical errors may cause an image to not load ([#132](https://github.com/randy408/libspng/issues/132)).
+
+## Supporting spng
+
+You can sponsor development through [OpenCollective](https://opencollective.com/libspng/).
+
+## OpenCollective backers
+
+#### Individuals
+
+<a href="https://opencollective.com/libspng"><img src="https://opencollective.com/libspng/backers.svg?width=890"></a>
+
+#### Organizations
+
+Support this project with your organization. Your logo will show up here with a link to your website. [[Contribute](https://opencollective.com/libspng/contribute)]
+
+<a href="https://opencollective.com/libspng/sponsor/0/website"><img src="https://opencollective.com/libspng/sponsor/0/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/1/website"><img src="https://opencollective.com/libspng/sponsor/1/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/2/website"><img src="https://opencollective.com/libspng/sponsor/2/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/3/website"><img src="https://opencollective.com/libspng/sponsor/3/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/4/website"><img src="https://opencollective.com/libspng/sponsor/4/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/5/website"><img src="https://opencollective.com/libspng/sponsor/5/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/6/website"><img src="https://opencollective.com/libspng/sponsor/6/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/7/website"><img src="https://opencollective.com/libspng/sponsor/7/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/8/website"><img src="https://opencollective.com/libspng/sponsor/8/avatar.svg"></a>
+<a href="https://opencollective.com/libspng/sponsor/9/website"><img src="https://opencollective.com/libspng/sponsor/9/avatar.svg"></a>
