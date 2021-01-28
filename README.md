@@ -1,4 +1,5 @@
 [![Gitter](https://badges.gitter.im/libspng/community.svg)](https://gitter.im/libspng/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Financial Contributors on Open Collective](https://opencollective.com/libspng/all/badge.svg?label=financial+contributors)](https://opencollective.com/libspng)
 [![GitLab CI](https://gitlab.com/randy408/libspng-ci/badges/master/pipeline.svg)](https://gitlab.com/randy408/libspng-ci/pipelines/latest)
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/libspng.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#libspng)
 [![Coverity](https://scan.coverity.com/projects/15336/badge.svg)](https://scan.coverity.com/projects/randy408-libspng)
@@ -112,9 +113,9 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
 
 ## Supporting spng
 
-You can sponsor development through [OpenCollective](https://opencollective.com/libspng/).
+You can sponsor development through [OpenCollective](https://opencollective.com/libspng/), funds will be used for maintenance and further development according to the [roadmap](https://github.com/randy408/libspng/milestones).
 
-## OpenCollective backers
+### OpenCollective backers
 
 #### Individuals
 
