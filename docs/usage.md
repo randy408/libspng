@@ -26,7 +26,7 @@ spng_ctx_free(ctx);
 
 ```
 
-For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.6.2/examples/example.c)
+For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.6.3/examples/example.c)
 
 
 ## Decoding untrusted files
