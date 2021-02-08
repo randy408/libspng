@@ -8,7 +8,7 @@
 
 # libspng
 
-libspng is a C library for reading and writing Portable Network Graphics (PNG)
+lib**spng** (**s**imple **png**) is a C library for reading and writing Portable Network Graphics (PNG)
 format files with a focus on security and ease of use.
 
 libspng is an alternative to libpng, the projects are separate and the APIs are
