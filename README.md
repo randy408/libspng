@@ -45,7 +45,7 @@ it outperforms the reference implementation in common use cases.
 ## Getting spng
 
 Download the [latest release](https://libspng.org/download) and include `spng.c/spng.h` in your project,
-you can also build with CMake or Meson. Refer to the [documentation](docs/build.md) for details.
+you can also build with CMake or Meson, refer to the [documentation](docs/build.md) for details.
 
 ## Usage
 
