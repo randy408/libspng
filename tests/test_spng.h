@@ -1,12 +1,10 @@
 #ifndef TEST_SPNG_H
 #define TEST_SPNG_H
 
-#define SPNGT_FMT_VIPS (1 << 20) /* the sequence of libpng calls in libvips */
-
 #include <spng.h>
-
-#include <stdio.h>
 #include <string.h>
+
+#define SPNGT_FMT_VIPS (1 << 20) /* the sequence of libpng calls in libvips */
 
 int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
 {
@@ -136,16 +134,13 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
     }
 
     *out_ctx = ctx;
-goto skip_err;
+
+    return out;
 
 err:
     spng_ctx_free(ctx);
     if(out != NULL) free(out);
     return NULL;
-
-skip_err:
-
-    return out;
 }
 
 #endif /* TEST_SPNG_H */
