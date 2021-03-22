@@ -6,6 +6,28 @@
 
 #define SPNGT_FMT_VIPS (1 << 20) /* the sequence of libpng calls in libvips */
 
+typedef struct spngt_chunk_bitfield
+{
+    unsigned ihdr: 1;
+    unsigned plte: 1;
+    unsigned trns: 1;
+    unsigned chrm: 1;
+    unsigned gama: 1;
+    unsigned iccp: 1;
+    unsigned sbit: 1;
+    unsigned srgb: 1;
+    unsigned text: 1;
+    unsigned ztxt: 1;
+    unsigned itxt: 1;
+    unsigned bkgd: 1;
+    unsigned hist: 1;
+    unsigned phys: 1;
+    unsigned splt: 1;
+    unsigned time: 1;
+    unsigned offs: 1;
+    unsigned exif: 1;
+}spngt_chunk_bitfield;
+
 int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
 {
    if(ctx == NULL || fmt == NULL) return 1;
@@ -37,15 +59,10 @@ int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
     return 0;
 }
 
-unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags, spng_ctx **out_ctx)
+spng_ctx *init_spng(FILE *file, int flags, struct spng_ihdr *ihdr)
 {
     int r;
-    size_t siz, out_width;
-    unsigned char *out = NULL;
-    struct spng_ihdr ihdr;
-    struct spng_row_info row_info;
-
-    spng_ctx *ctx = spng_ctx_new(0);
+    spng_ctx *ctx = spng_ctx_new(flags);
 
     if(ctx == NULL)
     {
@@ -57,7 +74,7 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
 
     if(r)
     {
-        printf("spng_set_png_stream() error: %s\n", spng_strerror(r));
+        printf("spng_set_png_file() error: %s\n", spng_strerror(r));
         goto err;
     }
 
@@ -76,6 +93,29 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
         printf("spng_set_chunk_limits() error: %s\n", spng_strerror(r));
         goto err;
     }
+
+    r = spng_get_ihdr(ctx, ihdr);
+
+    if(r)
+    {
+        printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
+    return ctx;
+
+err:
+    spng_ctx_free(ctx);
+    return NULL;
+}
+
+unsigned char *getimage_spng(spng_ctx *ctx, size_t *out_size, int fmt, int flags)
+{
+    int r;
+    size_t siz, out_width;
+    unsigned char *out = NULL;
+    struct spng_ihdr ihdr;
+    struct spng_row_info row_info;
 
     r = spng_get_ihdr(ctx, &ihdr);
 
@@ -132,8 +172,6 @@ unsigned char *getimage_libspng(FILE *file, size_t *out_size, int fmt, int flags
         printf("progressive decode error: %s\n", spng_strerror(r));
         goto err;
     }
-
-    *out_ctx = ctx;
 
     return out;
 
