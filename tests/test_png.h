@@ -2,9 +2,9 @@
 #define TEST_PNG_H
 
 #if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || defined(__BIG_ENDIAN__)
-    #define SPNG_BIG_ENDIAN
+    #define SPNGT_BIG_ENDIAN
 #else
-    #define SPNG_LITTLE_ENDIAN
+    #define SPNGT_LITTLE_ENDIAN
 #endif
 
 #include <png.h>
@@ -14,27 +14,42 @@
 #include <stdio.h>
 #include <string.h>
 
-unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags, png_infop *iptr, png_structp *pptr)
+png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
 {
-    png_infop info_ptr;
-    png_structp png_ptr;
-
-    unsigned char *image = NULL;
-    png_bytep *row_pointers = NULL;
-
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(png_ptr == NULL)
     {
         printf("libpng init failed\n");
         return NULL;
     }
 
-    info_ptr = png_create_info_struct(png_ptr);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
     if(info_ptr == NULL)
     {
         printf("png_create_info_struct failed\n");
         return NULL;
     }
+
+    png_init_io(png_ptr, file);
+
+    if(setjmp(png_jmpbuf(png_ptr)))
+    {
+        printf("libpng error\n");
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+        return NULL;
+    }
+
+    png_read_info(png_ptr, info_ptr);
+
+    *iptr = info_ptr;
+
+    return png_ptr;
+}
+
+unsigned char *getimage_libpng(png_structp png_ptr, png_infop info_ptr, size_t *out_size, int fmt, int flags)
+{
+    unsigned char *image = NULL;
+    png_bytep *row_pointers = NULL;
 
     if(setjmp(png_jmpbuf(png_ptr)))
     {
@@ -44,10 +59,6 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
         if(row_pointers != NULL) free(row_pointers);
         return NULL;
     }
-
-    png_init_io(png_ptr, file);
-
-    png_read_info(png_ptr, info_ptr);
 
     png_uint_32 width, height;
     int bit_depth, color_type, interlace_type, compression_type;
@@ -130,12 +141,12 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
 
         if(color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) png_set_expand_gray_1_2_4_to_8(png_ptr);
 
-#if defined(SPNG_LITTLE_ENDIAN)
+#if defined(SPNGT_LITTLE_ENDIAN)
          png_set_swap(png_ptr);
 #endif
     }
 
-#if defined(SPNG_LITTLE_ENDIAN) /* we want host-endian values unless it's SPNG_FMT_RAW */
+#if defined(SPNGT_LITTLE_ENDIAN) /* we want host-endian values unless it's SPNG_FMT_RAW */
     if(fmt != SPNG_FMT_RAW) png_set_swap(png_ptr);
 #endif
 
@@ -177,9 +188,6 @@ unsigned char *getimage_libpng(FILE *file, size_t *out_size, int fmt, int flags,
     png_read_end(png_ptr, info_ptr);
 
     free(row_pointers);
-
-    *pptr = png_ptr;
-    *iptr = info_ptr;
 
     return image;
 }

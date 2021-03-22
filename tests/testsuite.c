@@ -1,11 +1,12 @@
 #include <inttypes.h>
 
-const char* fmt_str(int fmt);
-
 #include "test_spng.h"
 #include "test_png.h"
 
-#define SPNG_TEST_COMPARE_CHUNKS 1
+enum spngt_flags
+{
+    SPNGT_COMPARE_CHUNKS = 1
+};
 
 #define SPNG_FMT_RGB16 8
 
@@ -50,7 +51,7 @@ static void print_test_args(struct spng_test_case *test_case)
     if(test_case->flags & SPNG_DECODE_TRNS) printf("TRNS ");
     if(test_case->flags & SPNG_DECODE_GAMMA) printf("GAMMA ");
 
-    if(test_case->test_flags & SPNG_TEST_COMPARE_CHUNKS) printf("COMPARE_CHUNKS ");
+    if(test_case->test_flags & SPNGT_COMPARE_CHUNKS) printf("COMPARE_CHUNKS ");
 
     printf("\n");
 
@@ -338,36 +339,168 @@ static int compare_images(const struct spng_ihdr *ihdr,
     return 0;
 }
 
-static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr)
-{/* TODO */
+static void print_chunks(spngt_chunk_bitfield chunks)
+{
+    if(chunks.plte) printf(" PLTE");
+    if(chunks.trns) printf(" tRNS");
+    if(chunks.chrm) printf(" cHRM");
+    if(chunks.gama) printf(" gAMA");
+    if(chunks.iccp) printf(" iCCP");
+    if(chunks.sbit) printf(" sBIT");
+    if(chunks.srgb) printf(" sRGB");
+    if(chunks.text) printf(" tEXt");
+    if(chunks.ztxt) printf(" zTXt");
+    if(chunks.itxt) printf(" iTXt");
+    if(chunks.bkgd) printf(" bKGD");
+    if(chunks.hist) printf(" hIST");
+    if(chunks.phys) printf(" pHYs");
+    if(chunks.splt) printf(" sPLT");
+    if(chunks.time) printf(" tIME");
+    if(chunks.offs) printf(" oFFs");
+    if(chunks.exif) printf(" eXIF");
+
+}
+
+static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr, int after_idat)
+{
+    spngt_chunk_bitfield spng_have = { 0 };
+    spngt_chunk_bitfield png_have = { 0 };
+
+    struct spng_plte plte;
+    struct spng_trns trns;
+    struct spng_chrm chrm;
+    struct spng_chrm_int chrm_int;
+    double gamma;
+    struct spng_iccp iccp;
+    struct spng_sbit sbit;
+    uint8_t srgb_rendering_intent;
+    struct spng_text *text;
+    struct spng_bkgd bkgd;
+    struct spng_hist hist;
+    struct spng_phys phys;
+    struct spng_splt *splt;
+    struct spng_time time;
+    uint32_t n_text = 0, n_splt = 0;
+    struct spng_offs offs;
+    struct spng_exif exif;
+
+    if(!spng_get_plte(ctx, &plte)) spng_have.plte = 1;
+    if(!spng_get_trns(ctx, &trns)) spng_have.trns = 1;
+    if(!spng_get_chrm(ctx, &chrm)) spng_have.chrm = 1;
+    if(!spng_get_gama(ctx, &gamma)) spng_have.gama = 1;
+    if(!spng_get_iccp(ctx, &iccp)) spng_have.iccp = 1;
+    if(!spng_get_sbit(ctx, &sbit)) spng_have.sbit = 1;
+    if(!spng_get_srgb(ctx, &srgb_rendering_intent)) spng_have.srgb = 1;
+    if(!spng_get_text(ctx, NULL, &n_text)) spng_have.text = 1;
+    if(!spng_get_bkgd(ctx, &bkgd)) spng_have.bkgd = 1;
+    if(!spng_get_hist(ctx, &hist)) spng_have.hist = 1;
+    if(!spng_get_phys(ctx, &phys)) spng_have.phys = 1;
+    if(!spng_get_splt(ctx, NULL, &n_splt)) spng_have.splt = 1;
+    if(!spng_get_time(ctx, &time)) spng_have.time = 1;
+    if(!spng_get_offs(ctx, &offs)) spng_have.offs = 1;
+    if(!spng_get_exif(ctx, &exif)) spng_have.exif = 1;
+
+    png_text *libpng_text;
+    int png_n_text;
+    png_sPLT_tp png_splt_entries;
+
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_PLTE)) png_have.plte = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) png_have.trns = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_cHRM)) png_have.chrm = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_gAMA)) png_have.gama = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_iCCP)) png_have.iccp = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_sBIT)) png_have.sbit = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_sRGB)) png_have.srgb = 1;
+    if(png_get_text(png_ptr, info_ptr, &libpng_text, &png_n_text)) png_have.text = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_bKGD)) png_have.bkgd = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_hIST)) png_have.hist = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_pHYs)) png_have.phys = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_sPLT)) png_have.splt = 1;
+    if(png_get_sPLT(png_ptr, info_ptr, &png_splt_entries)) png_have.splt = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tIME)) png_have.time = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_oFFs)) png_have.offs = 1;
+    if(png_get_valid(png_ptr, info_ptr, PNG_INFO_eXIf)) png_have.exif = 1;
+
+
+    if(memcmp(&spng_have, &png_have, sizeof(spngt_chunk_bitfield)))
+    {
+        const char *pos = after_idat ? "after IDAT" : "before IDAT";
+
+        printf("metadata mismatch (%s)!\n", pos);
+        printf("spng chunks:");
+        print_chunks(spng_have);
+        printf("\n");
+
+        printf("libpng chunks:");
+        print_chunks(png_have);
+        printf("\n");
+
+        return 1;
+    }
+
+    if(n_text != png_n_text)
+    {
+        printf("text chunk count mismatch: %u(spng), %d(libpng)\n", n_text, png_n_text);
+        return 1;
+    }
 
     return 0;
 }
 
-static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int flags, int test_flags)
+static int decode_and_compare(const char *filename, int fmt, int flags, int test_flags)
 {
     int ret = 0;
-    png_infop info_ptr = NULL;
-    png_structp png_ptr = NULL;
 
-    struct spng_ctx *ctx = NULL;
-
+    spng_ctx *ctx = NULL;
+    FILE *file_spng = NULL;
     size_t img_spng_size;
     unsigned char *img_spng =  NULL;
 
-    img_spng = getimage_libspng(file, &img_spng_size, fmt, flags, &ctx);
-    if(img_spng == NULL)
-    {
-        printf("getimage_libspng() failed\n");
-        return 1;
-    }
-
-    rewind(file);
-
+    png_infop info_ptr = NULL;
+    png_structp png_ptr = NULL;
+    FILE *file_libpng = NULL;
     size_t img_png_size;
     unsigned char *img_png = NULL;
 
-    img_png = getimage_libpng(file, &img_png_size, fmt, flags, &info_ptr, &png_ptr);
+    file_spng = fopen(filename, "rb");
+    file_libpng = fopen(filename, "rb");
+
+    if(!file_spng || !file_libpng)
+    {
+        ret = 1;
+        goto cleanup;
+    }
+
+    struct spng_ihdr ihdr;
+    ctx = init_spng(file_spng, 0, &ihdr);
+
+    if(ctx == NULL)
+    {
+        ret = 1;
+        goto cleanup;
+    }
+
+    img_spng = getimage_spng(ctx, &img_spng_size, fmt, flags);
+    if(img_spng == NULL)
+    {
+        printf("getimage_spng() failed\n");
+        ret = 1;
+        goto cleanup;
+    }
+
+    png_ptr = init_libpng(file_libpng, 0, &info_ptr);
+    if(png_ptr == NULL)
+    {
+        ret = 1;
+        goto cleanup;
+    }
+
+    if(test_flags & SPNGT_COMPARE_CHUNKS)
+    {
+        ret = compare_chunks(ctx, info_ptr, png_ptr, 0);
+    }
+
+    img_png = getimage_libpng(png_ptr, info_ptr, &img_png_size, fmt, flags);
     if(img_png == NULL)
     {
         printf("getimage_libpng() failed\n");
@@ -386,8 +519,8 @@ static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int f
     if(fmt == SPNGT_FMT_VIPS)
     {/* Get the right format for compare_images() */
         fmt = SPNG_FMT_PNG;
-        if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
-        else if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth < 8) fmt = SPNG_FMT_G8;
+        if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
+        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth < 8) fmt = SPNG_FMT_G8;
 
         spng_get_trns_fmt(ctx, &fmt);
         printf("VIPS format: %s\n", fmt_str(fmt));
@@ -401,7 +534,7 @@ static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int f
         ret = 1;
     }
 
-    ret |= compare_images(ihdr, fmt, flags, img_spng, img_png, img_spng_size);
+    ret |= compare_images(&ihdr, fmt, flags, img_spng, img_png, img_spng_size);
 
     if(!ret && !(flags & SPNG_DECODE_GAMMA))
     {/* in case compare_images() has some edge case */
@@ -412,9 +545,9 @@ static int decode_and_compare(FILE *file, struct spng_ihdr *ihdr, int fmt, int f
 
 identical:
 
-    if(test_flags & SPNG_TEST_COMPARE_CHUNKS)
+    if(test_flags & SPNGT_COMPARE_CHUNKS)
     {
-        ret = compare_chunks(ctx, info_ptr, png_ptr);
+        ret = compare_chunks(ctx, info_ptr, png_ptr, 1);
     }
 
 cleanup:
@@ -424,6 +557,9 @@ cleanup:
 
     free(img_spng);
     free(img_png);
+
+    if(file_spng) fclose(file_spng);
+    if(file_libpng) fclose(file_libpng);
 
     return ret;
 }
@@ -451,7 +587,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    FILE *file;
     char *filename = argv[1];
 
     if(!strcmp(filename, "info"))
@@ -469,7 +604,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    file = fopen(filename, "rb");
+    FILE *file = fopen(filename, "rb");
 
     if(file == NULL)
     {
@@ -499,14 +634,14 @@ int main(int argc, char **argv)
     }
     else printf("failed to get image info\n");
 
-    rewind(file);
+    fclose(file);
 
 /*  With libpng it's not possible to request 8/16-bit images regardless of
     PNG format without calling functions that alias to png_set_expand(_16),
     which acts as if png_set_tRNS_to_alpha() was called, as a result
     there are no tests where transparency is not applied
 */
-    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS, 0);
+    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS, SPNGT_COMPARE_CHUNKS);
     add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, 0);
     add_test_case(SPNG_FMT_RGBA16, SPNG_DECODE_TRNS, 0);
     add_test_case(SPNG_FMT_RGBA16, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, 0);
@@ -538,9 +673,8 @@ int main(int argc, char **argv)
     {
         print_test_args(&test_cases[i]);
 
-        int e = decode_and_compare(file, &ihdr, test_cases[i].fmt, test_cases[i].flags, test_cases[i].test_flags);
+        int e = decode_and_compare(filename, test_cases[i].fmt, test_cases[i].flags, test_cases[i].test_flags);
         if(!ret) ret = e;
-        rewind(file);
     }
 
     return ret;
