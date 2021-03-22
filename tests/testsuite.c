@@ -451,30 +451,49 @@ static int decode_and_compare(const char *filename, int fmt, int flags, int test
 {
     int ret = 0;
 
+    spng_ctx *ctx = NULL;
     FILE *file_spng = NULL;
+    size_t img_spng_size;
+    unsigned char *img_spng =  NULL;
+
+    png_infop info_ptr = NULL;
+    png_structp png_ptr = NULL;
     FILE *file_libpng = NULL;
+    size_t img_png_size;
+    unsigned char *img_png = NULL;
 
     file_spng = fopen(filename, "rb");
     file_libpng = fopen(filename, "rb");
 
-    struct spng_ihdr ihdr;
+    if(!file_spng || !file_libpng)
+    {
+        ret = 1;
+        goto cleanup;
+    }
 
-    spng_ctx *ctx = init_spng(file_spng, 0, &ihdr);
-    size_t img_spng_size;
-    unsigned char *img_spng =  NULL;
+    struct spng_ihdr ihdr;
+    ctx = init_spng(file_spng, 0, &ihdr);
+
+    if(ctx == NULL)
+    {
+        ret = 1;
+        goto cleanup;
+    }
 
     img_spng = getimage_spng(ctx, &img_spng_size, fmt, flags);
     if(img_spng == NULL)
     {
         printf("getimage_spng() failed\n");
-        return 1;
+        ret = 1;
+        goto cleanup;
     }
 
-    size_t img_png_size;
-    unsigned char *img_png = NULL;
-
-    png_infop info_ptr;
-    png_structp png_ptr = init_libpng(file_libpng, 0, &info_ptr);
+    png_ptr = init_libpng(file_libpng, 0, &info_ptr);
+    if(png_ptr == NULL)
+    {
+        ret = 1;
+        goto cleanup;
+    }
 
     if(test_flags & SPNGT_COMPARE_CHUNKS)
     {
