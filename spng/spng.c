@@ -393,7 +393,7 @@ static struct spng__iter spng__iter_init(unsigned bit_depth, const unsigned char
 {
     struct spng__iter iter =
     {
-        .mask = (uint16_t)(1 << bit_depth) - 1,
+        .mask = (uint32_t)(1 << bit_depth) - 1,
         .shift_amount = 8 - bit_depth,
         .initial_shift = 8 - bit_depth,
         .bit_depth = bit_depth,
@@ -2490,6 +2490,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     unsigned char *trns_px = ctx->trns_px;
     struct spng_sbit *sb = &ctx->decode_sb;
     struct spng_plte_entry16 *plte = ctx->decode_plte;
+    struct spng__iter iter = (ctx->ihdr.bit_depth < 16) ? spng__iter_init(ctx->ihdr.bit_depth, ctx->scanline) : (struct spng__iter){0};
 
     unsigned char *scanline = ctx->scanline;
 
@@ -2503,10 +2504,6 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     uint16_t r_16, g_16, b_16, a_16, gray_16;
     r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
     r_16=0; g_16=0; b_16=0; a_16=0; gray_16=0;
-    const uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
-    const uint8_t mask = (uint16_t)(1 << ctx->ihdr.bit_depth) - 1;
-    const uint8_t initial_shift = 8 - ctx->ihdr.bit_depth;
-    uint8_t shift_amount = initial_shift;
     size_t pixel_size = 4; /* SPNG_FMT_RGBA8 */
     size_t pixel_offset = 0;
     unsigned char *pixel;
@@ -2607,13 +2604,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
             }
             else /* < 8 */
             {
-                memcpy(&entry, scanline + k / samples_per_byte, 1);
-
-                if(shift_amount > 7) shift_amount = initial_shift;
-
-                entry = (entry >> shift_amount) & mask;
-
-                shift_amount -= ctx->ihdr.bit_depth;
+                entry = get_sample(&iter);
             }
 
             if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
@@ -2672,13 +2663,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
             }
             else /* <= 8 */
             {
-                memcpy(&gray_8, scanline + k / samples_per_byte, 1);
-
-                if(shift_amount > 7) shift_amount = initial_shift;
-
-                gray_8 = (gray_8 >> shift_amount) & mask;
-
-                shift_amount -= ctx->ihdr.bit_depth;
+                gray_8 = get_sample(&iter);
 
                 if(f.apply_trns && ctx->trns.gray == gray_8) a_8 = 0;
                 else a_8 = 255;
@@ -2811,28 +2796,21 @@ int spng_decode_row(spng_ctx *ctx, void *out, size_t len)
     {
         if(ctx->ihdr.bit_depth < 8)
         {
+            struct spng__iter iter = spng__iter_init(ctx->ihdr.bit_depth, ctx->row);
             const uint8_t samples_per_byte = 8 / ctx->ihdr.bit_depth;
-            const uint8_t mask = (uint16_t)(1 << ctx->ihdr.bit_depth) - 1;
-            const uint8_t initial_shift = 8 - ctx->ihdr.bit_depth;
-            uint8_t shift_amount = initial_shift;
             uint8_t sample;
 
             for(k=0; k < ctx->subimage[pass].width; k++)
             {
+                sample = get_sample(&iter);
+
                 size_t ioffset = adam7_x_start[pass] + k * adam7_x_delta[pass];
 
-                memcpy(&sample, ctx->row + k / samples_per_byte, 1);
-
-                if(shift_amount > 7) shift_amount = initial_shift;
-
-                sample = (sample >> shift_amount) & mask;
-                sample = sample << (initial_shift - ioffset * ctx->ihdr.bit_depth % 8);
+                sample = sample << (iter.initial_shift - ioffset * ctx->ihdr.bit_depth % 8);
 
                 ioffset /= samples_per_byte;
 
                 outptr[ioffset] |= sample;
-
-                shift_amount -= ctx->ihdr.bit_depth;
             }
 
             return 0;
