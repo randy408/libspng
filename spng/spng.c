@@ -580,9 +580,9 @@ static inline int read_and_check_crc(spng_ctx *ctx)
     ret = read_data(ctx, 4);
     if(ret) return ret;
 
-    if(!ctx->skip_crc) return 0;
-
     ctx->current_chunk.crc = read_u32(ctx->data);
+
+    if(ctx->skip_crc) return 0;
 
     if(ctx->cur_actual_crc != ctx->current_chunk.crc)
     {
