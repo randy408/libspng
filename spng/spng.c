@@ -182,6 +182,8 @@ struct spng__iter
     const unsigned char *samples;
 };
 
+typedef void spng__undo(spng_ctx *ctx);
+
 struct spng_ctx
 {
     size_t data_size;
@@ -212,7 +214,10 @@ struct spng_ctx
     unsigned streaming: 1;
 
     unsigned encode_only: 1;
-    unsigned strict : 1;
+    unsigned strict: 1;
+    unsigned discard: 1;
+
+    spng__undo *undo;
 
     /* input file contains this chunk */
     struct spng_chunk_bitfield file;
@@ -595,7 +600,7 @@ static inline int read_and_check_crc(spng_ctx *ctx)
 }
 
 /* Read and validate the current chunk's crc and the next chunk header */
-static inline int read_header(spng_ctx *ctx, int *discard)
+static inline int read_header(spng_ctx *ctx)
 {
     if(ctx == NULL) return SPNG_EINTERNAL;
 
@@ -607,7 +612,7 @@ static inline int read_header(spng_ctx *ctx, int *discard)
     {
         if(ret == -SPNG_CRC_DISCARD)
         {
-            if(discard != NULL) *discard = 1;
+            ctx->discard = 1;
         }
         else return ret;
     }
@@ -894,7 +899,7 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
 
     while(!ctx->cur_chunk_bytes_left)
     {
-        ret = read_header(ctx, NULL);
+        ret = read_header(ctx);
         if(ret) return ret;
 
         if(memcmp(ctx->current_chunk.type, type_idat, 4)) return SPNG_EIDAT_TOO_SHORT;
@@ -1687,30 +1692,30 @@ static void text_undo(spng_ctx *ctx)
     ctx->n_text--;
 }
 
-typedef void spng__undo(spng_ctx *ctx);
-
 static int read_non_idat_chunks(spng_ctx *ctx)
 {
-    int ret, discard = 0;
+    int ret;
     int prev_was_idat = ctx->state == SPNG_STATE_AFTER_IDAT ? 1 : 0;
     struct spng_chunk chunk;
     const unsigned char *data;
-    spng__undo *undo = NULL;
+
+    ctx->discard = 0;
+    ctx->undo = NULL;
 
     struct spng_chunk_bitfield stored;
-    stored = ctx->stored;
+    memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
 
-    while( !(ret = read_header(ctx, &discard)))
+    while( !(ret = read_header(ctx)))
     {
-        if(discard)
+        if(ctx->discard)
         {
-            if(undo) undo(ctx);
+            if(ctx->undo) ctx->undo(ctx);
 
-            ctx->stored = stored;
+            memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
         }
 
-        discard = 0;
-        undo = NULL;
+        ctx->discard = 0;
+        ctx->undo = NULL;
 
         stored = ctx->stored;
         chunk = ctx->current_chunk;
@@ -2116,7 +2121,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 {
                     if(!ctx->strict && ret == SPNG_EZLIB)
                     {
-                        discard = 1;
+                        ctx->discard = 1;
                         goto discard;
                     }
                     else return ret;
@@ -2131,7 +2136,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ctx->file.text = 1;
-                undo = text_undo;
+                ctx->undo = text_undo;
 
                 if(ctx->user.text) goto discard;
 
@@ -2241,7 +2246,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                     {
                         if(!ctx->strict && ret == SPNG_EZLIB)
                         {
-                            discard = 1;
+                            ctx->discard = 1;
                             goto discard;
                         }
                         else return ret;
@@ -2301,7 +2306,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ctx->file.splt = 1;
-                undo = splt_undo;
+                ctx->undo = splt_undo;
 
                 /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spng_splt_entry) */
                 if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_ECHUNK_LIMITS;
