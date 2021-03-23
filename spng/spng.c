@@ -216,6 +216,7 @@ struct spng_ctx
     unsigned encode_only: 1;
     unsigned strict: 1;
     unsigned discard: 1;
+    unsigned skip_crc: 1;
 
     spng__undo *undo;
 
@@ -579,6 +580,8 @@ static inline int read_and_check_crc(spng_ctx *ctx)
     ret = read_data(ctx, 4);
     if(ret) return ret;
 
+    if(!ctx->skip_crc) return 0;
+
     ctx->current_chunk.crc = read_u32(ctx->data);
 
     if(ctx->cur_actual_crc != ctx->current_chunk.crc)
@@ -630,8 +633,15 @@ static inline int read_header(spng_ctx *ctx)
 
     ctx->cur_chunk_bytes_left = chunk.length;
 
-    ctx->cur_actual_crc = crc32(0, NULL, 0);
-    ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, chunk.type, 4);
+    if(is_critical_chunk(&chunk) && ctx->crc_action_critical == SPNG_CRC_USE) ctx->skip_crc = 1;
+    else if(ctx->crc_action_ancillary == SPNG_CRC_USE) ctx->skip_crc = 1;
+    else ctx->skip_crc = 0;
+
+    if(!ctx->skip_crc)
+    {
+        ctx->cur_actual_crc = crc32(0, NULL, 0);
+        ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, chunk.type, 4);
+    }
 
     ctx->current_chunk = chunk;
 
@@ -650,13 +660,8 @@ static int read_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
     ret = read_data(ctx, bytes);
     if(ret) return ret;
 
-    if(is_critical_chunk(&ctx->current_chunk) &&
-       ctx->crc_action_critical == SPNG_CRC_USE) goto skip_crc;
-    else if(ctx->crc_action_ancillary == SPNG_CRC_USE) goto skip_crc;
+    if(!ctx->skip_crc) ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, ctx->data, bytes);
 
-    ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, ctx->data, bytes);
-
-skip_crc:
     ctx->cur_chunk_bytes_left -= bytes;
 
     return ret;
@@ -686,13 +691,8 @@ static int read_chunk_bytes2(spng_ctx *ctx, void *out, uint32_t bytes)
         ctx->bytes_read += len;
         if(ctx->bytes_read < len) return SPNG_EOVERFLOW;
 
-        if(is_critical_chunk(&ctx->current_chunk) &&
-           ctx->crc_action_critical == SPNG_CRC_USE) goto skip_crc;
-        else if(ctx->crc_action_ancillary == SPNG_CRC_USE) goto skip_crc;
+        if(!ctx->skip_crc) ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, out, len);
 
-        ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, out, len);
-
-skip_crc:
         ctx->cur_chunk_bytes_left -= len;
 
         out = (char*)out + len;
