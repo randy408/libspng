@@ -1545,14 +1545,14 @@ static int check_exif(const struct spng_exif *exif)
     return 0;
 }
 
-/* Validate PNG keyword *str, *str must be 80 bytes */
-static int check_png_keyword(const char str[80])
+/* Validate PNG keyword */
+static int check_png_keyword(const char *str)
 {
     if(str == NULL) return 1;
-    char *end = memchr(str, '\0', 80);
+    char len = strlen(str);
+    const char *end = str + len;
 
-    if(end == NULL) return 1; /* Unterminated string */
-    if(end == str) return 1; /* Zero-length string */
+    if(!len) return 1;
     if(str[0] == ' ') return 1; /* Leading space */
     if(end[-1] == ' ') return 1; /* Trailing space */
     if(strstr(str, "  ") != NULL) return 1; /* Consecutive spaces */
