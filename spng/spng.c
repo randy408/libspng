@@ -1703,7 +1703,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
     ctx->undo = NULL;
 
     struct spng_chunk_bitfield stored;
-    memcpy(&stored, &ctx->stored, sizeof(struct spng_chunk_bitfield));
+    stored = ctx->stored;
 
     while( !(ret = read_header(ctx)))
     {
@@ -1711,7 +1711,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
         {
             if(ctx->undo) ctx->undo(ctx);
 
-            memcpy(&ctx->stored, &stored, sizeof(struct spng_chunk_bitfield));
+            ctx->stored = stored;
         }
 
         ctx->discard = 0;
