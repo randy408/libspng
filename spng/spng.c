@@ -233,7 +233,7 @@ struct spng_ctx
 
     uint32_t max_width, max_height;
 
-    uint32_t max_chunk_size;
+    size_t max_chunk_size;
     size_t chunk_cache_limit;
     size_t chunk_cache_usage;
 
@@ -796,7 +796,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
     if(start_buf != NULL && start_len)
     {
-        stream->avail_in = start_len;
+        stream->avail_in = (uInt)start_len;
         stream->next_in = start_buf;
     }
     else
@@ -805,7 +805,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
         stream->next_in = NULL;
     }
 
-    stream->avail_out = size;
+    stream->avail_out = (uInt)size;
     stream->next_out = buf;
 
     while(ret != Z_STREAM_END)
@@ -836,7 +836,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
             buf = t;
 
-            stream->avail_out = size / 2;
+            stream->avail_out = (uInt)size / 2;
             stream->next_out = (unsigned char*)buf + size / 2;
         }
         else if(!stream->avail_in) /* Read more chunk bytes */
@@ -928,7 +928,7 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 
     z_stream *zstream = &ctx->zstream;
 
-    zstream->avail_out = len;
+    zstream->avail_out = (uInt)len;
     zstream->next_out = dest;
 
     while(zstream->avail_out != 0)
