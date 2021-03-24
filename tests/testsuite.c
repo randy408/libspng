@@ -341,6 +341,10 @@ static int compare_images(const struct spng_ihdr *ihdr,
 
 static void print_chunks(spngt_chunk_bitfield chunks)
 {
+    spngt_chunk_bitfield none = { 0 };
+
+    if(!memcmp(&none, &chunks, sizeof(spngt_chunk_bitfield))) printf(" (none)");
+
     if(chunks.plte) printf(" PLTE");
     if(chunks.trns) printf(" tRNS");
     if(chunks.chrm) printf(" cHRM");
@@ -421,20 +425,19 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_oFFs)) png_have.offs = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_eXIf)) png_have.exif = 1;
 
+    const char *pos = after_idat ? "after IDAT" : "before IDAT";
+
+    printf("[%s] spng chunks:  ", pos);
+    print_chunks(spng_have);
+    printf("\n");
+
+    printf("[%s] libpng chunks:", pos);
+    print_chunks(png_have);
+    printf("\n");
 
     if(memcmp(&spng_have, &png_have, sizeof(spngt_chunk_bitfield)))
     {
-        const char *pos = after_idat ? "after IDAT" : "before IDAT";
-
-        printf("metadata mismatch (%s)!\n", pos);
-        printf("spng chunks:");
-        print_chunks(spng_have);
-        printf("\n");
-
-        printf("libpng chunks:");
-        print_chunks(png_have);
-        printf("\n");
-
+        printf("[%s] metadata mismatch!\n", pos);
         return 1;
     }
 
