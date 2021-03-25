@@ -217,6 +217,7 @@ struct spng_ctx
     unsigned strict: 1;
     unsigned discard: 1;
     unsigned skip_crc: 1;
+    unsigned prev_was_idat: 1;
 
     spng__undo *undo;
 
@@ -228,6 +229,9 @@ struct spng_ctx
 
     /* chunk was stored by reading or with spng_set_*() */
     struct spng_chunk_bitfield stored;
+
+    /* used to reset the above in case of an error */
+    struct spng_chunk_bitfield prev_stored;
 
     struct spng_chunk first_idat, last_idat;
 
@@ -1695,15 +1699,12 @@ static void text_undo(spng_ctx *ctx)
 static int read_non_idat_chunks(spng_ctx *ctx)
 {
     int ret;
-    int prev_was_idat = ctx->state == SPNG_STATE_AFTER_IDAT ? 1 : 0;
     struct spng_chunk chunk;
     const unsigned char *data;
 
     ctx->discard = 0;
     ctx->undo = NULL;
-
-    struct spng_chunk_bitfield stored;
-    stored = ctx->stored;
+    ctx->prev_stored = ctx->stored;
 
     while( !(ret = read_header(ctx)))
     {
@@ -1711,13 +1712,13 @@ static int read_non_idat_chunks(spng_ctx *ctx)
         {
             if(ctx->undo) ctx->undo(ctx);
 
-            ctx->stored = stored;
+            ctx->stored = ctx->prev_stored;
         }
 
         ctx->discard = 0;
         ctx->undo = NULL;
 
-        stored = ctx->stored;
+        ctx->prev_stored = ctx->stored;
         chunk = ctx->current_chunk;
 
         if(!memcmp(chunk.type, type_idat, 4))
@@ -1730,7 +1731,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 return 0;
             }
 
-            if(prev_was_idat)
+            if(ctx->prev_was_idat)
             {
                 /* Ignore extra IDAT's */
                 ret = discard_chunk_bytes(ctx, chunk.length);
@@ -1741,7 +1742,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             else return SPNG_ECHUNK_POS; /* IDAT chunk not at the end of the IDAT sequence */
         }
 
-        prev_was_idat = 0;
+        ctx->prev_was_idat = 0;
 
         if(is_small_chunk(chunk.type))
         {
@@ -2136,7 +2137,6 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ctx->file.text = 1;
-                ctx->undo = text_undo;
 
                 if(ctx->user.text) goto discard;
 
@@ -2152,6 +2152,8 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 struct spng_text2 *text = &ctx->text_list[ctx->n_text - 1];
                 memset(text, 0, sizeof(struct spng_text2));
+
+                ctx->undo = text_undo;
 
                 uint32_t text_offset = 0, language_tag_offset = 0, translated_keyword_offset = 0;
                 uint32_t peek_bytes = 256; /* enough for 3 80-byte keywords and some text bytes */
@@ -2306,7 +2308,6 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
                 ctx->file.splt = 1;
-                ctx->undo = splt_undo;
 
                 /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spng_splt_entry) */
                 if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_ECHUNK_LIMITS;
@@ -2322,6 +2323,8 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 struct spng_splt *splt = &ctx->splt_list[ctx->n_splt - 1];
 
                 memset(splt, 0, sizeof(struct spng_splt));
+
+                ctx->undo = splt_undo;
 
                 void *t = spng__malloc(ctx, chunk.length);
                 if(t == NULL) return SPNG_EMEM;
@@ -2427,6 +2430,13 @@ discard:
     return ret;
 }
 
+static int decode_err(spng_ctx *ctx, int err)
+{
+    ctx->state = SPNG_STATE_INVALID;
+
+    return err;
+}
+
 /* Read chunks before or after the IDAT chunks depending on state */
 static int read_chunks(spng_ctx *ctx, int only_ihdr)
 {
@@ -2443,38 +2453,101 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
     if(ctx->state == SPNG_STATE_INPUT)
     {
         ret = read_ihdr(ctx);
-        if(ret)
-        {
-            ctx->state = SPNG_STATE_INVALID;
-            return ret;
-        }
+
+        if(ret) return decode_err(ctx, ret);
 
         ctx->state = SPNG_STATE_IHDR;
     }
 
     if(only_ihdr) return 0;
 
-    if(ctx->state == SPNG_STATE_EOI) ctx->state = SPNG_STATE_AFTER_IDAT;
+    if(ctx->state == SPNG_STATE_EOI)
+    {
+        ctx->state = SPNG_STATE_AFTER_IDAT;
+        ctx->prev_was_idat = 1;
+    }
 
-    if(ctx->state < SPNG_STATE_FIRST_IDAT || ctx->state == SPNG_STATE_AFTER_IDAT)
+    while(ctx->state < SPNG_STATE_FIRST_IDAT || ctx->state == SPNG_STATE_AFTER_IDAT)
     {
         ret = read_non_idat_chunks(ctx);
+
         if(!ret)
         {
             if(ctx->state < SPNG_STATE_FIRST_IDAT) ctx->state = SPNG_STATE_FIRST_IDAT;
             else if(ctx->state == SPNG_STATE_AFTER_IDAT) ctx->state = SPNG_STATE_IEND;
         }
-        else ctx->state = SPNG_STATE_INVALID;
+        else
+        {
+            switch(ret)
+            {
+                case SPNG_ECHUNK_POS:
+                case SPNG_ECHUNK_SIZE: /* size != expected size, SPNG_ECHUNK_STDLEN = invalid size */
+                case SPNG_EDUP_PLTE:
+                case SPNG_EDUP_CHRM:
+                case SPNG_EDUP_GAMA:
+                case SPNG_EDUP_ICCP:
+                case SPNG_EDUP_SBIT:
+                case SPNG_EDUP_SRGB:
+                case SPNG_EDUP_BKGD:
+                case SPNG_EDUP_HIST:
+                case SPNG_EDUP_TRNS:
+                case SPNG_EDUP_PHYS:
+                case SPNG_EDUP_TIME:
+                case SPNG_EDUP_OFFS:
+                case SPNG_EDUP_EXIF:
+                case SPNG_ECHRM:
+                case SPNG_ETRNS_COLOR_TYPE:
+                case SPNG_ETRNS_NO_PLTE:
+                case SPNG_EGAMA:
+                case SPNG_EICCP_NAME:
+                case SPNG_EICCP_COMPRESSION_METHOD:
+                case SPNG_ESBIT:
+                case SPNG_ESRGB:
+                case SPNG_ETEXT:
+                case SPNG_ETEXT_KEYWORD:
+                case SPNG_EZTXT:
+                case SPNG_EZTXT_COMPRESSION_METHOD:
+                case SPNG_EITXT:
+                case SPNG_EITXT_COMPRESSION_FLAG:
+                case SPNG_EITXT_COMPRESSION_METHOD:
+                case SPNG_EITXT_LANG_TAG:
+                case SPNG_EITXT_TRANSLATED_KEY:
+                case SPNG_EBKGD_NO_PLTE:
+                case SPNG_EBKGD_PLTE_IDX:
+                case SPNG_EHIST_NO_PLTE:
+                case SPNG_EPHYS:
+                case SPNG_ESPLT_NAME:
+                case SPNG_ESPLT_DUP_NAME:
+                case SPNG_ESPLT_DEPTH:
+                case SPNG_ETIME:
+                case SPNG_EOFFS:
+                case SPNG_EEXIF:
+                case SPNG_EZLIB:
+                {
+                    if(!ctx->strict && !is_critical_chunk(&ctx->current_chunk))
+                    {
+                        ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+                        if(ret) return decode_err(ctx, ret);
+
+                        if(ctx->undo) ctx->undo(ctx);
+
+                        ctx->stored = ctx->prev_stored;
+
+                        ctx->discard = 0;
+                        ctx->undo = NULL;
+
+                        continue;
+                    }
+                    else return decode_err(ctx, ret);
+
+                    break;
+                }
+                default: return decode_err(ctx, ret);
+            }
+        }
     }
 
     return ret;
-}
-
-static int decode_err(spng_ctx *ctx, int err)
-{
-    ctx->state = SPNG_STATE_INVALID;
-
-    return err;
 }
 
 int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
