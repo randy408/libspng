@@ -176,7 +176,6 @@ unsigned char *getimage_spng(spng_ctx *ctx, size_t *out_size, int fmt, int flags
     return out;
 
 err:
-    spng_ctx_free(ctx);
     if(out != NULL) free(out);
     return NULL;
 }
