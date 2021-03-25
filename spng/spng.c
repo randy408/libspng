@@ -1861,11 +1861,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             }
             else if(ctx->ihdr.color_type == 6)
             {
-                if(chunk.length != 4)
-                {
-                    if(ctx->strict) return SPNG_ECHUNK_SIZE;
-                    else continue;
-                }
+                if(chunk.length != 4) return SPNG_ECHUNK_SIZE;
 
                 ctx->sbit.red_bits = data[0];
                 ctx->sbit.green_bits = data[1];
@@ -1909,11 +1905,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             }
             else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
             {
-                if(chunk.length != 6)
-                {
-                    if(ctx->strict) return SPNG_ECHUNK_SIZE;
-                    else continue;
-                }
+                if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
                 ctx->bkgd.red = read_u16(data) & mask;
                 ctx->bkgd.green = read_u16(data + 2) & mask;
@@ -1967,13 +1959,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 ctx->trns.n_type3_entries = chunk.length;
             }
 
-            /* The standard explicitly forbids tRNS chunks for grayscale alpha,
-                truecolor alpha images but libpng only emits a warning by default. */
-            if(ctx->ihdr.color_type == 4 || ctx->ihdr.color_type == 6)
-            {
-                if(ctx->strict) return SPNG_ETRNS_COLOR_TYPE;
-                else continue;
-            }
+            if(ctx->ihdr.color_type == 4 || ctx->ihdr.color_type == 6)  return SPNG_ETRNS_COLOR_TYPE;
 
             ctx->file.trns = 1;
             ctx->stored.trns = 1;
@@ -2118,15 +2104,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ret = spng__inflate_stream(ctx, &ctx->iccp.profile, &ctx->iccp.profile_len, 0, ctx->data + keyword_len + 2, peek_bytes - (keyword_len + 2));
 
-                if(ret)
-                {
-                    if(!ctx->strict && ret == SPNG_EZLIB)
-                    {
-                        ctx->discard = 1;
-                        goto discard;
-                    }
-                    else return ret;
-                }
+                if(ret) return ret;
 
                 ctx->stored.iccp = 1;
             }
@@ -2244,15 +2222,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                     ret = spng__inflate_stream(ctx, &text->text, &text->text_length, 1, zlib_stream, peek_bytes - text_offset);
 
-                    if(ret)
-                    {
-                        if(!ctx->strict && ret == SPNG_EZLIB)
-                        {
-                            ctx->discard = 1;
-                            goto discard;
-                        }
-                        else return ret;
-                    }
+                    if(ret) return ret;
 
                     text->text[text->text_length - 1] = '\0';
                     text->cache_usage = text->text_length + peek_bytes;
