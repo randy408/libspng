@@ -64,6 +64,26 @@ enum spng_decode_flags
 
 The `SPNG_DECODE_PROGRESSIVE` flag is supported in all cases.
 
+# Error handling
+
+The default behavior is meant to emulate libpng in most cases,
+this means non-critical errors are ignored
+
+* Invalid palette indices are handled as black, opaque pixels
+* `tEXt`, `zTXt` chunks with non-Latin characters are considered valid
+* Discard ancillary chunks with an invalid CRC by default
+* Discard chunks with zlib errors (adler32 checksum error, data error, etc)
+* Discard ancillary chunks with any other errors (unexpected length, out-of-range values, etc)
+* Extra trailing image data is discarded
+
+XXX: expand on: zlib errors, configuration, libpng equivalents and more
+
+Truncated PNG's and truncated image data is always handled as a critical error,
+getting a partial image is possible with progressive decoding but is not
+guaranteed to work in all cases. Currently the library issues read callbacks
+that can span multiple rows or even the whole image, if the remaining
+data is less than expected the partial read is not processed.
+
 # API
 
 # spng_set_png_buffer()
