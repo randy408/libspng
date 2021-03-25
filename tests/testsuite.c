@@ -425,7 +425,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_oFFs)) png_have.offs = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_eXIf)) png_have.exif = 1;
 
-    const char *pos = after_idat ? "after IDAT" : "before IDAT";
+    const char *pos = after_idat ? " after IDAT" : "before IDAT";
 
     printf("[%s] spng chunks:  ", pos);
     print_chunks(spng_have);
@@ -437,7 +437,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
     if(memcmp(&spng_have, &png_have, sizeof(spngt_chunk_bitfield)))
     {
-        printf("[%s] metadata mismatch!\n", pos);
+        printf("[%s] ERROR: metadata mismatch!\n", pos);
         return 1;
     }
 
