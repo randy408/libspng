@@ -43,3 +43,4 @@ coverity:
     - rm spng.tgz
     - rm -r cov-int
 
+
