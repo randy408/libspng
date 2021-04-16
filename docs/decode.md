@@ -64,6 +64,82 @@ enum spng_decode_flags
 
 The `SPNG_DECODE_PROGRESSIVE` flag is supported in all cases.
 
+# Error handling
+
+Decoding errors are divided into critical and non-critical errors.
+
+See also: [General error handling](errors.md)
+
+Critical errors are not recoverable, it should be assumed that decoding has
+failed completely and any partial image output is invalid, although corrupted
+PNG's may appear to decode to the same partial image every time this cannot be guaranteed.
+
+A critical error will stop any further parsing, invalidate the context and return the
+relevant error code, most functions check for a valid context state and return
+`SPNG_EBADSTATE` for subsequent calls to prevent undefined behavior.
+It is strongly recommended to check all return values.
+
+Non-critical errors in a decoding context refers to file corruption issues
+that can be handled in a deterministic manner either by ignoring checksums
+or discarding invalid chunks.
+The image is extracted consistently but may have lost color accuracy,
+transparency, etc.
+
+The default behavior is meant to emulate libpng for compatibility reasons
+with existing images in the wild, most non-critical errors are ignored.
+Configuring decoder strictness is currently limited to checksums.
+
+* Invalid palette indices are handled as black, opaque pixels
+* `tEXt`, `zTXt` chunks with non-Latin characters are considered valid
+* Non-critical chunks are discarded if the:
+    * Chunk CRC is invalid (`SPNG_CRC_DISCARD` is the default for ancillary chunks)
+    * Chunk has an invalid DEFLATE stream, by default this includes Adler-32 checksum errors
+    * Chunk has errors specific to the chunk type: unexpected length, out-of-range values, etc
+* Critical chunks with either chunk CRC or Adler-32 errors will stop parsing (unless configured otherwise)
+* Extra trailing image data is silently discarded
+* No parsing or validation is done past the `IEND` end-of-file marker
+
+Truncated PNG's and truncated image data is always handled as a critical error,
+getting a partial image is possible with progressive decoding but is not
+guaranteed to work in all cases. The decoder issues read callbacks that
+can span multiple rows or even the whole image, partial reads are not processed.
+
+Some limitations apply, spng will stop decoding if:
+
+* An image row is larger than 4 GB
+* Something causes arithmetic overflow (limited to extreme cases on 32-bit)
+
+## Checksums
+
+There are two types of checksums used in PNG's: 32-bit CRC's for chunk data and Adler-32
+in DEFLATE streams.
+
+Creating a context with the `SPNG_CTX_IGNORE_ADLER32` flag will cause Adler-32
+checksums to be ignored by zlib, both in compressed metadata and image data.
+Note this is only supported with zlib >= 1.2.11 and is not available when compiled against miniz.
+
+Chunk CRC handling is configured with `spng_set_crc_action()`,
+when `SPNG_CRC_USE` is used for either chunk types the Adler-32 checksums in DEFLATE streams
+will be also ignored.
+When set for both chunk types it has the same effect as `SPNG_CTX_IGNORE_ADLER32`,
+this does not apply vice-versa.
+
+Currently there are no distinctions made between Adler-32 checksum- and other errors
+in DEFLATE streams, they're all mapped to the `SPNG_EZLIB` error code.
+
+The libpng equivalent of `spng_set_crc_action()` is `png_set_crc_action()`,
+it implements a subset of its features:
+
+| libpng                 | spng               | Notes                   |
+|------------------------|--------------------|-------------------------|
+| `PNG_CRC_ERROR_QUIT`   | `SPNG_CRC_ERROR`   | Will not abort on error |
+| `PNG_CRC_WARN_DISCARD` | `SPNG_CRC_DISCARD` | No warning system       |
+| `PNG_CRC_QUIET_USE`    | `SPNG_CRC_USE`     |                         |
+
+
+The `SPNG_CTX_IGNORE_ADLER32` context flag has the same effect as `PNG_IGNORE_ADLER32`
+used with `png_set_option()`.
+
 # API
 
 # spng_set_png_buffer()
