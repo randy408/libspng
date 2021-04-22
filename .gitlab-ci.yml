@@ -43,4 +43,11 @@ coverity:
     - rm spng.tgz
     - rm -r cov-int
 
-
+arm job:
+  stage: test
+  tags:
+    - arm
+  script:
+    - echo test
+    - uname -a
+  
