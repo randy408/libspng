@@ -2,6 +2,7 @@ image: debian:buster-slim
 
 stages:
   - test
+  - arm
   - coverity
 
 before_script:
@@ -44,6 +45,7 @@ coverity:
     - rm -r cov-int
 
 arm job:
+  stage: arm
   tags:
     - aarch64
   script:
