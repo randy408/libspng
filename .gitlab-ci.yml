@@ -46,7 +46,7 @@ coverity:
 arm job:
   stage: test
   tags:
-    - arm
+    - aarch64
   script:
     - echo test
     - uname -a
