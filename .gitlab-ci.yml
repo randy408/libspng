@@ -44,7 +44,6 @@ coverity:
     - rm -r cov-int
 
 arm job:
-  stage: test
   tags:
     - aarch64
   script:
