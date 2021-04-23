@@ -2520,6 +2520,47 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
     return ret;
 }
 
+static int read_scanline(spng_ctx *ctx)
+{
+    int ret, pass = ctx->row_info.pass;
+    struct spng_row_info *ri = &ctx->row_info;
+    const struct spng_subimage *sub = ctx->subimage;
+    size_t scanline_width = sub[pass].scanline_width;
+    uint32_t scanline_idx = ri->scanline_idx;
+
+    uint8_t next_filter;
+
+    if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
+    {
+        ret = read_scanline_bytes(ctx, ctx->scanline, scanline_width - 1);
+    }
+    else
+    {
+        ret = read_scanline_bytes(ctx, ctx->scanline, scanline_width);
+        if(ret) return ret;
+
+        next_filter = ctx->scanline[scanline_width - 1];
+        if(next_filter > 4) ret = SPNG_EFILTER;
+    }
+
+    if(ret) return ret;
+
+    if(!scanline_idx && ri->filter > 1)
+    {
+        /* prev_scanline is all zeros for the first scanline */
+        memset(ctx->prev_scanline, 0, scanline_width);
+    }
+
+    if(ctx->ihdr.bit_depth == 16 && ctx->fmt != SPNG_FMT_RAW) u16_row_to_host(ctx->scanline, scanline_width - 1);
+
+    ret = defilter_scanline(ctx->prev_scanline, ctx->scanline, scanline_width, ctx->bytes_per_pixel, ri->filter);
+    if(ret) return ret;
+
+    ri->filter = next_filter;
+
+    return 0;
+}
+
 int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
@@ -2527,9 +2568,6 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
 
     struct decode_flags f = ctx->decode_flags;
-
-    int ret;
-    int fmt = ctx->fmt;
 
     struct spng_row_info *ri = &ctx->row_info;
     const struct spng_subimage *sub = ctx->subimage;
@@ -2541,14 +2579,13 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     const struct spng_plte_entry16 *plte = ctx->decode_plte;
     struct spng__iter iter = (ihdr->bit_depth < 16) ? spng__iter_init(ihdr->bit_depth, ctx->scanline) : (struct spng__iter){0};
 
-    const unsigned char *scanline = ctx->scanline;
+    const unsigned char *scanline;
 
-    int pass = ri->pass;
-    uint8_t next_filter = 0;
-    size_t scanline_width = sub[pass].scanline_width;
+    const int pass = ri->pass;
+    const int fmt = ctx->fmt;
+    const size_t scanline_width = sub[pass].scanline_width;
+    const uint32_t width = sub[pass].width;
     uint32_t k;
-    uint32_t scanline_idx = ri->scanline_idx;
-    uint32_t width = sub[pass].width;
     uint8_t r_8, g_8, b_8, a_8, gray_8;
     uint16_t r_16, g_16, b_16, a_16, gray_16;
     r_8=0; g_8=0; b_8=0; a_8=0; gray_8=0;
@@ -2565,33 +2602,11 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 
     if(len < sub[pass].out_width) return SPNG_EBUFSIZ;
 
-    if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
-    {
-        ret = read_scanline_bytes(ctx, ctx->scanline, scanline_width - 1);
-    }
-    else
-    {
-        ret = read_scanline_bytes(ctx, ctx->scanline, scanline_width);
-        if(ret) return decode_err(ctx, ret);
-
-        next_filter = ctx->scanline[scanline_width - 1];
-        if(next_filter > 4) ret = SPNG_EFILTER;
-    }
+    int ret = read_scanline(ctx);
 
     if(ret) return decode_err(ctx, ret);
 
-    if(!scanline_idx && ri->filter > 1)
-    {
-        /* prev_scanline is all zeros for the first scanline */
-        memset(ctx->prev_scanline, 0, scanline_width);
-    }
-
-    if(ihdr->bit_depth == 16 && fmt != SPNG_FMT_RAW) u16_row_to_host(ctx->scanline, scanline_width - 1);
-
-    ret = defilter_scanline(ctx->prev_scanline, ctx->scanline, scanline_width, ctx->bytes_per_pixel, ri->filter);
-    if(ret) return decode_err(ctx, ret);
-
-    ri->filter = next_filter;
+    scanline = ctx->scanline;
 
     for(k=0; k < width; k++)
     {
