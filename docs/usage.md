@@ -26,7 +26,7 @@ spng_ctx_free(ctx);
 
 ```
 
-For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.6.3/examples/example.c)
+For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.6.3/examples/example.c).
 
 
 ## Decoding untrusted files
@@ -42,9 +42,3 @@ To decode untrusted files safely it is required to at least:
   to avoid running out of memory. Note that exceeding either limit is
   handled as an out-of-memory error since v0.6.0.
 
-### Notes on memory use
-
-The library allocates 2 to 3 times the width of the PNG image for decoding.
-
-Gamma correction requires an additional 128KB for a lookup table if
-the output format has 16-bits per channel (e.g. `SPNG_FMT_RGBA16`).

@@ -140,6 +140,30 @@ it implements a subset of its features:
 The `SPNG_CTX_IGNORE_ADLER32` context flag has the same effect as `PNG_IGNORE_ADLER32`
 used with `png_set_option()`.
 
+## Memory usage
+
+The library will always allocate a context buffer,
+if the input PNG is a stream or file it will also create a read buffer.
+
+Decoding an image requires at least 2 rows to be kept in memory,
+3 if the image is interlaced.
+
+Gamma correction requires an additional 128KB for a lookup table if
+the output format has 16 bits per channel (e.g. `SPNG_FMT_RGBA16`).
+
+To limit memory usage for image decoding use `spng_set_image_limits()`
+to set an image width/height limit.
+This is the equivalent of `png_set_user_limits()`.
+
+Moreover the size calculated by `spng_decoded_image_size()` can be checked
+against a hard limit before allocating memory for the output image.
+
+Chunks of arbitrary length (e.g. text, color profiles) take up additional memory,
+`spng_set_chunk_limits()` is used to set hard limits on chunk length- and cache limits,
+note that reaching either limit is handled as a fatal error.
+
+This function combines the functionality of libpng's `png_set_chunk_cache_max()` and `png_set_chunk_malloc_max()`.
+
 # API
 
 # spng_set_png_buffer()
