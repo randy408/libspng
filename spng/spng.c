@@ -3770,7 +3770,7 @@ int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt)
 
     if(*n_splt < ctx->n_splt) return 1;
 
-    memcpy(splt, &ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
+    memcpy(splt, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
 
     return 0;
 }
