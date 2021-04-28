@@ -2588,7 +2588,7 @@ static int read_scanline(spng_ctx *ctx)
     size_t scanline_width = sub[pass].scanline_width;
     uint32_t scanline_idx = ri->scanline_idx;
 
-    uint8_t next_filter;
+    uint8_t next_filter = 0;
 
     if(scanline_idx == (sub[pass].height - 1) && ri->pass == ctx->last_pass)
     {
