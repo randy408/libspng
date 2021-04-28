@@ -39,6 +39,8 @@ png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
         return NULL;
     }
 
+    png_set_keep_unknown_chunks(png_ptr, PNG_HANDLE_CHUNK_ALWAYS, NULL, 0);
+
     png_read_info(png_ptr, info_ptr);
 
     *iptr = info_ptr;
