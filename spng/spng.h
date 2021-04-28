@@ -16,6 +16,12 @@ extern "C" {
     #define SPNG_API
 #endif
 
+#if defined(_MSC_VER)
+    #define SPNG_CDECL __cdecl
+#else
+    #define SPNG_CDECL
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
