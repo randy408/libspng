@@ -1,0 +1,1 @@
+test('unknown_chunk', test_exe, args : files('unknown.png'))

@@ -370,19 +370,19 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     spngt_chunk_bitfield spng_have = { 0 };
     spngt_chunk_bitfield png_have = { 0 };
 
+    int i, ret = 0;
     struct spng_plte plte;
     struct spng_trns trns;
     struct spng_chrm chrm;
-    struct spng_chrm_int chrm_int;
     double gamma;
     struct spng_iccp iccp;
     struct spng_sbit sbit;
     uint8_t srgb_rendering_intent;
-    struct spng_text *text;
+    struct spng_text *text = NULL;
     struct spng_bkgd bkgd;
     struct spng_hist hist;
     struct spng_phys phys;
-    struct spng_splt *splt;
+    struct spng_splt *splt = NULL;
     struct spng_time time;
     uint32_t n_text = 0, n_splt = 0;
     struct spng_offs offs;
@@ -404,9 +404,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     if(!spng_get_offs(ctx, &offs)) spng_have.offs = 1;
     if(!spng_get_exif(ctx, &exif)) spng_have.exif = 1;
 
-    png_text *libpng_text;
+    png_text *png_text;
     int png_n_text;
-    png_sPLT_tp png_splt_entries;
+    png_sPLT_t *png_splt_entries;
 
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_PLTE)) png_have.plte = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) png_have.trns = 1;
@@ -415,7 +415,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_iCCP)) png_have.iccp = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_sBIT)) png_have.sbit = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_sRGB)) png_have.srgb = 1;
-    if(png_get_text(png_ptr, info_ptr, &libpng_text, &png_n_text)) png_have.text = 1;
+    if(png_get_text(png_ptr, info_ptr, &png_text, &png_n_text)) png_have.text = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_bKGD)) png_have.bkgd = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_hIST)) png_have.hist = 1;
     if(png_get_valid(png_ptr, info_ptr, PNG_INFO_pHYs)) png_have.phys = 1;
@@ -447,7 +447,59 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         return 1;
     }
 
-    return 0;
+    if(n_text)
+    {
+        text = malloc(n_text * sizeof(struct spng_text));
+        if(!text) return 1;
+
+        spng_get_text(ctx, text, &n_text);
+
+        for(i=0; i < n_text; i++)
+        {
+            if((strcmp(png_text[i].text, text[i].text)))
+            {
+                printf("text[%d]: text mismatch!\nspng: %s\n\nlibpng: %s\n", i, text[i].text, png_text[i].text);
+                ret = 1;
+            }
+        }
+    }
+
+    uint32_t n_spng_chunks = 0;
+    struct spng_unknown_chunk *spng_chunks = NULL;
+
+    int n_png_chunks;
+    png_unknown_chunkp png_chunks;
+
+    if(!spng_get_unknown_chunks(ctx, NULL, &n_spng_chunks))
+    {
+        spng_chunks = malloc(n_spng_chunks * sizeof(struct spng_unknown_chunk));
+        spng_get_unknown_chunks(ctx, spng_chunks, &n_spng_chunks);
+    }
+
+    n_png_chunks = png_get_unknown_chunks(png_ptr, info_ptr, &png_chunks);
+
+    if(n_png_chunks != n_spng_chunks)
+    {
+        printf("unknown chunk count mismatch: %u(spng), %d(libpng)\n", n_spng_chunks, n_png_chunks);
+        ret = 1;
+        goto cleanup;
+    }
+
+    for(i=0; i < n_spng_chunks; i++)
+    {
+        if(spng_chunks[i].length != png_chunks[i].size)
+        {
+            printf("chunk[%d]: size mismatch %" PRIu64 "(spng) %" PRIu64" (libpng)\n", i, spng_chunks[i].length, png_chunks[i].size);
+            ret = 1;
+        }
+    }
+
+cleanup:
+    free(splt);
+    free(text);
+    free(spng_chunks);
+
+    return ret;
 }
 
 static int decode_and_compare(const char *filename, int fmt, int flags, int test_flags)
@@ -669,6 +721,8 @@ int main(int argc, char **argv)
     /* This tests the input->output format logic used in libvips,
        it emulates the behavior of their old PNG loader which used libpng. */
     add_test_case(SPNGT_FMT_VIPS, SPNG_DECODE_TRNS, 0);
+
+    printf("%d test cases\n", n_test_cases);
 
     int ret = 0;
     int i;

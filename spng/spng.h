@@ -348,6 +348,13 @@ struct spng_chunk
     uint32_t crc;
 };
 
+struct spng_unknown_chunk
+{
+    uint8_t type[4];
+    size_t length;
+    void *data;
+};
+
 typedef void* spng_malloc_fn(size_t size);
 typedef void* spng_realloc_fn(void* ptr, size_t size);
 typedef void* spng_calloc_fn(size_t count, size_t size);
@@ -440,6 +447,8 @@ SPNG_API int spng_set_time(spng_ctx *ctx, struct spng_time *time);
 /* Official extensions */
 SPNG_API int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif);
+
+SPNG_API int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks);
 
 SPNG_API const char *spng_strerror(int err);
 SPNG_API const char *spng_version_string(void);

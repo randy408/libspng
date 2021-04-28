@@ -171,6 +171,7 @@ struct spng_chunk_bitfield
     unsigned time: 1;
     unsigned offs: 1;
     unsigned exif: 1;
+    unsigned unknown: 1;
 };
 
 /* Packed sample iterator */
@@ -271,6 +272,9 @@ struct spng_ctx
     struct spng_time time;
     struct spng_offs offs;
     struct spng_exif exif;
+
+    uint32_t n_chunks;
+    struct spng_unknown_chunk *chunk_list;
 
     struct spng_subimage subimage[7];
 
@@ -1696,6 +1700,20 @@ static void text_undo(spng_ctx *ctx)
     ctx->n_text--;
 }
 
+static void chunk_undo(spng_ctx *ctx)
+{
+    struct spng_unknown_chunk *chunk = &ctx->chunk_list[ctx->n_chunks - 1];
+
+    spng__free(ctx, chunk->data);
+
+    decrease_cache_usage(ctx, chunk->length);
+    decrease_cache_usage(ctx, sizeof(struct spng_unknown_chunk));
+
+    chunk->data = NULL;
+
+    ctx->n_chunks--;
+}
+
 static int read_non_idat_chunks(spng_ctx *ctx)
 {
     int ret;
@@ -2388,6 +2406,48 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 decrease_cache_usage(ctx, chunk.length);
 
                 ctx->stored.splt = 1;
+            }
+            else /* Unknown chunk */
+            {
+                ctx->file.unknown = 1;
+
+                if(ctx->user.unknown) goto discard;
+
+                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_unknown_chunk))) return SPNG_ECHUNK_LIMITS;
+
+                ctx->n_chunks++;
+                if(ctx->n_chunks < 1) return SPNG_EOVERFLOW;
+                if(sizeof(struct spng_unknown_chunk) > SIZE_MAX / ctx->n_chunks) return SPNG_EOVERFLOW;
+
+                void *buf = spng__realloc(ctx, ctx->chunk_list, ctx->n_chunks * sizeof(struct spng_unknown_chunk));
+                if(buf == NULL) return SPNG_EMEM;
+                ctx->chunk_list = buf;
+
+                struct spng_unknown_chunk *chunks = &ctx->chunk_list[ctx->n_chunks - 1];
+
+                memset(chunks, 0, sizeof(struct spng_unknown_chunk));
+
+                ctx->undo = chunk_undo;
+
+                memcpy(chunks->type, chunk.type, 4);
+
+                if(chunk.length > 0)
+                {
+                    void *t = spng__malloc(ctx, chunk.length);
+                    if(t == NULL) return SPNG_EMEM;
+
+                    ret = read_chunk_bytes2(ctx, t, chunk.length);
+                    if(ret)
+                    {
+                        spng__free(ctx, t);
+                        return ret;
+                    }
+
+                    chunks->length = chunk.length;
+                    chunks->data = t;
+                }
+
+                ctx->stored.unknown = 1;
             }
 
 discard:
@@ -3321,6 +3381,15 @@ void spng_ctx_free(spng_ctx *ctx)
         spng__free(ctx, ctx->text_list);
     }
 
+    if(ctx->chunk_list != NULL && !ctx->user.unknown)
+    {
+        for(i=0; i< ctx->n_chunks; i++)
+        {
+            spng__free(ctx, ctx->chunk_list[i].data);
+        }
+        spng__free(ctx, ctx->chunk_list);
+    }
+
     inflateEnd(&ctx->zstream);
 
     spng__free(ctx, ctx->gamma_lut16);
@@ -4092,6 +4161,27 @@ int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
     return 0;
 }
 
+int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks)
+{
+    if(ctx == NULL) return 1;
+    int ret = read_chunks(ctx, 0);
+    if(ret) return ret;
+    if(!ctx->stored.unknown) return SPNG_ECHUNKAVAIL;
+    if(n_chunks == NULL) return 1;
+
+    if(chunks == NULL)
+    {
+        *n_chunks = ctx->n_chunks;
+        return 0;
+    }
+
+    if(*n_chunks < ctx->n_chunks) return 1;
+
+    memcpy(chunks, ctx->chunk_list, sizeof(struct spng_unknown_chunk));
+
+    return 0;
+}
+
 const char *spng_strerror(int err)
 {
     switch(err)
@@ -4185,7 +4275,7 @@ const char *spng_strerror(int err)
 
 const char *spng_version_string(void)
 {
-    return SPNG_VERSION_STRING "-rc1"
+    return SPNG_VERSION_STRING "-rc1";
 }
 
 #if defined(_MSC_VER)
