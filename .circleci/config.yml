@@ -9,7 +9,6 @@ jobs:
     steps:
       - checkout
       - run: uname -a
-      - run: echo "Hello, Arm!"
       - run: sudo apt install meson git-lfs ninja-build
       - run: meson -Ddev_build=true build
       - run: cd build
