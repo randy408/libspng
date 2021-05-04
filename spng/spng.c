@@ -2980,8 +2980,15 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     ctx->zstream.avail_in = 0;
     ctx->zstream.next_in = ctx->data;
 
-    ctx->scanline_buf = spng__malloc(ctx, ctx->subimage[ctx->widest_pass].scanline_width);
-    ctx->prev_scanline_buf = spng__malloc(ctx, ctx->subimage[ctx->widest_pass].scanline_width);
+    size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width;
+
+    scanline_buf_size += 32;
+
+    if(scanline_buf_size < 32) return SPNG_EOVERFLOW;
+
+    ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
+    ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
+
     ctx->scanline = ctx->scanline_buf;
     ctx->prev_scanline = ctx->prev_scanline_buf;
 
