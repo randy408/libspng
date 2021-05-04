@@ -39,9 +39,8 @@
             #define SPNG_X86_64
         #endif
 
-    #elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
-        /* #define SPNG_ARM */ /* buffer overflow for rgb8 images */
-        #define SPNG_DISABLE_OPT
+    #elif defined(__aarch64__) || defined(_M_ARM64) /* || defined(__ARM_NEON) */
+        #define SPNG_ARM /* NOTE: only arm64 builds are tested! */
     #else
         #pragma message "disabling SIMD optimizations for unknown target"
         #define SPNG_DISABLE_OPT
