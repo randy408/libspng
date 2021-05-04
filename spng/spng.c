@@ -4750,302 +4750,302 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
 
 static void defilter_sub3(size_t rowbytes, unsigned char *row)
 {
-   unsigned char *rp = row;
-   unsigned char *rp_stop = row + rowbytes;
+    unsigned char *rp = row;
+    unsigned char *rp_stop = row + rowbytes;
 
-   uint8x16_t vtmp = vld1q_u8(rp);
-   uint8x8x2_t *vrpt = png_ptr(uint8x8x2_t, &vtmp);
-   uint8x8x2_t vrp = *vrpt;
+    uint8x16_t vtmp = vld1q_u8(rp);
+    uint8x8x2_t *vrpt = png_ptr(uint8x8x2_t, &vtmp);
+    uint8x8x2_t vrp = *vrpt;
 
-   uint8x8x4_t vdest;
-   vdest.val[3] = vdup_n_u8(0);
+    uint8x8x4_t vdest;
+    vdest.val[3] = vdup_n_u8(0);
 
-   for (; rp < rp_stop;)
-   {
-      uint8x8_t vtmp1, vtmp2;
-      uint32x2_t *temp_pointer;
+    for (; rp < rp_stop;)
+    {
+        uint8x8_t vtmp1, vtmp2;
+        uint32x2_t *temp_pointer;
 
-      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
-      vdest.val[0] = vadd_u8(vdest.val[3], vrp.val[0]);
-      vtmp2 = vext_u8(vrp.val[0], vrp.val[1], 6);
-      vdest.val[1] = vadd_u8(vdest.val[0], vtmp1);
+        vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
+        vdest.val[0] = vadd_u8(vdest.val[3], vrp.val[0]);
+        vtmp2 = vext_u8(vrp.val[0], vrp.val[1], 6);
+        vdest.val[1] = vadd_u8(vdest.val[0], vtmp1);
 
-      vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
-      vdest.val[2] = vadd_u8(vdest.val[1], vtmp2);
-      vdest.val[3] = vadd_u8(vdest.val[2], vtmp1);
+        vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
+        vdest.val[2] = vadd_u8(vdest.val[1], vtmp2);
+        vdest.val[3] = vadd_u8(vdest.val[2], vtmp1);
 
-      vtmp = vld1q_u8(rp + 12);
-      vrpt = png_ptr(uint8x8x2_t, &vtmp);
-      vrp = *vrpt;
+        vtmp = vld1q_u8(rp + 12);
+        vrpt = png_ptr(uint8x8x2_t, &vtmp);
+        vrp = *vrpt;
 
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
-      rp += 3;
-   }
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
+        rp += 3;
+    }
 }
 
 static void defilter_sub4(size_t rowbytes, unsigned char *row)
 {
-   unsigned char *rp = row;
-   unsigned char *rp_stop = row + rowbytes;
+    unsigned char *rp = row;
+    unsigned char *rp_stop = row + rowbytes;
 
-   uint8x8x4_t vdest;
-   vdest.val[3] = vdup_n_u8(0);
+    uint8x8x4_t vdest;
+    vdest.val[3] = vdup_n_u8(0);
 
-   for (; rp < rp_stop; rp += 16)
-   {
-      uint32x2x4_t vtmp = vld4_u32(png_ptr(uint32_t,rp));
-      uint8x8x4_t *vrpt = png_ptr(uint8x8x4_t,&vtmp);
-      uint8x8x4_t vrp = *vrpt;
-      uint32x2x4_t *temp_pointer;
-      uint32x2x4_t vdest_val;
+    for (; rp < rp_stop; rp += 16)
+    {
+        uint32x2x4_t vtmp = vld4_u32(png_ptr(uint32_t,rp));
+        uint8x8x4_t *vrpt = png_ptr(uint8x8x4_t,&vtmp);
+        uint8x8x4_t vrp = *vrpt;
+        uint32x2x4_t *temp_pointer;
+        uint32x2x4_t vdest_val;
 
-      vdest.val[0] = vadd_u8(vdest.val[3], vrp.val[0]);
-      vdest.val[1] = vadd_u8(vdest.val[0], vrp.val[1]);
-      vdest.val[2] = vadd_u8(vdest.val[1], vrp.val[2]);
-      vdest.val[3] = vadd_u8(vdest.val[2], vrp.val[3]);
+        vdest.val[0] = vadd_u8(vdest.val[3], vrp.val[0]);
+        vdest.val[1] = vadd_u8(vdest.val[0], vrp.val[1]);
+        vdest.val[2] = vadd_u8(vdest.val[1], vrp.val[2]);
+        vdest.val[3] = vadd_u8(vdest.val[2], vrp.val[3]);
 
-      vdest_val = png_ldr(uint32x2x4_t, &vdest);
-      vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
-   }
+        vdest_val = png_ldr(uint32x2x4_t, &vdest);
+        vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
+    }
 }
 
 static void defilter_avg3(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
-   unsigned char *rp = row;
-   const unsigned char *pp = prev_row;
-   unsigned char *rp_stop = row + rowbytes;
+    unsigned char *rp = row;
+    const unsigned char *pp = prev_row;
+    unsigned char *rp_stop = row + rowbytes;
 
-   uint8x16_t vtmp;
-   uint8x8x2_t *vrpt;
-   uint8x8x2_t vrp;
-   uint8x8x4_t vdest;
-   vdest.val[3] = vdup_n_u8(0);
+    uint8x16_t vtmp;
+    uint8x8x2_t *vrpt;
+    uint8x8x2_t vrp;
+    uint8x8x4_t vdest;
+    vdest.val[3] = vdup_n_u8(0);
 
-   vtmp = vld1q_u8(rp);
-   vrpt = png_ptr(uint8x8x2_t,&vtmp);
-   vrp = *vrpt;
+    vtmp = vld1q_u8(rp);
+    vrpt = png_ptr(uint8x8x2_t,&vtmp);
+    vrp = *vrpt;
 
-   for (; rp < rp_stop; pp += 12)
-   {
-      uint8x8_t vtmp1, vtmp2, vtmp3;
+    for (; rp < rp_stop; pp += 12)
+    {
+        uint8x8_t vtmp1, vtmp2, vtmp3;
 
-      uint8x8x2_t *vppt;
-      uint8x8x2_t vpp;
+        uint8x8x2_t *vppt;
+        uint8x8x2_t vpp;
 
-      uint32x2_t *temp_pointer;
+        uint32x2_t *temp_pointer;
 
-      vtmp = vld1q_u8(pp);
-      vppt = png_ptr(uint8x8x2_t,&vtmp);
-      vpp = *vppt;
+        vtmp = vld1q_u8(pp);
+        vppt = png_ptr(uint8x8x2_t,&vtmp);
+        vpp = *vppt;
 
-      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
-      vdest.val[0] = vhadd_u8(vdest.val[3], vpp.val[0]);
-      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+        vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
+        vdest.val[0] = vhadd_u8(vdest.val[3], vpp.val[0]);
+        vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
 
-      vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 3);
-      vtmp3 = vext_u8(vrp.val[0], vrp.val[1], 6);
-      vdest.val[1] = vhadd_u8(vdest.val[0], vtmp2);
-      vdest.val[1] = vadd_u8(vdest.val[1], vtmp1);
+        vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 3);
+        vtmp3 = vext_u8(vrp.val[0], vrp.val[1], 6);
+        vdest.val[1] = vhadd_u8(vdest.val[0], vtmp2);
+        vdest.val[1] = vadd_u8(vdest.val[1], vtmp1);
 
-      vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 6);
-      vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
+        vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 6);
+        vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
 
-      vtmp = vld1q_u8(rp + 12);
-      vrpt = png_ptr(uint8x8x2_t,&vtmp);
-      vrp = *vrpt;
+        vtmp = vld1q_u8(rp + 12);
+        vrpt = png_ptr(uint8x8x2_t,&vtmp);
+        vrp = *vrpt;
 
-      vdest.val[2] = vhadd_u8(vdest.val[1], vtmp2);
-      vdest.val[2] = vadd_u8(vdest.val[2], vtmp3);
+        vdest.val[2] = vhadd_u8(vdest.val[1], vtmp2);
+        vdest.val[2] = vadd_u8(vdest.val[2], vtmp3);
 
-      vtmp2 = vext_u8(vpp.val[1], vpp.val[1], 1);
+        vtmp2 = vext_u8(vpp.val[1], vpp.val[1], 1);
 
-      vdest.val[3] = vhadd_u8(vdest.val[2], vtmp2);
-      vdest.val[3] = vadd_u8(vdest.val[3], vtmp1);
+        vdest.val[3] = vhadd_u8(vdest.val[2], vtmp2);
+        vdest.val[3] = vadd_u8(vdest.val[3], vtmp1);
 
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
-      rp += 3;
-   }
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
+        rp += 3;
+    }
 }
 
 static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
-   unsigned char *rp = row;
-   unsigned char *rp_stop = row + rowbytes;
-   const unsigned char *pp = prev_row;
+    unsigned char *rp = row;
+    unsigned char *rp_stop = row + rowbytes;
+    const unsigned char *pp = prev_row;
 
-   uint8x8x4_t vdest;
-   vdest.val[3] = vdup_n_u8(0);
+    uint8x8x4_t vdest;
+    vdest.val[3] = vdup_n_u8(0);
 
-   for (; rp < rp_stop; rp += 16, pp += 16)
-   {
-      uint32x2x4_t vtmp;
-      uint8x8x4_t *vrpt, *vppt;
-      uint8x8x4_t vrp, vpp;
-      uint32x2x4_t *temp_pointer;
-      uint32x2x4_t vdest_val;
+    for (; rp < rp_stop; rp += 16, pp += 16)
+    {
+        uint32x2x4_t vtmp;
+        uint8x8x4_t *vrpt, *vppt;
+        uint8x8x4_t vrp, vpp;
+        uint32x2x4_t *temp_pointer;
+        uint32x2x4_t vdest_val;
 
-      vtmp = vld4_u32(png_ptr(uint32_t,rp));
-      vrpt = png_ptr(uint8x8x4_t,&vtmp);
-      vrp = *vrpt;
-      vtmp = vld4_u32(png_ptrc(uint32_t,pp));
-      vppt = png_ptr(uint8x8x4_t,&vtmp);
-      vpp = *vppt;
+        vtmp = vld4_u32(png_ptr(uint32_t,rp));
+        vrpt = png_ptr(uint8x8x4_t,&vtmp);
+        vrp = *vrpt;
+        vtmp = vld4_u32(png_ptrc(uint32_t,pp));
+        vppt = png_ptr(uint8x8x4_t,&vtmp);
+        vpp = *vppt;
 
-      vdest.val[0] = vhadd_u8(vdest.val[3], vpp.val[0]);
-      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
-      vdest.val[1] = vhadd_u8(vdest.val[0], vpp.val[1]);
-      vdest.val[1] = vadd_u8(vdest.val[1], vrp.val[1]);
-      vdest.val[2] = vhadd_u8(vdest.val[1], vpp.val[2]);
-      vdest.val[2] = vadd_u8(vdest.val[2], vrp.val[2]);
-      vdest.val[3] = vhadd_u8(vdest.val[2], vpp.val[3]);
-      vdest.val[3] = vadd_u8(vdest.val[3], vrp.val[3]);
+        vdest.val[0] = vhadd_u8(vdest.val[3], vpp.val[0]);
+        vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+        vdest.val[1] = vhadd_u8(vdest.val[0], vpp.val[1]);
+        vdest.val[1] = vadd_u8(vdest.val[1], vrp.val[1]);
+        vdest.val[2] = vhadd_u8(vdest.val[1], vpp.val[2]);
+        vdest.val[2] = vadd_u8(vdest.val[2], vrp.val[2]);
+        vdest.val[3] = vhadd_u8(vdest.val[2], vpp.val[3]);
+        vdest.val[3] = vadd_u8(vdest.val[3], vrp.val[3]);
 
-      vdest_val = png_ldr(uint32x2x4_t, &vdest);
-      vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
-   }
+        vdest_val = png_ldr(uint32x2x4_t, &vdest);
+        vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
+    }
 }
 
 static uint8x8_t paeth_arm(uint8x8_t a, uint8x8_t b, uint8x8_t c)
 {
-   uint8x8_t d, e;
-   uint16x8_t p1, pa, pb, pc;
+    uint8x8_t d, e;
+    uint16x8_t p1, pa, pb, pc;
 
-   p1 = vaddl_u8(a, b); /* a + b */
-   pc = vaddl_u8(c, c); /* c * 2 */
-   pa = vabdl_u8(b, c); /* pa */
-   pb = vabdl_u8(a, c); /* pb */
-   pc = vabdq_u16(p1, pc); /* pc */
+    p1 = vaddl_u8(a, b); /* a + b */
+    pc = vaddl_u8(c, c); /* c * 2 */
+    pa = vabdl_u8(b, c); /* pa */
+    pb = vabdl_u8(a, c); /* pb */
+    pc = vabdq_u16(p1, pc); /* pc */
 
-   p1 = vcleq_u16(pa, pb); /* pa <= pb */
-   pa = vcleq_u16(pa, pc); /* pa <= pc */
-   pb = vcleq_u16(pb, pc); /* pb <= pc */
+    p1 = vcleq_u16(pa, pb); /* pa <= pb */
+    pa = vcleq_u16(pa, pc); /* pa <= pc */
+    pb = vcleq_u16(pb, pc); /* pb <= pc */
 
-   p1 = vandq_u16(p1, pa); /* pa <= pb && pa <= pc */
+    p1 = vandq_u16(p1, pa); /* pa <= pb && pa <= pc */
 
-   d = vmovn_u16(pb);
-   e = vmovn_u16(p1);
+    d = vmovn_u16(pb);
+    e = vmovn_u16(p1);
 
-   d = vbsl_u8(d, b, c);
-   e = vbsl_u8(e, a, d);
+    d = vbsl_u8(d, b, c);
+    e = vbsl_u8(e, a, d);
 
-   return e;
+    return e;
 }
 
 static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
-   unsigned char *rp = row;
-   const unsigned char *pp = prev_row;
-   unsigned char *rp_stop = row + rowbytes;
+    unsigned char *rp = row;
+    const unsigned char *pp = prev_row;
+    unsigned char *rp_stop = row + rowbytes;
 
-   uint8x16_t vtmp;
-   uint8x8x2_t *vrpt;
-   uint8x8x2_t vrp;
-   uint8x8_t vlast = vdup_n_u8(0);
-   uint8x8x4_t vdest;
-   vdest.val[3] = vdup_n_u8(0);
+    uint8x16_t vtmp;
+    uint8x8x2_t *vrpt;
+    uint8x8x2_t vrp;
+    uint8x8_t vlast = vdup_n_u8(0);
+    uint8x8x4_t vdest;
+    vdest.val[3] = vdup_n_u8(0);
 
-   vtmp = vld1q_u8(rp);
-   vrpt = png_ptr(uint8x8x2_t,&vtmp);
-   vrp = *vrpt;
+    vtmp = vld1q_u8(rp);
+    vrpt = png_ptr(uint8x8x2_t,&vtmp);
+    vrp = *vrpt;
 
-   for (; rp < rp_stop; pp += 12)
-   {
-      uint8x8x2_t *vppt;
-      uint8x8x2_t vpp;
-      uint8x8_t vtmp1, vtmp2, vtmp3;
-      uint32x2_t *temp_pointer;
+    for (; rp < rp_stop; pp += 12)
+    {
+        uint8x8x2_t *vppt;
+        uint8x8x2_t vpp;
+        uint8x8_t vtmp1, vtmp2, vtmp3;
+        uint32x2_t *temp_pointer;
 
-      vtmp = vld1q_u8(pp);
-      vppt = png_ptr(uint8x8x2_t,&vtmp);
-      vpp = *vppt;
+        vtmp = vld1q_u8(pp);
+        vppt = png_ptr(uint8x8x2_t,&vtmp);
+        vpp = *vppt;
 
-      vdest.val[0] = paeth_arm(vdest.val[3], vpp.val[0], vlast);
-      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+        vdest.val[0] = paeth_arm(vdest.val[3], vpp.val[0], vlast);
+        vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
 
-      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
-      vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 3);
-      vdest.val[1] = paeth_arm(vdest.val[0], vtmp2, vpp.val[0]);
-      vdest.val[1] = vadd_u8(vdest.val[1], vtmp1);
+        vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 3);
+        vtmp2 = vext_u8(vpp.val[0], vpp.val[1], 3);
+        vdest.val[1] = paeth_arm(vdest.val[0], vtmp2, vpp.val[0]);
+        vdest.val[1] = vadd_u8(vdest.val[1], vtmp1);
 
-      vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 6);
-      vtmp3 = vext_u8(vpp.val[0], vpp.val[1], 6);
-      vdest.val[2] = paeth_arm(vdest.val[1], vtmp3, vtmp2);
-      vdest.val[2] = vadd_u8(vdest.val[2], vtmp1);
+        vtmp1 = vext_u8(vrp.val[0], vrp.val[1], 6);
+        vtmp3 = vext_u8(vpp.val[0], vpp.val[1], 6);
+        vdest.val[2] = paeth_arm(vdest.val[1], vtmp3, vtmp2);
+        vdest.val[2] = vadd_u8(vdest.val[2], vtmp1);
 
-      vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
-      vtmp2 = vext_u8(vpp.val[1], vpp.val[1], 1);
+        vtmp1 = vext_u8(vrp.val[1], vrp.val[1], 1);
+        vtmp2 = vext_u8(vpp.val[1], vpp.val[1], 1);
 
-      vtmp = vld1q_u8(rp + 12);
-      vrpt = png_ptr(uint8x8x2_t,&vtmp);
-      vrp = *vrpt;
+        vtmp = vld1q_u8(rp + 12);
+        vrpt = png_ptr(uint8x8x2_t,&vtmp);
+        vrp = *vrpt;
 
-      vdest.val[3] = paeth_arm(vdest.val[2], vtmp2, vtmp3);
-      vdest.val[3] = vadd_u8(vdest.val[3], vtmp1);
+        vdest.val[3] = paeth_arm(vdest.val[2], vtmp2, vtmp3);
+        vdest.val[3] = vadd_u8(vdest.val[3], vtmp1);
 
-      vlast = vtmp2;
+        vlast = vtmp2;
 
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
-      rp += 3;
-      vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
-      rp += 3;
-   }
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[0]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[1]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[2]), 0);
+        rp += 3;
+        vst1_lane_u32(png_ptr(uint32_t,rp), png_ldr(uint32x2_t,&vdest.val[3]), 0);
+        rp += 3;
+    }
 }
 
 static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev_row)
 {
-   unsigned char *rp = row;
-   unsigned char *rp_stop = row + rowbytes;
-   const unsigned char *pp = prev_row;
+    unsigned char *rp = row;
+    unsigned char *rp_stop = row + rowbytes;
+    const unsigned char *pp = prev_row;
 
-   uint8x8_t vlast = vdup_n_u8(0);
-   uint8x8x4_t vdest;
-   vdest.val[3] = vdup_n_u8(0);
+    uint8x8_t vlast = vdup_n_u8(0);
+    uint8x8x4_t vdest;
+    vdest.val[3] = vdup_n_u8(0);
 
-   for (; rp < rp_stop; rp += 16, pp += 16)
-   {
-      uint32x2x4_t vtmp;
-      uint8x8x4_t *vrpt, *vppt;
-      uint8x8x4_t vrp, vpp;
-      uint32x2x4_t *temp_pointer;
-      uint32x2x4_t vdest_val;
+    for (; rp < rp_stop; rp += 16, pp += 16)
+    {
+        uint32x2x4_t vtmp;
+        uint8x8x4_t *vrpt, *vppt;
+        uint8x8x4_t vrp, vpp;
+        uint32x2x4_t *temp_pointer;
+        uint32x2x4_t vdest_val;
 
-      vtmp = vld4_u32(png_ptr(uint32_t,rp));
-      vrpt = png_ptr(uint8x8x4_t,&vtmp);
-      vrp = *vrpt;
-      vtmp = vld4_u32(png_ptrc(uint32_t,pp));
-      vppt = png_ptr(uint8x8x4_t,&vtmp);
-      vpp = *vppt;
+        vtmp = vld4_u32(png_ptr(uint32_t,rp));
+        vrpt = png_ptr(uint8x8x4_t,&vtmp);
+        vrp = *vrpt;
+        vtmp = vld4_u32(png_ptrc(uint32_t,pp));
+        vppt = png_ptr(uint8x8x4_t,&vtmp);
+        vpp = *vppt;
 
-      vdest.val[0] = paeth_arm(vdest.val[3], vpp.val[0], vlast);
-      vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
-      vdest.val[1] = paeth_arm(vdest.val[0], vpp.val[1], vpp.val[0]);
-      vdest.val[1] = vadd_u8(vdest.val[1], vrp.val[1]);
-      vdest.val[2] = paeth_arm(vdest.val[1], vpp.val[2], vpp.val[1]);
-      vdest.val[2] = vadd_u8(vdest.val[2], vrp.val[2]);
-      vdest.val[3] = paeth_arm(vdest.val[2], vpp.val[3], vpp.val[2]);
-      vdest.val[3] = vadd_u8(vdest.val[3], vrp.val[3]);
+        vdest.val[0] = paeth_arm(vdest.val[3], vpp.val[0], vlast);
+        vdest.val[0] = vadd_u8(vdest.val[0], vrp.val[0]);
+        vdest.val[1] = paeth_arm(vdest.val[0], vpp.val[1], vpp.val[0]);
+        vdest.val[1] = vadd_u8(vdest.val[1], vrp.val[1]);
+        vdest.val[2] = paeth_arm(vdest.val[1], vpp.val[2], vpp.val[1]);
+        vdest.val[2] = vadd_u8(vdest.val[2], vrp.val[2]);
+        vdest.val[3] = paeth_arm(vdest.val[2], vpp.val[3], vpp.val[2]);
+        vdest.val[3] = vadd_u8(vdest.val[3], vrp.val[3]);
 
-      vlast = vpp.val[3];
+        vlast = vpp.val[3];
 
-      vdest_val = png_ldr(uint32x2x4_t, &vdest);
-      vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
-   }
+        vdest_val = png_ldr(uint32x2x4_t, &vdest);
+        vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
+    }
 }
 
 #endif /* SPNG_ARM */
