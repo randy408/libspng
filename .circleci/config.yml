@@ -1,0 +1,16 @@
+# .circleci/config.yml
+version: 2.1
+
+jobs:
+  test-arm:
+    machine:
+      image: ubuntu-2004:202101-01
+    resource_class: arm.medium
+    steps:
+      - run: uname -a
+      - run: echo "Hello, Arm!"
+
+workflows:
+  build:
+    jobs:
+      - test-arm
