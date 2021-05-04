@@ -4281,7 +4281,7 @@ const char *spng_strerror(int err)
 
 const char *spng_version_string(void)
 {
-    return SPNG_VERSION_STRING "-rc1";
+    return SPNG_VERSION_STRING "-rc2";
 }
 
 #if defined(_MSC_VER)
