@@ -11,7 +11,6 @@ jobs:
       - run: uname -a
       - run: sudo apt install meson git-lfs ninja-build
       - run: meson -Ddev_build=true build
-      - run: cd build
       - run: ninja -C project/build test
 
 workflows:
