@@ -116,14 +116,6 @@ struct spng_subimage
     size_t scanline_width;
 };
 
-struct spng_plte_entry16
-{
-    uint16_t red;
-    uint16_t green;
-    uint16_t blue;
-    uint16_t alpha;
-};
-
 struct spng_text2
 {
     int type;
@@ -294,7 +286,7 @@ struct spng_ctx
     uint16_t *gamma_lut16;
     uint16_t gamma_lut8[256];
     unsigned char trns_px[8];
-    struct spng_plte_entry16 decode_plte[256];
+    struct spng_plte_entry decode_plte[256];
     struct spng_sbit decode_sb;
     struct decode_flags decode_flags;
     struct spng_row_info row_info;
@@ -1302,7 +1294,7 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
 }
 
 /* Expand to *row using 8-bit palette indices from *scanline */
-void expand_row(unsigned char *row, const unsigned char *scanline, const struct spng_plte_entry16 *plte, uint32_t width, int fmt)
+void expand_row(unsigned char *row, const unsigned char *scanline, const struct spng_plte_entry *plte, uint32_t width, int fmt)
 {
     uint32_t i;
     unsigned char *px;
@@ -2635,7 +2627,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     const uint16_t *gamma_lut = ctx->gamma_lut;
     unsigned char *trns_px = ctx->trns_px;
     const struct spng_sbit *sb = &ctx->decode_sb;
-    const struct spng_plte_entry16 *plte = ctx->decode_plte;
+    const struct spng_plte_entry *plte = ctx->decode_plte;
     struct spng__iter iter = (ihdr->bit_depth < 16) ? spng__iter_init(ihdr->bit_depth, ctx->scanline) : (struct spng__iter){0};
 
     const unsigned char *scanline;
@@ -2745,6 +2737,11 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
                 g_16 = plte[entry].green;
                 b_16 = plte[entry].blue;
                 a_16 = plte[entry].alpha;
+
+                r_16 = (r_16 << 8) | r_16;
+                g_16 = (g_16 << 8) | g_16;
+                b_16 = (b_16 << 8) | b_16;
+                a_16 = (a_16 << 8) | a_16;
 
                 memcpy(pixel, &r_16, 2);
                 memcpy(pixel + 2, &g_16, 2);
@@ -3185,7 +3182,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
        sb->alpha_bits == processing_depth &&
        processing_depth == depth_target) f.do_scaling = 0;
 
-    struct spng_plte_entry16 *plte = ctx->decode_plte;
+    struct spng_plte_entry *plte = ctx->decode_plte;
 
     /* Pre-process palette entries */
     if(f.indexed)
@@ -3198,21 +3195,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
             else
                 ctx->plte.entries[i].alpha = 255;
 
-            plte[i].red = sample_to_target(ctx->plte.entries[i].red, 8, sb->red_bits, depth_target);
-            plte[i].green = sample_to_target(ctx->plte.entries[i].green, 8, sb->green_bits, depth_target);
-            plte[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, sb->blue_bits, depth_target);
-            plte[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb->alpha_bits, depth_target);
-
-            if(f.apply_gamma)
-            {
-                plte[i].red = gamma_lut[plte[i].red];
-                plte[i].green = gamma_lut[plte[i].green];
-                plte[i].blue = gamma_lut[plte[i].blue];
-            }
+            plte[i].red = sample_to_target(ctx->plte.entries[i].red, 8, sb->red_bits, 8);
+            plte[i].green = sample_to_target(ctx->plte.entries[i].green, 8, sb->green_bits, 8);
+            plte[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, sb->blue_bits, 8);
+            plte[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb->alpha_bits, 8);
         }
 
         f.apply_trns = 0;
-        f.apply_gamma = 0;
     }
 
     unsigned char *trns_px = ctx->trns_px;
