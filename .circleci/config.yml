@@ -8,10 +8,8 @@ jobs:
     resource_class: arm.medium
     steps:
       - checkout
-      - run: uname -a
-      - run: sudo apt install meson git-lfs ninja-build
-      - run: meson -Ddev_build=true build
-      - run: pwd
+      - run: sudo apt install meson ninja-build
+      - run: meson -Ddev_build=true -Db_sanitize=address build
       - run: ninja -C build test
 
 workflows:
