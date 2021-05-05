@@ -4927,7 +4927,7 @@ static uint8x8_t paeth_arm(uint8x8_t a, uint8x8_t b, uint8x8_t c)
 {
     uint8x8_t d, e;
     uint16x8_t p1, pa, pb, pc;
-
+abort();
     p1 = vaddl_u8(a, b); /* a + b */
     pc = vaddl_u8(c, c); /* c * 2 */
     pa = vabdl_u8(b, c); /* pa */
