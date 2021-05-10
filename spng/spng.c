@@ -60,6 +60,11 @@
         static void defilter_avg4(size_t rowbytes, unsigned char *row, const unsigned char *prev);
         static void defilter_paeth3(size_t rowbytes, unsigned char *row, const unsigned char *prev);
         static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned char *prev);
+
+        #if defined(SPNG_ARM)
+        static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);
+        static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);
+        #endif
     #endif
 #endif
 
@@ -174,6 +179,14 @@ struct spng__iter
     const unsigned char *samples;
 };
 
+union spng__decode_plte
+{
+    struct spng_plte_entry rgba[256];
+    unsigned char rgb[256 * 3];
+    unsigned char raw[256 * 4];
+    uint32_t align_this;
+};
+
 typedef void spng__undo(spng_ctx *ctx);
 
 struct spng_ctx
@@ -286,7 +299,7 @@ struct spng_ctx
     uint16_t *gamma_lut16;
     uint16_t gamma_lut8[256];
     unsigned char trns_px[8];
-    struct spng_plte_entry decode_plte[256];
+    union spng__decode_plte decode_plte;
     struct spng_sbit decode_sb;
     struct decode_flags decode_flags;
     struct spng_row_info row_info;
@@ -1294,14 +1307,38 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
 }
 
 /* Expand to *row using 8-bit palette indices from *scanline */
-void expand_row(unsigned char *row, const unsigned char *scanline, const struct spng_plte_entry *plte, uint32_t width, int fmt)
+void expand_row(unsigned char *row,
+                const unsigned char *scanline,
+                const union spng__decode_plte *decode_plte,
+                uint32_t width,
+                int fmt)
 {
-    uint32_t i;
+    uint32_t i = 0;
     unsigned char *px;
     unsigned char entry;
+    const struct spng_plte_entry *plte = decode_plte->rgba;
+
+#if defined(SPNG_ARM)
+    if(fmt == SPNG_FMT_RGBA8) i = expand_palette_rgba8_neon(row, scanline, decode_plte->raw, width);
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        i = expand_palette_rgb8_neon(row, scanline, decode_plte->raw, width);
+
+        for(; i < width; i++)
+        {/* In this case the LUT is 3 bytes packed */
+            px = row + i * 3;
+            entry = scanline[i];
+            px[0] = decode_plte->raw[entry * 3 + 0];
+            px[1] = decode_plte->raw[entry * 3 + 1];
+            px[2] = decode_plte->raw[entry * 3 + 2];
+        }
+        return;
+    }
+#endif
+
     if(fmt == SPNG_FMT_RGBA8)
     {
-        for(i=0; i < width; i++)
+        for(; i < width; i++)
         {
             px = row + i * 4;
             entry = scanline[i];
@@ -1313,7 +1350,7 @@ void expand_row(unsigned char *row, const unsigned char *scanline, const struct 
     }
     else if(fmt == SPNG_FMT_RGB8)
     {
-        for(i=0; i < width; i++)
+        for(; i < width; i++)
         {
             px = row + i * 3;
             entry = scanline[i];
@@ -2627,7 +2664,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     const uint16_t *gamma_lut = ctx->gamma_lut;
     unsigned char *trns_px = ctx->trns_px;
     const struct spng_sbit *sb = &ctx->decode_sb;
-    const struct spng_plte_entry *plte = ctx->decode_plte;
+    const struct spng_plte_entry *plte = ctx->decode_plte.rgba;
     struct spng__iter iter = (ihdr->bit_depth < 16) ? spng__iter_init(ihdr->bit_depth, ctx->scanline) : (struct spng__iter){0};
 
     const unsigned char *scanline;
@@ -2711,7 +2748,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
             {
                 if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGB8))
                 {
-                    expand_row(out, scanline, plte, width, fmt);
+                    expand_row(out, scanline, &ctx->decode_plte, width, fmt);
                     break;
                 }
 
@@ -3182,11 +3219,13 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
        sb->alpha_bits == processing_depth &&
        processing_depth == depth_target) f.do_scaling = 0;
 
-    struct spng_plte_entry *plte = ctx->decode_plte;
+    struct spng_plte_entry *plte = ctx->decode_plte.rgba;
 
     /* Pre-process palette entries */
     if(f.indexed)
     {
+        uint8_t red, green, blue, alpha;
+
         uint32_t i;
         for(i=0; i < 256; i++)
         {
@@ -3195,10 +3234,24 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
             else
                 ctx->plte.entries[i].alpha = 255;
 
-            plte[i].red = sample_to_target(ctx->plte.entries[i].red, 8, sb->red_bits, 8);
-            plte[i].green = sample_to_target(ctx->plte.entries[i].green, 8, sb->green_bits, 8);
-            plte[i].blue = sample_to_target(ctx->plte.entries[i].blue, 8, sb->blue_bits, 8);
-            plte[i].alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb->alpha_bits, 8);
+            red   = sample_to_target(ctx->plte.entries[i].red, 8, sb->red_bits, 8);
+            green = sample_to_target(ctx->plte.entries[i].green, 8, sb->green_bits, 8);
+            blue  = sample_to_target(ctx->plte.entries[i].blue, 8, sb->blue_bits, 8);
+            alpha = sample_to_target(ctx->plte.entries[i].alpha, 8, sb->alpha_bits, 8);
+
+#if defined(SPNG_ARM)
+            if(fmt == SPNG_FMT_RGB8 && ihdr->bit_depth == 8)
+            {/* Working with 3 bytes at a time is more of an ARM thing */
+                ctx->decode_plte.rgb[i * 3 + 0] = red;
+                ctx->decode_plte.rgb[i * 3 + 1] = green;
+                ctx->decode_plte.rgb[i * 3 + 2] = blue;
+                continue;
+            }
+#endif
+            plte[i].red = red;
+            plte[i].green = green;
+            plte[i].blue = blue;
+            plte[i].alpha = alpha;
         }
 
         f.apply_trns = 0;
@@ -5041,6 +5094,76 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
         vdest_val = png_ldr(uint32x2x4_t, &vdest);
         vst4_lane_u32(png_ptr(uint32_t,rp), vdest_val, 0);
     }
+}
+
+/* NEON optimised palette expansion functions
+ * Derived from palette_neon_intrinsics.c
+ *
+ * Copyright (c) 2018-2019 Cosmin Truta
+ * Copyright (c) 2017-2018 Arm Holdings. All rights reserved.
+ * Written by Richard Townsend <Richard.Townsend@arm.com>, February 2017.
+ *
+ * This code is derived from libpng source code.
+ * For conditions of distribution and use, see the disclaimer
+ * and license in this file.
+ *
+ * Related: https://developer.arm.com/documentation/101964/latest/Color-palette-expansion
+ *
+ * The functions were refactored to iterate forward.
+ *
+ */
+
+/* Expands a palettized row into RGBA8. */
+static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width)
+{
+    const uint32_t stride = 4;
+    const uint32_t *palette = (const uint32_t*)plte;
+
+    if(width < stride) return 0;
+
+    uint32_t i;
+    for(i=0; i < width; i += stride, scanline += stride, row += stride * 4)
+    {
+        uint32x4_t cur;
+        cur = vld1q_dup_u32 (palette + scanline[0]);
+        cur = vld1q_lane_u32(palette + scanline[1], cur, 1);
+        cur = vld1q_lane_u32(palette + scanline[2], cur, 2);
+        cur = vld1q_lane_u32(palette + scanline[3], cur, 3);
+        vst1q_u32((void*)row, cur);
+    }
+
+    /* Remove the amount that wasn't processed. */
+    if(i != width) i -= stride;
+
+    return i;
+}
+
+/* Expands a palettized row into RGB8. */
+static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width)
+{
+    const uint32_t stride = 8;
+
+    if(width <= stride) return 0;
+
+    uint32_t i;
+    for(i=0; i < width; i += stride, scanline += stride, row += stride * 3)
+    {
+        uint8x8x3_t cur;
+        cur = vld3_dup_u8 (plte + 3 * scanline[0]);
+        cur = vld3_lane_u8(plte + 3 * scanline[1], cur, 1);
+        cur = vld3_lane_u8(plte + 3 * scanline[2], cur, 2);
+        cur = vld3_lane_u8(plte + 3 * scanline[3], cur, 3);
+        cur = vld3_lane_u8(plte + 3 * scanline[4], cur, 4);
+        cur = vld3_lane_u8(plte + 3 * scanline[5], cur, 5);
+        cur = vld3_lane_u8(plte + 3 * scanline[6], cur, 6);
+        cur = vld3_lane_u8(plte + 3 * scanline[7], cur, 7);
+        vst3_u8((void*)row, cur);
+    }
+
+    /* Remove the amount that wasn't processed. */
+    if(i != width) i -= stride;
+
+    return i;
 }
 
 #endif /* SPNG_ARM */
