@@ -4323,7 +4323,7 @@ const char *spng_strerror(int err)
 
 const char *spng_version_string(void)
 {
-    return SPNG_VERSION_STRING "-rc2";
+    return SPNG_VERSION_STRING "-rc3";
 }
 
 #if defined(_MSC_VER)

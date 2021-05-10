@@ -1,5 +1,5 @@
 project('spng', 'c',
-    version : '0.7.0-rc2',
+    version : '0.7.0-rc3',
     license : [ 'BSD-2-Clause', 'libpng-2.0' ],
     default_options : 'c_std=c99'
 )
