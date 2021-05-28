@@ -1,32 +1,10 @@
 #ifndef TEST_SPNG_H
 #define TEST_SPNG_H
 
+#include "spngt_common.h"
+
 #include <spng.h>
 #include <string.h>
-
-#define SPNGT_FMT_VIPS (1 << 20) /* the sequence of libpng calls in libvips */
-
-typedef struct spngt_chunk_bitfield
-{
-    unsigned ihdr: 1;
-    unsigned plte: 1;
-    unsigned trns: 1;
-    unsigned chrm: 1;
-    unsigned gama: 1;
-    unsigned iccp: 1;
-    unsigned sbit: 1;
-    unsigned srgb: 1;
-    unsigned text: 1;
-    unsigned ztxt: 1;
-    unsigned itxt: 1;
-    unsigned bkgd: 1;
-    unsigned hist: 1;
-    unsigned phys: 1;
-    unsigned splt: 1;
-    unsigned time: 1;
-    unsigned offs: 1;
-    unsigned exif: 1;
-}spngt_chunk_bitfield;
 
 int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
 {
@@ -59,10 +37,10 @@ int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
     return 0;
 }
 
-spng_ctx *init_spng(FILE *file, int flags, struct spng_ihdr *ihdr)
+spng_ctx *init_spng(struct spngt_test_case *test_case, struct spng_ihdr *ihdr)
 {
-    int r;
-    spng_ctx *ctx = spng_ctx_new(flags);
+    int r = 0;
+    spng_ctx *ctx = spng_ctx_new(0);
 
     if(ctx == NULL)
     {
@@ -70,7 +48,8 @@ spng_ctx *init_spng(FILE *file, int flags, struct spng_ihdr *ihdr)
         return NULL;
     }
 
-    r = spng_set_png_file(ctx, file);
+    if(test_case->source.type == SPNGT_SRC_FILE) r = spng_set_png_file(ctx, test_case->source.file);
+    else if(test_case->source.type == SPNGT_SRC_BUFFER) r = spng_set_png_buffer(ctx, test_case->source.buffer, test_case->source.png_size);
 
     if(r)
     {
