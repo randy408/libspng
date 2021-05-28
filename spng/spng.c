@@ -3715,6 +3715,16 @@ int spng_get_gama(spng_ctx *ctx, double *gamma)
     return 0;
 }
 
+int spng_get_gama_int(spng_ctx *ctx, uint32_t *gama_int)
+{
+    uint32_t *gama = gama_int;
+    SPNG_GET_CHUNK_BOILERPLATE(gama);
+
+    *gama_int = ctx->gama;
+
+    return 0;
+}
+
 int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
 {
     SPNG_GET_CHUNK_BOILERPLATE(iccp);
@@ -3965,6 +3975,21 @@ int spng_set_gama(spng_ctx *ctx, double gamma)
     if(gama > png_u32max) return 1;
 
     ctx->gama = gama;
+
+    ctx->stored.gama = 1;
+    ctx->user.gama = 1;
+
+    return 0;
+}
+
+int spng_set_gama_int(spng_ctx *ctx, uint32_t gamma)
+{
+    SPNG_SET_CHUNK_BOILERPLATE(ctx);
+
+    if(!gamma) return 1;
+    if(gamma > png_u32max) return 1;
+
+    ctx->gama = gamma;
 
     ctx->stored.gama = 1;
     ctx->user.gama = 1;
