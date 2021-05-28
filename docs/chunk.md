@@ -57,6 +57,13 @@ int spng_get_gama(spng_ctx *ctx, double *gamma)
 
 Get image gamma
 
+# spng_get_gama_int()
+```c
+int spng_get_gama_int(spng_ctx *ctx, uint32_t *gamma)
+```
+
+Get image gamma in PNG's internal representation
+
 # spng_get_iccp()
 ```c
 int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
@@ -215,6 +222,13 @@ int spng_set_gama(spng_ctx *ctx, double gamma)
 ```
 
 Set image gamma
+
+# spng_set_gama_int()
+```c
+int spng_set_gama_int(spng_ctx *ctx, uint32_t gamma)
+```
+
+Set image gamma in PNG's internal representation
 
 # spng_set_iccp()
 ```c
