@@ -8,13 +8,13 @@
 #endif
 
 #include <png.h>
-#include "test_spng.h"
+
+#include "spngt_common.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
-png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
+png_structp init_libpng(struct spngt_test_case *test_case, png_infop *iptr)
 {
     png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(png_ptr == NULL)
@@ -30,7 +30,7 @@ png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
         return NULL;
     }
 
-    png_init_io(png_ptr, file);
+    if(test_case->source.type == SPNGT_SRC_FILE) png_init_io(png_ptr, test_case->source.file);
 
     if(setjmp(png_jmpbuf(png_ptr)))
     {
