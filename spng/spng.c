@@ -1710,8 +1710,11 @@ ga16:
 
 static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
-    if(ihdr->width > png_u32max || ihdr->width > max_width || !ihdr->width) return SPNG_EWIDTH;
-    if(ihdr->height > png_u32max || ihdr->height > max_height || !ihdr->height) return SPNG_EHEIGHT;
+    if(ihdr->width > png_u32max || !ihdr->width) return SPNG_EWIDTH;
+    if(ihdr->height > png_u32max || !ihdr->height) return SPNG_EHEIGHT;
+
+    if(ihdr->width > max_width) return SPNG_EUSER_WIDTH;
+    if(ihdr->height > max_height) return SPNG_EUSER_HEIGHT;
 
     switch(ihdr->color_type)
     {
