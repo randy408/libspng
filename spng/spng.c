@@ -4039,8 +4039,8 @@ static int write_chunks_before_idat(spng_ctx *ctx)
 
     if(ctx->stored.offs)
     {
-        write_u32(data,     ctx->offs.x);
-        write_u32(data + 4, ctx->offs.y);
+        write_s32(data,     ctx->offs.x);
+        write_s32(data + 4, ctx->offs.y);
         data[8] = ctx->offs.unit_specifier;
 
         ret = write_chunk(ctx, type_offs, data, 9);
