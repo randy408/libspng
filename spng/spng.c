@@ -5124,27 +5124,23 @@ int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
 
     if(!ctx->stored.ihdr)  return 1;
 
-    uint16_t mask = ~0;
-
-    if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
-
     if(ctx->ihdr.color_type == 0 || ctx->ihdr.color_type == 4)
     {
-        bkgd->gray &= mask;
+        ctx->bkgd.gray = bkgd->gray;
     }
     else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
     {
-        bkgd->red &= mask;
-        bkgd->green &= mask;
-        bkgd->blue &= mask;
+        ctx->bkgd.red = bkgd->red;
+        ctx->bkgd.green = bkgd->green;
+        ctx->bkgd.blue = bkgd->blue;
     }
     else if(ctx->ihdr.color_type == 3)
     {
         if(!ctx->stored.plte) return SPNG_EBKGD_NO_PLTE;
         if(bkgd->plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
-    }
 
-    ctx->bkgd = *bkgd;
+        ctx->bkgd.plte_index = bkgd->plte_index;
+    }
 
     ctx->stored.bkgd = 1;
     ctx->user.bkgd = 1;
