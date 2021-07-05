@@ -2233,22 +2233,19 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
             if(ctx->file.bkgd) return SPNG_EDUP_BKGD;
 
-            uint16_t mask = ~0;
-            if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
-
             if(ctx->ihdr.color_type == 0 || ctx->ihdr.color_type == 4)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                ctx->bkgd.gray = read_u16(data) & mask;
+                ctx->bkgd.gray = read_u16(data);
             }
             else if(ctx->ihdr.color_type == 2 || ctx->ihdr.color_type == 6)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                ctx->bkgd.red = read_u16(data) & mask;
-                ctx->bkgd.green = read_u16(data + 2) & mask;
-                ctx->bkgd.blue = read_u16(data + 4) & mask;
+                ctx->bkgd.red = read_u16(data);
+                ctx->bkgd.green = read_u16(data + 2);
+                ctx->bkgd.blue = read_u16(data + 4);
             }
             else if(ctx->ihdr.color_type == 3)
             {
