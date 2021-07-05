@@ -2965,7 +2965,7 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     unsigned char *trns_px = ctx->trns_px;
     const struct spng_sbit *sb = &ctx->decode_sb;
     const struct spng_plte_entry *plte = ctx->decode_plte.rgba;
-    struct spng__iter iter = (ihdr->bit_depth < 16) ? spng__iter_init(ihdr->bit_depth, ctx->scanline) : (struct spng__iter){0};
+    struct spng__iter iter = spng__iter_init(ihdr->bit_depth, ctx->scanline);
 
     const unsigned char *scanline;
 
