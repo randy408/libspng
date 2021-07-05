@@ -4247,6 +4247,8 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     size_t img_len = 0;
     const struct spng_ihdr *ihdr = &ctx->ihdr;
 
+    if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED && !ctx->stored.plte) return SPNG_ENOPLTE;
+
     ctx->channels = num_channels(ihdr);
 
     ret = calculate_image_size(ctx, fmt, &img_len);
