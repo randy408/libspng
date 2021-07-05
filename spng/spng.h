@@ -388,6 +388,8 @@ SPNG_API int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size);
 SPNG_API int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user);
 SPNG_API int spng_set_png_file(spng_ctx *ctx, FILE *file);
 
+SPNG_API void *spng_get_png_buffer(spng_ctx *ctx, size_t *len, int *error);
+
 SPNG_API int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height);
 SPNG_API int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height);
 
@@ -407,6 +409,9 @@ SPNG_API int spng_decode_row(spng_ctx *ctx, void *out, size_t len);
 
 SPNG_API int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info);
 
+/* Encode */
+SPNG_API int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags);
+
 SPNG_API int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 SPNG_API int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte);
 SPNG_API int spng_get_trns(spng_ctx *ctx, struct spng_trns *trns);
@@ -423,6 +428,7 @@ SPNG_API int spng_get_hist(spng_ctx *ctx, struct spng_hist *hist);
 SPNG_API int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys);
 SPNG_API int spng_get_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t *n_splt);
 SPNG_API int spng_get_time(spng_ctx *ctx, struct spng_time *time);
+SPNG_API int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks);
 
 /* Official extensions */
 SPNG_API int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs);
@@ -445,12 +451,12 @@ SPNG_API int spng_set_hist(spng_ctx *ctx, struct spng_hist *hist);
 SPNG_API int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys);
 SPNG_API int spng_set_splt(spng_ctx *ctx, struct spng_splt *splt, uint32_t n_splt);
 SPNG_API int spng_set_time(spng_ctx *ctx, struct spng_time *time);
+SPNG_API int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t n_chunks);
 
 /* Official extensions */
 SPNG_API int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif);
 
-SPNG_API int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks);
 
 SPNG_API const char *spng_strerror(int err);
 SPNG_API const char *spng_version_string(void);
