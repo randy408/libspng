@@ -26,7 +26,8 @@
     #include <pthread.h>
 #endif
 
-#define SPNG_READ_SIZE 8192
+#define SPNG_READ_SIZE (8192)
+#define SPNG_WRITE_SIZE SPNG_READ_SIZE
 
 #define SPNG_TARGET_CLONES(x)
 
@@ -87,6 +88,7 @@ enum spng_state
     SPNG_STATE_IHDR, /* IHDR was read */
     SPNG_STATE_FIRST_IDAT,  /* Reached first IDAT */
     SPNG_STATE_DECODE_INIT, /* Decoder is ready for progressive reads */
+    SPNG_STATE_ENCODE_INIT = SPNG_STATE_DECODE_INIT,
     SPNG_STATE_EOI, /* Reached the last scanline/row */
     SPNG_STATE_LAST_IDAT, /* Reached last IDAT, set at end of decode_image() */
     SPNG_STATE_AFTER_IDAT, /*  */
@@ -134,6 +136,7 @@ struct spng_text2
     char *translated_keyword; /* iTXt only */
 
     size_t cache_usage;
+    char user_keyword_storage[80];
 };
 
 struct decode_flags
@@ -147,6 +150,13 @@ struct decode_flags
     unsigned same_layout: 1;
     unsigned zerocopy:    1;
     unsigned unpack:      1;
+};
+
+struct spng_encode_flags
+{
+    unsigned chunk_zerocopy: 1;
+    unsigned interlace:      1;
+    unsigned same_layout:    1;
 };
 
 struct spng_chunk_bitfield
@@ -201,9 +211,16 @@ struct spng_ctx
     void *read_user_ptr;
 
     /* Used for buffer reads */
-    const unsigned char *png_buf; /* base pointer for the buffer */
+    const unsigned char *png_base;
     size_t bytes_left;
     size_t last_read_size;
+
+    /* Used for encoding */
+    int user_owns_out_png;
+    unsigned char *out_png;
+    unsigned char *write_ptr;
+    size_t out_png_size;
+    size_t bytes_encoded;
 
     /* These are updated by read_header()/read_chunk_bytes() */
     struct spng_chunk current_chunk;
@@ -215,9 +232,12 @@ struct spng_ctx
     int flags; /* context flags */
     int fmt;
 
-    unsigned state: 4;
+    enum spng_state state;
+
     unsigned streaming: 1;
 
+    unsigned inflate: 1;
+    unsigned deflate: 1;
     unsigned encode_only: 1;
     unsigned strict: 1;
     unsigned discard: 1;
@@ -290,8 +310,8 @@ struct spng_ctx
     size_t out_width; /* total_out_size / ihdr.height */
 
     unsigned channels;
-    unsigned bytes_per_pixel; /* input PNG */
-    unsigned pixel_size; /* output format */
+    unsigned bytes_per_pixel; /* derived from ihdr */
+    unsigned pixel_size; /* derived from spng_format+ihdr */
     int widest_pass;
     int last_pass; /* last non-empty pass */
 
@@ -303,6 +323,8 @@ struct spng_ctx
     struct spng_sbit decode_sb;
     struct decode_flags decode_flags;
     struct spng_row_info row_info;
+
+    struct spng_encode_flags encode_flags;
 };
 
 static const uint32_t png_u32max = 2147483647;
@@ -406,6 +428,30 @@ static inline int32_t read_s32(const void *_data)
     return ret;
 }
 
+static inline void write_u16(void *dest, uint16_t x)
+{
+    unsigned char *data = dest;
+
+    data[0] = x >> 8;
+    data[1] = x & 0xFF;
+}
+
+static inline void write_u32(void *dest, uint32_t x)
+{
+    unsigned char *data = dest;
+
+    data[0] = (x >> 24);
+    data[1] = (x >> 16) & 0xFF;
+    data[2] = (x >> 8) & 0xFF;
+    data[3] = x & 0xFF;
+}
+
+static inline void write_s32(void *dest, int32_t x)
+{
+    uint32_t n = x;
+    write_u32(dest, n);
+}
+
 /* Returns an iterator for 1,2,4,8-bit samples */
 static struct spng__iter spng__iter_init(unsigned bit_depth, const unsigned char *samples)
 {
@@ -441,9 +487,21 @@ static void u16_row_to_host(void *row, size_t size)
 {
     uint16_t *px = row;
     size_t i, n = size / 2;
+
     for(i=0; i < n; i++)
     {
         px[i] = read_u16(&px[i]);
+    }
+}
+
+static void u16_row_to_bigendian(void *row, size_t size)
+{
+    uint16_t *px = (uint16_t*)row;
+    size_t i, n = size / 2;
+
+    for(i=0; i < n; i++)
+    {
+        write_u16(&px[i], px[i]);
     }
 }
 
@@ -455,6 +513,14 @@ static void rgb8_row_to_rgba8(const unsigned char *row, unsigned char *out, uint
         memcpy(out + i * 4, row + i * 3, 3);
         out[i*4+3] = 255;
     }
+}
+
+static unsigned num_channels(const struct spng_ihdr *ihdr)
+{
+    if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR) return 3;
+    else if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) return 2;
+    else if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) return 4;
+    else return 1; /* grayscale or indexed color */
 }
 
 /* Calculate scanline width in bits, round up to the nearest byte */
@@ -526,6 +592,61 @@ static int calculate_subimages(struct spng_ctx *ctx)
     return 0;
 }
 
+static int calculate_image_size(spng_ctx *ctx, int fmt, size_t *len)
+{
+    if(ctx == NULL || len == NULL) return SPNG_EINTERNAL;
+
+    struct spng_ihdr *ihdr = &ctx->ihdr;
+    size_t res = ihdr->width;
+    unsigned bytes_per_pixel;
+
+    /* Currently all enums are single-bit values */
+    if(fmt & ((unsigned)fmt - 1)) return SPNG_EFMT; /* More than one bit is set */
+
+    if(fmt == SPNG_FMT_RGBA8)
+    {
+        bytes_per_pixel = 4;
+    }
+    else if(fmt == SPNG_FMT_RGBA16)
+    {
+        bytes_per_pixel = 8;
+    }
+    else if(fmt == SPNG_FMT_RGB8)
+    {
+        bytes_per_pixel = 3;
+    }
+    else if(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW)
+    {
+        int ret = calculate_scanline_width(ctx, ihdr->width, &res);
+        if(ret) return ret;
+
+        res -= 1; /* exclude filter byte */
+        bytes_per_pixel = 1;
+    }
+    else if(fmt == SPNG_FMT_G8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
+    {
+        bytes_per_pixel = 1;
+    }
+    else if(fmt == SPNG_FMT_GA8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
+    {
+        bytes_per_pixel = 2;
+    }
+    else if(fmt == SPNG_FMT_GA16 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth == 16)
+    {
+        bytes_per_pixel = 4;
+    }
+    else return SPNG_EFMT;
+
+    if(res > SIZE_MAX / bytes_per_pixel) return SPNG_EOVERFLOW;
+    res = res * bytes_per_pixel;
+
+    if(res > SIZE_MAX / ihdr->height) return SPNG_EOVERFLOW;
+    res = res * ihdr->height;
+
+    *len = res;
+
+    return 0;
+}
 
 static int increase_cache_usage(spng_ctx *ctx, size_t bytes)
 {
@@ -580,6 +701,164 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
     if(ctx->bytes_read < bytes) return SPNG_EOVERFLOW;
 
     return 0;
+}
+
+static void *grow_buffer(void *buf, size_t size, size_t *new_size)
+{
+    if(new_size == NULL) return NULL;
+
+    if(!size) size = SPNG_WRITE_SIZE;
+
+    if(2 > SIZE_MAX / size) return NULL; /* overflow */
+    size *= 2;
+
+    void *temp = realloc(buf, size);
+    if(temp == NULL) return NULL;
+
+    *new_size = size;
+
+    return temp;
+}
+
+/* Ensure there is enough space for encoding starting at ctx->write_ptr  */
+static int require_bytes(spng_ctx *ctx, size_t bytes)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+
+    if(ctx->streaming) return 0; /* XXX: use a different flag? */
+
+    size_t required = ctx->bytes_encoded + bytes;
+    if(required < bytes) return SPNG_EOVERFLOW;
+
+    if(required > ctx->out_png_size)
+    {
+        size_t new_size;
+        void *temp = grow_buffer(ctx->out_png, ctx->out_png_size, &new_size);
+
+        if(temp == NULL)
+        {
+            ctx->state = SPNG_STATE_INVALID;
+            return SPNG_EMEM;
+        }
+
+        ctx->out_png = temp;
+        ctx->out_png_size = new_size;
+        ctx->write_ptr = ctx->out_png + ctx->bytes_encoded;
+    }
+
+    return 0;
+}
+
+static int write_data(spng_ctx *ctx, const void *data, size_t len)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+
+    int ret = require_bytes(ctx, len);
+    if(ret)
+    {
+        ctx->state = SPNG_STATE_INVALID;
+        return ret;
+    }
+
+    memcpy(ctx->write_ptr, data, len);
+
+    ctx->bytes_encoded += len;
+    if(ctx->bytes_encoded < len) return SPNG_EOVERFLOW;
+
+    ctx->write_ptr += len;
+
+    return 0;
+}
+
+static int write_header(spng_ctx *ctx, const uint8_t chunk_type[4], uint32_t chunk_length, unsigned char **data)
+{
+    if(ctx == NULL || chunk_type == NULL) return SPNG_EINTERNAL;
+
+    if(chunk_length > png_u32max) return SPNG_ECHUNK_SIZE;
+
+    size_t total = chunk_length + 12;
+
+    int ret = require_bytes(ctx, total);
+    if(ret) return ret;
+
+    uint32_t crc = crc32(0, NULL, 0);
+    ctx->current_chunk.crc = crc32(crc, chunk_type, 4);
+
+    unsigned char header[8];
+
+    write_u32(header, chunk_length);
+    memcpy(header + 4, chunk_type, 4);
+
+    ret = write_data(ctx, header, 8);
+    if(ret) return ret;
+
+    memcpy(&ctx->current_chunk, chunk_type, 4);
+    ctx->current_chunk.length = chunk_length;
+
+    if(data)
+    {
+        ctx->encode_flags.chunk_zerocopy = 1;
+
+        ret = require_bytes(ctx, chunk_length);
+        if(ret) return ret;
+
+        *data = ctx->write_ptr;
+    }
+
+    return 0;
+}
+
+static int inline write_crc(spng_ctx *ctx)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+
+    unsigned char crc[4];
+    write_u32(crc, ctx->current_chunk.crc);
+
+    int ret = write_data(ctx, crc, 4);
+
+    return ret;
+}
+
+static int inline finish_chunk(spng_ctx *ctx)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+
+    if(ctx->encode_flags.chunk_zerocopy)
+    {
+        size_t len = ctx->current_chunk.length;
+
+        ctx->bytes_encoded += len;
+        if(ctx->bytes_encoded < len) return SPNG_EOVERFLOW;
+
+        ctx->current_chunk.crc = crc32(ctx->current_chunk.crc, ctx->write_ptr, ctx->current_chunk.length);
+        ctx->encode_flags.chunk_zerocopy = 0;
+
+        ctx->write_ptr += len;
+    }
+
+    return write_crc(ctx);
+}
+
+static int write_chunk(spng_ctx *ctx, const uint8_t type[4], const void *data, size_t length)
+{
+    if(ctx == NULL || type == NULL) return SPNG_EINTERNAL;
+    if(length && data == NULL) return SPNG_EINTERNAL;
+
+    unsigned char *write_ptr;
+
+    int ret = write_header(ctx, type, length, &write_ptr);
+    if(ret) return ret;
+
+    if(length) memcpy(write_ptr, data, length);
+
+    return finish_chunk(ctx);
+}
+
+static int write_iend(spng_ctx *ctx)
+{
+    unsigned char iend_chunk[12] = { 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130 };
+    return write_data(ctx, iend_chunk, 12);
 }
 
 /* Read and check the current chunk's crc,
@@ -749,6 +1028,8 @@ static int spng__inflate_init(spng_ctx *ctx)
 {
     if(ctx->zstream.state) inflateEnd(&ctx->zstream);
 
+    ctx->inflate = 1;
+
     ctx->zstream.zalloc = spng__zalloc;
     ctx->zstream.zfree = spng__zfree;
     ctx->zstream.opaque = ctx;
@@ -775,6 +1056,24 @@ static int spng__inflate_init(spng_ctx *ctx)
 #else /* This requires zlib >= 1.2.11 */
     #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
 #endif
+
+    return 0;
+}
+
+static int spng__deflate_init(spng_ctx *ctx, int level, int strategy)
+{
+    if(ctx->zstream.state) deflateEnd(&ctx->zstream);
+
+    ctx->deflate = 1;
+
+    z_stream *zstream = &ctx->zstream;
+    zstream->zalloc = spng__zalloc;
+    zstream->zfree = spng__zfree;
+    zstream->opaque = ctx;
+
+    int ret = deflateInit2(zstream, level, Z_DEFLATED, 15, 8, strategy);
+
+    if(ret != Z_OK) return SPNG_EZLIB_INIT;
 
     return 0;
 }
@@ -1589,6 +1888,7 @@ static int check_png_keyword(const char *str)
     const char *end = str + len;
 
     if(!len) return 1;
+    if(len > 79) return 1;
     if(str[0] == ' ') return 1; /* Leading space */
     if(end[-1] == ' ') return 1; /* Trailing space */
     if(strstr(str, "  ") != NULL) return 1; /* Consecutive spaces */
@@ -1643,11 +1943,11 @@ static int is_small_chunk(uint8_t type[4])
 static int read_ihdr(spng_ctx *ctx)
 {
     int ret;
-    struct spng_chunk chunk;
+    struct spng_chunk *chunk = &ctx->current_chunk;
     const unsigned char *data;
 
-    chunk.offset = 8;
-    chunk.length = 13;
+    chunk->offset = 8;
+    chunk->length = 13;
     size_t sizeof_sig_ihdr = 29;
 
     ret = read_data(ctx, sizeof_sig_ihdr);
@@ -1657,11 +1957,11 @@ static int read_ihdr(spng_ctx *ctx)
 
     if(memcmp(data, png_signature, sizeof(png_signature))) return SPNG_ESIGNATURE;
 
-    chunk.length = read_u32(data + 8);
-    memcpy(&chunk.type, data + 12, 4);
+    chunk->length = read_u32(data + 8);
+    memcpy(&chunk->type, data + 12, 4);
 
-    if(chunk.length != 13) return SPNG_EIHDR_SIZE;
-    if(memcmp(chunk.type, type_ihdr, 4)) return SPNG_ENOIHDR;
+    if(chunk->length != 13) return SPNG_EIHDR_SIZE;
+    if(memcmp(chunk->type, type_ihdr, 4)) return SPNG_ENOIHDR;
 
     ctx->cur_actual_crc = crc32(0, NULL, 0);
     ctx->cur_actual_crc = crc32(ctx->cur_actual_crc, data + 12, 17);
@@ -1674,20 +1974,13 @@ static int read_ihdr(spng_ctx *ctx)
     ctx->ihdr.filter_method = data[27];
     ctx->ihdr.interlace_method = data[28];
 
-    if(!ctx->max_width) ctx->max_width = png_u32max;
-    if(!ctx->max_height) ctx->max_height = png_u32max;
-
     ret = check_ihdr(&ctx->ihdr, ctx->max_width, ctx->max_height);
     if(ret) return ret;
 
     ctx->file.ihdr = 1;
     ctx->stored.ihdr = 1;
 
-    ctx->channels = 1; /* grayscale or indexed color */
-
-    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) ctx->channels = 3;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) ctx->channels = 2;
-    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) ctx->channels = 4;
+    ctx->channels = num_channels(&ctx->ihdr);
 
     if(ctx->ihdr.bit_depth < 8) ctx->bytes_per_pixel = 1;
     else ctx->bytes_per_pixel = ctx->channels * (ctx->ihdr.bit_depth / 8);
@@ -2489,6 +2782,13 @@ discard:
 }
 
 static int decode_err(spng_ctx *ctx, int err)
+{
+    ctx->state = SPNG_STATE_INVALID;
+
+    return err;
+}
+
+static int encode_err(spng_ctx *ctx, int err)
 {
     ctx->state = SPNG_STATE_INVALID;
 
@@ -3358,6 +3658,696 @@ int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
     return 0;
 }
 
+static int write_chunks_before_idat(spng_ctx *ctx)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+    if(!ctx->encode_only) return SPNG_EINTERNAL;
+    if(!ctx->stored.ihdr) return SPNG_EINTERNAL;
+
+    int ret;
+    uint32_t i, length;
+    const struct spng_ihdr *ihdr = &ctx->ihdr;
+    unsigned char *data = ctx->decode_plte.raw;
+
+    ret = write_data(ctx, png_signature, 8);
+    if(ret) return ret;
+
+    write_u32(data,     ihdr->width);
+    write_u32(data + 4, ihdr->height);
+    data[8]  = ihdr->bit_depth;
+    data[9]  = ihdr->color_type;
+    data[10] = ihdr->compression_method;
+    data[11] = ihdr->filter_method;
+    data[12] = ihdr->interlace_method;
+
+    ret = write_chunk(ctx, type_ihdr, data, 13);
+    if(ret) return ret;
+
+    if(ctx->stored.chrm)
+    {
+        write_u32(data,      ctx->chrm_int.white_point_x);
+        write_u32(data + 4,  ctx->chrm_int.white_point_y);
+        write_u32(data + 8,  ctx->chrm_int.red_x);
+        write_u32(data + 12, ctx->chrm_int.red_y);
+        write_u32(data + 16, ctx->chrm_int.green_x);
+        write_u32(data + 20, ctx->chrm_int.green_y);
+        write_u32(data + 24, ctx->chrm_int.blue_x);
+        write_u32(data + 28, ctx->chrm_int.blue_y);
+
+        ret = write_chunk(ctx, type_chrm, data, 32);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.gama)
+    {
+        write_u32(data, ctx->gama);
+
+        ret = write_chunk(ctx, type_gama, data, 4);
+        if(ret) return ret;
+    }
+
+    // TODO: iCCP
+
+    if(ctx->stored.sbit)
+    {
+        switch(ctx->ihdr.color_type)
+        {
+            case SPNG_COLOR_TYPE_GRAYSCALE:
+            {
+                length = 1;
+
+                data[0] = ctx->sbit.grayscale_bits;
+
+                break;
+            }
+            case SPNG_COLOR_TYPE_TRUECOLOR:
+            case SPNG_COLOR_TYPE_INDEXED:
+            {
+                length = 3;
+
+                data[0] = ctx->sbit.red_bits;
+                data[1] = ctx->sbit.green_bits;
+                data[2] = ctx->sbit.blue_bits;
+
+                break;
+            }
+            case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+            {
+                length = 2;
+
+                data[0] = ctx->sbit.grayscale_bits;
+                data[1] = ctx->sbit.alpha_bits;
+
+                break;
+            }
+            case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
+            {
+                length = 4;
+
+                data[0] = ctx->sbit.red_bits;
+                data[1] = ctx->sbit.green_bits;
+                data[2] = ctx->sbit.blue_bits;
+                data[3] = ctx->sbit.alpha_bits;
+
+                break;
+            }
+            default: return SPNG_EINTERNAL;
+        }
+
+        ret = write_chunk(ctx, type_sbit, data, length);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.srgb)
+    {
+        ret = write_chunk(ctx, type_srgb, &ctx->srgb_rendering_intent, 1);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.plte)
+    {
+        for(i=0; i < ctx->plte.n_entries; i++)
+        {
+            data[i * 3 + 0] = ctx->plte.entries[i].red;
+            data[i * 3 + 1] = ctx->plte.entries[i].green;
+            data[i * 3 + 2] = ctx->plte.entries[i].blue;
+        }
+
+        ret = write_chunk(ctx, type_plte, data, ctx->plte.n_entries * 3);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.bkgd)
+    {
+        switch(ctx->ihdr.color_type)
+        {
+            case SPNG_COLOR_TYPE_GRAYSCALE:
+            case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA:
+            {
+                length = 2;
+
+                write_u16(data, ctx->bkgd.gray);
+
+                break;
+            }
+            case SPNG_COLOR_TYPE_TRUECOLOR:
+            case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA:
+            {
+                length = 6;
+
+                write_u16(data,     ctx->bkgd.red);
+                write_u16(data + 2, ctx->bkgd.green);
+                write_u16(data + 4, ctx->bkgd.blue);
+
+                break;
+            }
+            case SPNG_COLOR_TYPE_INDEXED:
+            {
+                length = 1;
+
+                data[0] = ctx->bkgd.plte_index;
+
+                break;
+            }
+            default: return SPNG_EINTERNAL;
+        }
+
+        ret = write_chunk(ctx, type_bkgd, data, length);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.hist)
+    {
+        length = ctx->plte.n_entries * 2;
+
+        for(i=0; i < ctx->plte.n_entries; i++)
+        {
+            write_u16(data + i * 2, ctx->hist.frequency[i]);
+        }
+
+        ret = write_chunk(ctx, type_hist, data, length);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.trns)
+    {
+        if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
+        {
+            write_u16(data, ctx->trns.gray);
+
+            ret = write_chunk(ctx, type_trns, data, 2);
+        }
+        else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+        {
+            write_u16(data,     ctx->trns.red);
+            write_u16(data + 2, ctx->trns.green);
+            write_u16(data + 4, ctx->trns.blue);
+
+            ret = write_chunk(ctx, type_trns, data, 6);
+        }
+        else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+        {
+            ret = write_chunk(ctx, type_trns, ctx->trns.type3_alpha, ctx->trns.n_type3_entries);
+        }
+
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.phys)
+    {
+        write_u32(data,     ctx->phys.ppu_x);
+        write_u32(data + 4, ctx->phys.ppu_y);
+        data[8] = ctx->phys.unit_specifier;
+
+        ret = write_chunk(ctx, type_phys, data, 9);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.splt)
+    {
+        const struct spng_splt *splt;
+        unsigned char *cdata = NULL;
+
+        uint32_t k;
+        for(i=0; i < ctx->n_splt; i++)
+        {
+            splt = &ctx->splt_list[i];
+
+            size_t name_len = strlen(splt->name);
+            length = name_len + 1;
+
+            if(splt->sample_depth == 8) length += splt->n_entries * 6 + 1;
+            else if(splt->sample_depth == 16) length += splt->n_entries * 10 + 1;
+
+            ret = write_header(ctx, type_splt, length, &cdata);
+            if(ret) return ret;
+
+            memcpy(cdata, splt->name, name_len + 1);
+            cdata += name_len + 2;
+            cdata[-1] = splt->sample_depth;
+
+            if(splt->sample_depth == 8)
+            {
+                for(k=0; k < splt->n_entries; k++)
+                {
+                    cdata[k * 6 + 0] = splt->entries[k].red;
+                    cdata[k * 6 + 1] = splt->entries[k].green;
+                    cdata[k * 6 + 2] = splt->entries[k].blue;
+                    cdata[k * 6 + 3] = splt->entries[k].alpha;
+                    write_u16(cdata + k * 6 + 4, splt->entries[k].frequency);
+                }
+            }
+            else if(splt->sample_depth == 16)
+            {
+                for(k=0; k < splt->n_entries; k++)
+                {
+                    write_u16(cdata + k * 10 + 0, splt->entries[k].red);
+                    write_u16(cdata + k * 10 + 2, splt->entries[k].green);
+                    write_u16(cdata + k * 10 + 4, splt->entries[k].blue);
+                    write_u16(cdata + k * 10 + 6, splt->entries[k].alpha);
+                    write_u16(cdata + k * 10 + 8, splt->entries[k].frequency);
+                }
+            }
+
+            ret = finish_chunk(ctx);
+            if(ret) return ret;
+        }
+    }
+
+    if(ctx->stored.time)
+    {
+        write_u16(data, ctx->time.year);
+        data[2] = ctx->time.month;
+        data[3] = ctx->time.day;
+        data[4] = ctx->time.hour;
+        data[5] = ctx->time.minute;
+        data[6] = ctx->time.second;
+
+        ret = write_chunk(ctx, type_time, data, 7);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.text)
+    {
+        unsigned char *cdata = NULL;
+        const struct spng_text2 *text;
+        const uint8_t *text_type_array[4] = { 0, type_text, type_ztxt, type_itxt };
+
+        for(i=0; i < ctx->n_text; i++)
+        {
+            text = &ctx->text_list[i];
+
+            const uint8_t *text_chunk_type = text_type_array[text->type];
+            Bytef *compressed_text = NULL;
+            size_t keyword_len = 0;
+            size_t language_tag_len = 0;
+            size_t translated_keyword_len = 0;
+            size_t compressed_length = 0;
+            size_t text_length = 0;
+
+            keyword_len = strlen(text->keyword);
+            text_length = strlen(text->text);
+
+            length = keyword_len + 1;
+
+            if(text->type == SPNG_ZTXT)
+            {
+                length += 1; /* compression method */
+            }
+            else if(text->type == SPNG_ITXT)
+            {
+                if(!text->language_tag || !text->translated_keyword) return SPNG_EINTERNAL;
+
+                language_tag_len = strlen(text->language_tag);
+                translated_keyword_len = strlen(text->translated_keyword);
+
+                length += language_tag_len;
+                if(length < language_tag_len) return SPNG_EOVERFLOW;
+
+                length += translated_keyword_len;
+                if(length < translated_keyword_len) return SPNG_EOVERFLOW;
+
+                length += 4; /* compression flag + method + nul for the two strings */
+                if(length < 4) return SPNG_EOVERFLOW;
+            }
+
+            if(text->compression_flag)
+            {
+                uLongf dest_len = compressBound(text->text_length);
+                compressed_text = spng__malloc(ctx, dest_len);
+
+                if(compressed_text == NULL) return SPNG_EMEM;
+
+                ret = compress2(compressed_text, &dest_len, (void*)text->text, text_length, Z_DEFAULT_COMPRESSION);
+
+                if(ret != Z_OK)
+                {
+                    spng__free(ctx, compressed_text);
+                    return SPNG_EZLIB;
+                }
+
+                compressed_length = dest_len;
+
+                length += compressed_length;
+                if(length < compressed_length) return SPNG_EOVERFLOW;
+            }
+            else
+            {
+                text_length = strlen(text->text);
+
+                length += text_length;
+                if(length < text_length) return SPNG_EOVERFLOW;
+            }
+
+            ret = write_header(ctx, text_chunk_type, length, &cdata);
+            if(ret)
+            {
+                spng__free(ctx, compressed_text);
+                return ret;
+            }
+
+            memcpy(cdata, text->keyword, keyword_len + 1);
+            cdata += keyword_len + 1;
+
+            if(text->type == SPNG_ITXT)
+            {
+                cdata[0] = text->compression_flag;
+                cdata[1] = 0; /* compression method */
+                cdata += 2;
+
+                memcpy(cdata, text->language_tag, language_tag_len + 1);
+                cdata += language_tag_len + 1;
+
+                memcpy(cdata, text->translated_keyword, translated_keyword_len + 1);
+                cdata += translated_keyword_len + 1;
+            }
+            else if(text->type == SPNG_ZTXT)
+            {
+                cdata[0] = 0; /* compression method */
+                cdata++;
+            }
+
+            if(text->compression_flag) memcpy(cdata, compressed_text, compressed_length);
+            else memcpy(cdata, text->text, text_length);
+
+            spng__free(ctx, compressed_text);
+
+            ret = finish_chunk(ctx);
+            if(ret) return ret;
+        }
+    }
+
+    if(ctx->stored.offs)
+    {
+        write_u32(data,     ctx->offs.x);
+        write_u32(data + 4, ctx->offs.y);
+        data[8] = ctx->offs.unit_specifier;
+
+        ret = write_chunk(ctx, type_offs, data, 9);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.exif)
+    {
+        ret = write_chunk(ctx, type_exif, ctx->exif.data, ctx->exif.length);
+        if(ret) return ret;
+    }
+
+    if(ctx->stored.unknown)
+    {
+        for(i=0; i < ctx->n_chunks; i++)
+        {
+            struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
+            ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
+            if(ret) return ret;
+        }
+    }
+
+    return 0;
+}
+
+static int write_chunks_after_idat(spng_ctx *ctx)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+
+    return write_iend(ctx);
+}
+
+/* Compress and write scanline to IDAT stream */
+static int write_idat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int flush)
+{
+    if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
+
+    int ret = 0;
+    unsigned char *data = NULL;
+    z_stream *zstream = &ctx->zstream;
+    uint32_t idat_length = SPNG_WRITE_SIZE;
+
+    if(ctx->state < SPNG_STATE_FIRST_IDAT)
+    {
+        ret = write_header(ctx, type_idat, idat_length, &data);
+        if(ret) return encode_err(ctx, ret);
+
+        zstream->next_out = data;
+        zstream->avail_out = idat_length;
+
+        ctx->state = SPNG_STATE_FIRST_IDAT;
+    }
+
+    zstream->next_in = scanline;
+    zstream->avail_in = len;
+
+    do
+    {
+        ret = deflate(zstream, flush);
+
+        if(zstream->avail_out == 0)
+        {
+            ret = finish_chunk(ctx);
+            if(ret) return encode_err(ctx, ret);
+
+            ret = write_header(ctx, type_idat, idat_length, &data);
+            if(ret) return encode_err(ctx, ret);
+
+            zstream->next_out = data;
+            zstream->avail_out = idat_length;
+        }
+
+    }while(zstream->avail_in);
+
+    if(ret != Z_OK) return SPNG_EZLIB;
+
+    return 0;
+}
+
+static int finish_idat(spng_ctx *ctx)
+{
+    int ret = 0;
+    unsigned char *data = NULL;
+    z_stream *zstream = &ctx->zstream;
+    uint32_t idat_length = SPNG_WRITE_SIZE;
+
+    while(ret != Z_STREAM_END)
+    {
+        ret = deflate(zstream, Z_FINISH);
+
+        if(ret)
+        {
+            if(ret == Z_STREAM_END) break;
+
+            if(ret != Z_BUF_ERROR) return SPNG_EZLIB;
+        }
+
+        if(zstream->avail_out == 0)
+        {
+            ret = finish_chunk(ctx);
+            if(ret) return encode_err(ctx, ret);
+
+            ret = write_header(ctx, type_idat, idat_length, &data);
+            if(ret) return encode_err(ctx, ret);
+
+            zstream->next_out = data;
+            zstream->avail_out = idat_length;
+        }
+    }
+
+    uint32_t trimmed_length = idat_length - zstream->avail_out;
+    void *length_ptr = ctx->write_ptr - 8;
+
+    ctx->current_chunk.length = trimmed_length;
+    write_u32(length_ptr, trimmed_length);
+
+    return finish_chunk(ctx);
+}
+
+static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
+{
+    if(ctx == NULL) return SPNG_EINTERNAL;
+
+    int ret, pass = ctx->row_info.pass;
+    uint8_t filter = 0; //next_filter = 0;
+    struct spng_row_info *ri = &ctx->row_info;
+    const struct spng_subimage *sub = ctx->subimage;
+    struct spng_encode_flags f = ctx->encode_flags;
+    size_t scanline_width = sub[pass].scanline_width;
+    //uint32_t scanline_idx = sub[pass].scanline_idx;
+
+    /* encode_row() interlaces directly to ctx->scanline */
+    if(scanline != ctx->scanline + 1) memcpy(ctx->scanline + 1, scanline, scanline_width - 1);
+
+    ctx->scanline[0] = filter;
+
+    if(ctx->ihdr.bit_depth == 16 && ctx->fmt != SPNG_FMT_RAW) u16_row_to_bigendian(ctx->scanline + 1, scanline_width - 1);
+
+    ret = write_idat_bytes(ctx, ctx->scanline, scanline_width, Z_NO_FLUSH);
+    if(ret) return encode_err(ctx, ret);
+
+    /* The previous scanline is always defiltered */
+    void *t = ctx->prev_scanline;
+    ctx->prev_scanline = ctx->scanline;
+    ctx->scanline = t;
+
+    if(ri->scanline_idx == (sub[pass].height - 1)) /* Last scanline */
+    {
+        if(ri->pass == ctx->last_pass)
+        {
+            ctx->state = SPNG_STATE_EOI;
+
+            return SPNG_EOI;
+        }
+
+        ri->scanline_idx = 0;
+        ri->pass++;
+
+        /* Skip empty passes */
+        while( (!sub[ri->pass].width || !sub[ri->pass].height) && (ri->pass < ctx->last_pass)) ri->pass++;
+    }
+    else
+    {
+        ri->row_num++;
+        ri->scanline_idx++;
+    }
+
+    if(f.interlace) ri->row_num = adam7_y_start[ri->pass] + ri->scanline_idx * adam7_y_delta[ri->pass];
+
+    return 0;
+}
+
+static int encode_row(spng_ctx *ctx, const void *row, size_t len)
+{
+    if(ctx == NULL || row == NULL) return SPNG_EINTERNAL;
+
+    const struct spng_encode_flags *f = &ctx->encode_flags;
+
+    if(!f->interlace) return encode_scanline(ctx, row, len);
+
+    uint32_t k;
+    int pass = ctx->row_info.pass;
+    unsigned char *scanline = ctx->scanline + 1;
+    unsigned pixel_size = ctx->pixel_size;
+
+    for(k=0; k < ctx->subimage[pass].width; k++)
+    {
+        size_t ioffset = (adam7_x_start[pass] + (size_t) k * adam7_x_delta[pass]) * pixel_size;
+
+        memcpy(scanline + k * pixel_size, (unsigned char*)row + ioffset, pixel_size);
+    }
+
+    return encode_scanline(ctx, scanline, len);
+}
+
+int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags)
+{
+    if(ctx == NULL || img == NULL) return 1;
+    if(!ctx->state) return SPNG_EBADSTATE;
+    if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
+    if(fmt != SPNG_FMT_PNG) return SPNG_EFMT;
+
+    int ret = 0;
+    size_t img_len = 0;
+    const struct spng_ihdr *ihdr = &ctx->ihdr;
+
+    ctx->channels = num_channels(ihdr);
+
+    ret = calculate_image_size(ctx, fmt, &img_len);
+    if(ret) return encode_err(ctx, ret);
+
+    if(img_len != len) return SPNG_EBUFSIZ;
+
+    ret = write_chunks_before_idat(ctx);
+    if(ret) return encode_err(ctx, ret);
+
+    ret = calculate_subimages(ctx);
+    if(ret) return encode_err(ctx, ret);
+
+    if(ihdr->bit_depth < 8) ctx->bytes_per_pixel = 1;
+    else ctx->bytes_per_pixel = ctx->channels * (ihdr->bit_depth / 8);
+
+    ctx->out_width = ctx->total_out_size / ihdr->height;
+
+    ret = spng__deflate_init(ctx, Z_DEFAULT_COMPRESSION, Z_FILTERED);
+    if(ret) return encode_err(ctx, ret);
+
+    size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width;
+
+    scanline_buf_size += 32;
+
+    if(scanline_buf_size < 32) return SPNG_EOVERFLOW;
+
+    ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
+    ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
+
+    if(ctx->scanline_buf == NULL || ctx->prev_scanline_buf == NULL) return encode_err(ctx, SPNG_EMEM);
+
+    /* Maintain alignment for pixels while keeping the filter at [0] */
+    ctx->scanline = ctx->scanline_buf + 15;
+    ctx->prev_scanline = ctx->prev_scanline_buf + 15;
+
+    struct spng_subimage *sub = ctx->subimage;
+    struct spng_row_info *ri = &ctx->row_info;
+    struct spng_encode_flags f = ctx->encode_flags;
+
+    size_t img_width = img_len / ihdr->height;
+
+    ctx->fmt = fmt;
+
+    //z_stream *zstream = &ctx->zstream;
+    //uint32_t idat_length = SPNG_WRITE_SIZE;
+
+   // ret = write_header(ctx, type_idat, idat_length, &data);
+    //if(ret) return encode_err(ctx, ret);
+
+    //zstream->avail_out = idat_length;
+    //zstream->next_out = data;
+
+    if(ihdr->interlace_method) f.interlace = 1;
+
+    if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW) ) f.same_layout = 1;
+
+    ctx->encode_flags = f;
+
+    while(!sub[ri->pass].width || !sub[ri->pass].height) ri->pass++;
+
+    if(f.interlace) ri->row_num = adam7_y_start[ri->pass];
+
+    ctx->pixel_size = 4; /* SPNG_FMT_RGBA8 */
+
+    if(fmt == SPNG_FMT_RGBA16) ctx->pixel_size = 8;
+    else if(fmt == SPNG_FMT_RGB8) ctx->pixel_size = 3;
+    else if(fmt == SPNG_FMT_G8) ctx->pixel_size = 1;
+    else if(fmt == SPNG_FMT_GA8) ctx->pixel_size = 2;
+    else if(ctx->fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
+    {
+        if(ihdr->bit_depth >= 8) ctx->pixel_size = ctx->bytes_per_pixel;
+    }
+
+    //XXX: set state
+
+    do
+    {
+        size_t ioffset = ri->row_num * img_width;
+
+        ret = encode_row(ctx, (unsigned char*)img + ioffset, img_width);
+
+    }while(!ret);
+
+    if(ret != SPNG_EOI) return encode_err(ctx, ret);
+
+    ctx->state = SPNG_STATE_EOI;
+
+    ret = finish_idat(ctx);
+    if(ret) encode_err(ctx, ret);
+
+    ctx->state = SPNG_STATE_LAST_IDAT;
+
+    ret = write_chunks_after_idat(ctx);
+    if(ret) return encode_err(ctx, ret);
+
+    ctx->state = SPNG_STATE_IEND;
+
+    return 0;
+}
+
 spng_ctx *spng_ctx_new(int flags)
 {
     struct spng_alloc alloc = {0};
@@ -3384,6 +4374,9 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
     if(ctx == NULL) return NULL;
 
     ctx->alloc = *alloc;
+
+    ctx->max_width = png_u32max;
+    ctx->max_height = png_u32max;
 
     ctx->max_chunk_size = png_u32max;
     ctx->chunk_cache_limit = SIZE_MAX;
@@ -3419,10 +4412,12 @@ void spng_ctx_free(spng_ctx *ctx)
         spng__free(ctx, ctx->splt_list);
     }
 
-    if(ctx->text_list != NULL && !ctx->user.text)
+    if(ctx->text_list != NULL)
     {
         for(i=0; i< ctx->n_text; i++)
         {
+            if(ctx->user.text) break;
+
             spng__free(ctx, ctx->text_list[i].keyword);
             if(ctx->text_list[i].compression_flag) spng__free(ctx, ctx->text_list[i].text);
         }
@@ -3438,7 +4433,10 @@ void spng_ctx_free(spng_ctx *ctx)
         spng__free(ctx, ctx->chunk_list);
     }
 
-    inflateEnd(&ctx->zstream);
+    if(ctx->deflate) deflateEnd(&ctx->zstream);
+    else inflateEnd(&ctx->zstream);
+
+    if(!ctx->user_owns_out_png) spng__free(ctx, ctx->out_png);
 
     spng__free(ctx, ctx->gamma_lut16);
 
@@ -3490,7 +4488,7 @@ int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
     if(ctx->data != NULL) return SPNG_EBUF_SET;
 
     ctx->data = buf;
-    ctx->png_buf = buf;
+    ctx->png_base = buf;
     ctx->data_size = size;
     ctx->bytes_left = size;
 
@@ -3530,6 +4528,29 @@ int spng_set_png_file(spng_ctx *ctx, FILE *file)
     if(file == NULL) return 1;
 
     return spng_set_png_stream(ctx, file_read_fn, file);
+}
+
+void *spng_get_png_buffer(spng_ctx *ctx, size_t *len, int *error)
+{
+    if(!ctx || !len || !ctx->encode_only || ctx->state != SPNG_STATE_IEND)
+    {
+        if(error) *error = SPNG_EINVAL;
+        return NULL;
+    }
+
+    if(!ctx->state)
+    {
+        if(error) *error = SPNG_EBADSTATE;
+        return NULL;
+    }
+
+    if(*error) *error = 0;
+
+    ctx->user_owns_out_png = 1;
+
+    *len = ctx->bytes_encoded;
+
+    return ctx->out_png;
 }
 
 int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height)
@@ -3598,56 +4619,7 @@ int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
     int ret = read_chunks(ctx, 1);
     if(ret) return ret;
 
-    struct spng_ihdr *ihdr = &ctx->ihdr;
-    size_t res = ihdr->width;
-    unsigned bytes_per_pixel;
-
-    /* Currently all enums are single-bit values */
-    if(fmt & ((unsigned)fmt - 1)) return SPNG_EFMT; /* More than one bit is set */
-
-    if(fmt == SPNG_FMT_RGBA8)
-    {
-        bytes_per_pixel = 4;
-    }
-    else if(fmt == SPNG_FMT_RGBA16)
-    {
-        bytes_per_pixel = 8;
-    }
-    else if(fmt == SPNG_FMT_RGB8)
-    {
-        bytes_per_pixel = 3;
-    }
-    else if(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW)
-    {
-        ret = calculate_scanline_width(ctx, ihdr->width, &res);
-        if(ret) return ret;
-
-        res -= 1; /* exclude filter byte */
-        bytes_per_pixel = 1;
-    }
-    else if(fmt == SPNG_FMT_G8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
-    {
-        bytes_per_pixel = 1;
-    }
-    else if(fmt == SPNG_FMT_GA8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
-    {
-        bytes_per_pixel = 2;
-    }
-    else if(fmt == SPNG_FMT_GA16 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth == 16)
-    {
-        bytes_per_pixel = 4;
-    }
-    else return SPNG_EFMT;
-
-    if(res > SIZE_MAX / bytes_per_pixel) return SPNG_EOVERFLOW;
-    res = res * bytes_per_pixel;
-
-    if(res > SIZE_MAX / ihdr->height) return SPNG_EOVERFLOW;
-    res = res * ihdr->height;
-
-    *len = res;
-
-    return 0;
+    return calculate_image_size(ctx, fmt, len);
 }
 
 int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr)
@@ -3838,6 +4810,27 @@ int spng_get_time(spng_ctx *ctx, struct spng_time *time)
     SPNG_GET_CHUNK_BOILERPLATE(time);
 
     *time = ctx->time;
+
+    return 0;
+}
+
+int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks)
+{
+    if(ctx == NULL) return 1;
+    int ret = read_chunks(ctx, 0);
+    if(ret) return ret;
+    if(!ctx->stored.unknown) return SPNG_ECHUNKAVAIL;
+    if(n_chunks == NULL) return 1;
+
+    if(chunks == NULL)
+    {
+        *n_chunks = ctx->n_chunks;
+        return 0;
+    }
+
+    if(*n_chunks < ctx->n_chunks) return 1;
+
+    memcpy(chunks, ctx->chunk_list, sizeof(struct spng_unknown_chunk));
 
     return 0;
 }
@@ -4049,8 +5042,6 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     if(!n_text) return 1;
     SPNG_SET_CHUNK_BOILERPLATE(text);
 
-    return 0; /* XXX: fix this for encode support */
-/*
     uint32_t i;
     for(i=0; i < n_text; i++)
     {
@@ -4066,36 +5057,63 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
         {
             if(check_png_text(text[i].text, text[i].length)) return 1;
 
-            if(text[i].compression_method != 0) return 1;
+            if(text[i].compression_method != 0) return SPNG_EZTXT_COMPRESSION_METHOD;
         }
         else if(text[i].type == SPNG_ITXT)
         {
-            if(text[i].compression_flag > 1) return 1;
-            if(text[i].compression_method != 0) return 1;
+            if(text[i].compression_flag > 1) return SPNG_EITXT_COMPRESSION_FLAG;
+            if(text[i].compression_method != 0) return SPNG_EITXT_COMPRESSION_METHOD;
             if(text[i].language_tag == NULL) return SPNG_EITXT_LANG_TAG;
             if(text[i].translated_keyword == NULL) return SPNG_EITXT_TRANSLATED_KEY;
-
         }
         else return 1;
 
     }
 
-    if(ctx->text_list != NULL && !ctx->user.text)
+    struct spng_text2 *text_list = spng__calloc(ctx, sizeof(struct spng_text2), n_text);
+
+    if(!text_list) return SPNG_EMEM;
+
+    if(ctx->text_list != NULL)
     {
         for(i=0; i < ctx->n_text; i++)
         {
+            if(ctx->user.text) break;
+
             spng__free(ctx, ctx->text_list[i].keyword);
+            if(ctx->text_list[i].compression_flag) spng__free(ctx, ctx->text_list[i].text);
         }
         spng__free(ctx, ctx->text_list);
     }
 
-    ctx->text_list = text;
+    for(i=0; i < n_text; i++)
+    {
+        text_list[i].type = text[i].type;
+        /* Prevent issues with spng_text.keyword[80] going out of scope */
+        text_list[i].keyword = text_list[i].user_keyword_storage;
+        memcpy(text_list[i].user_keyword_storage, text[i].keyword, strlen(text[i].keyword));
+        text_list[i].text = text[i].text;
+        text_list[i].text_length = text[i].length;
+
+        if(text[i].type == SPNG_ZTXT)
+        {
+            text_list[i].compression_flag = 1;
+        }
+        else if(text[i].type == SPNG_ITXT)
+        {
+            text_list[i].compression_flag = text[i].compression_flag;
+            text_list[i].language_tag = text[i].language_tag;
+            text_list[i].translated_keyword = text[i].translated_keyword;
+        }
+    }
+
+    ctx->text_list = text_list;
     ctx->n_text = n_text;
 
     ctx->stored.text = 1;
     ctx->user.text = 1;
 
-    return 0;*/
+    return 0;
 }
 
 int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
@@ -4120,7 +5138,7 @@ int spng_set_bkgd(spng_ctx *ctx, struct spng_bkgd *bkgd)
     }
     else if(ctx->ihdr.color_type == 3)
     {
-        if(!ctx->stored.bkgd) return SPNG_EBKGD_NO_PLTE;
+        if(!ctx->stored.plte) return SPNG_EBKGD_NO_PLTE;
         if(bkgd->plte_index >= ctx->plte.n_entries) return SPNG_EBKGD_PLTE_IDX;
     }
 
@@ -4204,6 +5222,36 @@ int spng_set_time(spng_ctx *ctx, struct spng_time *time)
     return 0;
 }
 
+int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t n_chunks)
+{
+    if(!n_chunks) return 1;
+    SPNG_SET_CHUNK_BOILERPLATE(chunks);
+
+    uint32_t i;
+    for(i=0; i < n_chunks; i++)
+    {
+        if(chunks[i].length > png_u32max) return SPNG_ECHUNK_STDLEN;
+        if(chunks[i].length && chunks[i].data == NULL) return 1;
+    }
+
+    if(ctx->stored.unknown && !ctx->user.unknown)
+    {
+        for(i=0; i < ctx->n_chunks; i++)
+        {
+            spng__free(ctx, ctx->chunk_list[i].data);
+        }
+        spng__free(ctx, ctx->chunk_list);
+    }
+
+    ctx->chunk_list = chunks;
+    ctx->n_chunks = n_chunks;
+
+    ctx->stored.unknown = 1;
+    ctx->user.unknown = 1;
+
+    return 0;
+}
+
 int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs)
 {
     SPNG_SET_CHUNK_BOILERPLATE(offs);
@@ -4230,27 +5278,6 @@ int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
 
     ctx->stored.exif = 1;
     ctx->user.exif = 1;
-
-    return 0;
-}
-
-int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks)
-{
-    if(ctx == NULL) return 1;
-    int ret = read_chunks(ctx, 0);
-    if(ret) return ret;
-    if(!ctx->stored.unknown) return SPNG_ECHUNKAVAIL;
-    if(n_chunks == NULL) return 1;
-
-    if(chunks == NULL)
-    {
-        *n_chunks = ctx->n_chunks;
-        return 0;
-    }
-
-    if(*n_chunks < ctx->n_chunks) return 1;
-
-    memcpy(chunks, ctx->chunk_list, sizeof(struct spng_unknown_chunk));
 
     return 0;
 }

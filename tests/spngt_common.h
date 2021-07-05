@@ -1,7 +1,8 @@
 #ifndef SPNGT_COMMON_H
 #define SPNGT_COMMON_H
 
-#include <stdio.h>
+#include <spng.h>
+
 #include <inttypes.h>
 
 #define SPNG_FMT_RGB16 8 /* XXX: Remove when support is added */
@@ -31,17 +32,39 @@ typedef struct spngt_chunk_bitfield
     unsigned unknown: 1;
 }spngt_chunk_bitfield;
 
-struct spngt_chunk_info
+typedef struct spngt_chunk_data
 {
     uint32_t n_text, n_splt, n_plte_entries, n_unknown_chunks;
     spngt_chunk_bitfield have;
-};
+
+    /* only meant to be set by spng */
+    struct spng_ihdr ihdr;
+    struct spng_plte plte;
+    struct spng_trns trns;
+    struct spng_chrm chrm;
+    struct spng_chrm_int chrm_int;
+    double gamma;
+    uint32_t gamma_int;
+    struct spng_iccp iccp;
+    struct spng_sbit sbit;
+    uint8_t srgb_rendering_intent;
+    struct spng_text *text;
+    struct spng_bkgd bkgd;
+    struct spng_hist hist;
+    struct spng_phys phys;
+    struct spng_splt *splt;
+    struct spng_time time;
+    struct spng_offs offs;
+    struct spng_exif exif;
+    struct spng_unknown_chunk *chunks;
+}spngt_chunk_data;
 
 enum spngt_flags
 {
     SPNGT_COMPARE_CHUNKS = 1,
     SPNGT_PRELOAD_FILE = 2, /* Preload PNG from file and/or decode from buffer */
-    SPNGT_ENCODE_ROUNDTRIP = SPNGT_PRELOAD_FILE | 4
+    SPNGT_ENCODE_ROUNDTRIP = 4,
+    SPNGT_SKIP = 8192
 };
 
 enum spngt_source_type
@@ -60,14 +83,14 @@ struct spngt_source
     size_t png_size;
 };
 
-struct spngt_test_case
+typedef struct spngt_test_case
 {
     struct spngt_source source;
 
     int fmt;
     int flags;
     int test_flags;
-};
+}spngt_test_case;
 
 
 #endif /* SPNGT_COMMON_H */

@@ -37,7 +37,7 @@ int spng_get_trns_fmt(spng_ctx *ctx, int *fmt)
     return 0;
 }
 
-spng_ctx *init_spng(struct spngt_test_case *test_case, struct spng_ihdr *ihdr)
+spng_ctx *init_spng(spngt_test_case *test_case, struct spng_ihdr *ihdr)
 {
     int r = 0;
     spng_ctx *ctx = spng_ctx_new(0);
@@ -72,6 +72,9 @@ spng_ctx *init_spng(struct spngt_test_case *test_case, struct spng_ihdr *ihdr)
         printf("spng_set_chunk_limits() error: %s\n", spng_strerror(r));
         goto err;
     }
+
+    struct spng_ihdr tmp;
+    if(!ihdr) ihdr = &tmp;
 
     r = spng_get_ihdr(ctx, ihdr);
 

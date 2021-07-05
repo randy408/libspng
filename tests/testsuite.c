@@ -3,7 +3,9 @@
 #include "test_spng.h"
 #include "test_png.h"
 
-static int n_test_cases=0;
+#include <errno.h>
+
+static int n_test_cases, actual_count;
 static struct spngt_test_case test_cases[100];
 
 const char* fmt_str(int fmt)
@@ -25,7 +27,12 @@ const char* fmt_str(int fmt)
 
 static void print_test_args(struct spngt_test_case *test_case)
 {
-    printf("Decode and compare %s", fmt_str(test_case->fmt));
+    char *type;
+
+    if(test_case->test_flags & SPNGT_ENCODE_ROUNDTRIP) type = "Encode";
+    else type = "Decode";
+
+    printf("%s and compare %s", type, fmt_str(test_case->fmt));
 
     char pad_str[] = "      ";
     pad_str[sizeof(pad_str) - strlen(fmt_str(test_case->fmt))] = '\0';
@@ -39,6 +46,8 @@ static void print_test_args(struct spngt_test_case *test_case)
 
     if(test_case->test_flags & SPNGT_COMPARE_CHUNKS) printf("COMPARE_CHUNKS ");
 
+    if(test_case->test_flags & SPNGT_SKIP) printf("[SKIPPED]");
+
     printf("\n");
 
     fflush(stdout);
@@ -51,6 +60,8 @@ static void add_test_case(int fmt, int flags, int test_flags)
     test_cases[n].fmt = fmt;
     test_cases[n].flags = flags;
     test_cases[n_test_cases++].test_flags = test_flags;
+
+    if( !(test_flags & SPNGT_SKIP) ) actual_count++;
 }
 
 /* Returns 1 on different images with, allows a small difference if gamma corrected */
@@ -351,50 +362,121 @@ static void print_chunks(spngt_chunk_bitfield chunks)
 
 }
 
+static void free_chunks(spngt_chunk_data *spng)
+{
+    free(spng->splt);
+    free(spng->text);
+    free(spng->chunks);
+
+    spng->splt = NULL;
+    spng->text = NULL;
+    spng->chunks = NULL;
+}
+
+static int get_chunks(spng_ctx *ctx, spngt_chunk_data *spng)
+{
+    int ret = spng_get_ihdr(ctx, &spng->ihdr);
+
+    if(!ret) spng->have.ihdr = 1;
+    else return ret;
+
+    ret = spng_get_plte(ctx, &spng->plte);
+
+    if(!ret) spng->have.plte = 1;
+    else if(ret == SPNG_ECHUNKAVAIL) ret = 0;
+    else return ret;
+
+    if(!spng_get_trns(ctx, &spng->trns)) spng->have.trns = 1;
+    if(!spng_get_chrm(ctx, &spng->chrm)) spng->have.chrm = 1;
+    if(spng->have.chrm) spng_get_chrm_int(ctx, &spng->chrm_int);
+    if(!spng_get_gama(ctx, &spng->gamma)) spng->have.gama = 1;
+    if(spng->have.gama) spng_get_gama_int(ctx, &spng->gamma_int);
+    if(!spng_get_iccp(ctx, &spng->iccp)) spng->have.iccp = 1;
+    if(!spng_get_sbit(ctx, &spng->sbit)) spng->have.sbit = 1;
+    if(!spng_get_srgb(ctx, &spng->srgb_rendering_intent)) spng->have.srgb = 1;
+    if(!spng_get_text(ctx, NULL, &spng->n_text)) spng->have.text = 1;
+    if(!spng_get_bkgd(ctx, &spng->bkgd)) spng->have.bkgd = 1;
+    if(!spng_get_hist(ctx, &spng->hist)) spng->have.hist = 1;
+    if(!spng_get_phys(ctx, &spng->phys)) spng->have.phys = 1;
+    if(!spng_get_splt(ctx, NULL, &spng->n_splt)) spng->have.splt = 1;
+    if(!spng_get_time(ctx, &spng->time)) spng->have.time = 1;
+    if(!spng_get_offs(ctx, &spng->offs)) spng->have.offs = 1;
+    if(!spng_get_exif(ctx, &spng->exif)) spng->have.exif = 1;
+    if(!spng_get_unknown_chunks(ctx, NULL, &spng->n_unknown_chunks)) spng->have.unknown = 1;
+
+    if(spng->have.text)
+    {
+        spng->text = malloc(spng->n_text * sizeof(struct spng_text));
+
+        if(!spng->text) return 2;
+
+        spng_get_text(ctx, spng->text, &spng->n_text);
+    }
+
+    if(spng->have.splt)
+    {
+        spng->splt = malloc(spng->n_splt * sizeof(struct spng_splt));
+
+        if(!spng->splt)
+        {
+            free_chunks(spng);
+            return 2;
+        }
+
+        spng_get_splt(ctx, spng->splt, &spng->n_splt);
+    }
+
+    if(spng->have.unknown)
+    {
+        spng->chunks = malloc(spng->n_unknown_chunks * sizeof(struct spng_unknown_chunk));
+
+        if(!spng->chunks)
+        {
+            free_chunks(spng);
+            return 2;
+        }
+
+        spng_get_unknown_chunks(ctx, spng->chunks, &spng->n_unknown_chunks);
+    }
+
+    return ret;
+}
+
+static int set_chunks(spng_ctx *dst, spngt_chunk_data *spng)
+{
+    int ret = 0;
+
+    ret = spng_set_ihdr(dst, &spng->ihdr);
+    if(ret) return ret;
+
+    if(spng->have.plte) spng_set_plte(dst, &spng->plte);
+    if(spng->have.trns) spng_set_trns(dst, &spng->trns);
+    if(spng->have.chrm) spng_set_chrm_int(dst, &spng->chrm_int);
+    if(spng->have.gama) spng_set_gama_int(dst, spng->gamma_int);
+    if(spng->have.iccp) spng_set_iccp(dst, &spng->iccp);
+    if(spng->have.sbit) spng_set_sbit(dst, &spng->sbit);
+    if(spng->have.srgb) spng_set_srgb(dst, spng->srgb_rendering_intent);
+    if(spng->have.text) spng_set_text(dst, spng->text, spng->n_text);
+    if(spng->have.bkgd) spng_set_bkgd(dst, &spng->bkgd);
+    if(spng->have.hist) spng_set_hist(dst, &spng->hist);
+    if(spng->have.phys) spng_set_phys(dst, &spng->phys);
+    if(spng->have.splt) spng_set_splt(dst, spng->splt, spng->n_splt);
+    if(spng->have.time) spng_set_time(dst, &spng->time);
+    if(spng->have.offs) spng_set_offs(dst, &spng->offs);
+    if(spng->have.exif) spng_set_exif(dst, &spng->exif);
+    if(spng->have.unknown) spng_set_unknown_chunks(dst, spng->chunks, spng->n_unknown_chunks);
+
+    return ret;
+}
+
 static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr, int after_idat)
 {
-    struct spngt_chunk_info spng = { 0 };
-    struct spngt_chunk_info png = { 0 };
-
     int i, ret = 0;
-    struct spng_ihdr ihdr;
-    struct spng_plte plte;
-    struct spng_trns trns;
-    struct spng_chrm chrm;
-    struct spng_chrm_int chrm_int;
-    double gamma;
-    uint32_t gamma_int;
-    struct spng_iccp iccp;
-    struct spng_sbit sbit;
-    uint8_t srgb_rendering_intent;
-    struct spng_text *text = NULL;
-    struct spng_bkgd bkgd;
-    struct spng_hist hist;
-    struct spng_phys phys;
-    struct spng_splt *splt = NULL;
-    struct spng_time time;
-    struct spng_offs offs;
-    struct spng_exif exif;
+    spngt_chunk_data spng = {0};
+    spngt_chunk_data png = {0};
 
-    if(!spng_get_ihdr(ctx, &ihdr)) spng.have.ihdr = 1;
-    if(!spng_get_plte(ctx, &plte)) spng.have.plte = 1;
-    if(!spng_get_trns(ctx, &trns)) spng.have.trns = 1;
-    if(!spng_get_chrm(ctx, &chrm)) spng.have.chrm = 1;
-    if(spng.have.chrm) spng_get_chrm_int(ctx, &chrm_int);
-    if(!spng_get_gama(ctx, &gamma)) spng.have.gama = 1;
-    if(spng.have.gama) spng_get_gama_int(ctx, &gamma_int);
-    if(!spng_get_iccp(ctx, &iccp)) spng.have.iccp = 1;
-    if(!spng_get_sbit(ctx, &sbit)) spng.have.sbit = 1;
-    if(!spng_get_srgb(ctx, &srgb_rendering_intent)) spng.have.srgb = 1;
-    if(!spng_get_text(ctx, NULL, &spng.n_text)) spng.have.text = 1;
-    if(!spng_get_bkgd(ctx, &bkgd)) spng.have.bkgd = 1;
-    if(!spng_get_hist(ctx, &hist)) spng.have.hist = 1;
-    if(!spng_get_phys(ctx, &phys)) spng.have.phys = 1;
-    if(!spng_get_splt(ctx, NULL, &spng.n_splt)) spng.have.splt = 1;
-    if(!spng_get_time(ctx, &time)) spng.have.time = 1;
-    if(!spng_get_offs(ctx, &offs)) spng.have.offs = 1;
-    if(!spng_get_exif(ctx, &exif)) spng.have.exif = 1;
-    if(!spng_get_unknown_chunks(ctx, NULL, &spng.n_unknown_chunks)) spng.have.unknown = 1;
+    ret = get_chunks(ctx, &spng);
+    if(ret) goto cleanup;
 
     png.have.ihdr = 1;
 
@@ -438,33 +520,21 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         return 1;
     }
 
-    struct spng_unknown_chunk *spng_chunks = NULL;
-
-    if(spng.have.unknown)
-    {
-        spng_chunks = malloc(spng.n_unknown_chunks * sizeof(struct spng_unknown_chunk));
-
-        if(!spng_chunks)
-        {
-            ret = 2;
-            goto cleanup;
-        }
-
-        spng_get_unknown_chunks(ctx, spng_chunks, &spng.n_unknown_chunks);
-    }
-
     /* NOTE: libpng changes or corrupts chunk data once it's past the IDAT stream,
              some checks are not done because of this. */
     uint32_t png_width, png_height;
     int png_bit_depth = 0, png_color_type = 0, png_interlace_method = 0, png_compression_method = 0, png_filter_method = 0;
 
-    png_get_IHDR(png_ptr, info_ptr, &png_width, &png_height, &png_bit_depth,
-                &png_color_type, &png_interlace_method, &png_compression_method,
-                &png_filter_method);
+    png_get_IHDR(png_ptr, info_ptr, &png_width, &png_height, &png_bit_depth, &png_color_type,
+                 &png_interlace_method, &png_compression_method, &png_filter_method);
 
-    if(ihdr.width != png_width || ihdr.height != png_height || ihdr.bit_depth != png_bit_depth ||
-       ihdr.color_type != png_color_type || ihdr.interlace_method != png_interlace_method ||
-       ihdr.compression_method != png_compression_method || ihdr.filter_method != png_filter_method)
+    if(spng.ihdr.width != png_width ||
+       spng.ihdr.height != png_height ||
+       spng.ihdr.bit_depth != png_bit_depth ||
+       spng.ihdr.color_type != png_color_type ||
+       spng.ihdr.interlace_method != png_interlace_method ||
+       spng.ihdr.compression_method != png_compression_method ||
+       spng.ihdr.filter_method != png_filter_method)
     {
         if(!after_idat)
         {
@@ -481,14 +551,14 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_PLTE(png_ptr, info_ptr, &png_palette, &png_num_palette);
 
-        if(plte.n_entries == png_num_palette)
+        if(spng.plte.n_entries == png_num_palette)
         {
             int i;
-            for(i=0; i > plte.n_entries; i++)
+            for(i=0; i > spng.plte.n_entries; i++)
             {
-                if(plte.entries[i].red != png_palette->red ||
-                   plte.entries[i].green != png_palette->green ||
-                   plte.entries[i].blue != png_palette->blue)
+                if(spng.plte.entries[i].red != png_palette->red ||
+                   spng.plte.entries[i].green != png_palette->green ||
+                   spng.plte.entries[i].blue != png_palette->blue)
                 {
                     printf("palette entry %d not identical\n", i);
                     ret = 1;
@@ -510,32 +580,32 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_tRNS(png_ptr, info_ptr, &png_trans_alpha, &png_num_trans, &png_trans_color);
 
-        if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
+        if(spng.ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
         {
-            if(trns.gray != png_trans_color->gray)
+            if(spng.trns.gray != png_trans_color->gray)
             {
                 printf("tRNS gray sample is not identical\n");
                 ret = 1;
             }
         }
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
+        else if(spng.ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
         {
-            if(trns.red != png_trans_color->red ||
-            trns.green != png_trans_color->green ||
-            trns.blue != png_trans_color->blue)
+            if(spng.trns.red != png_trans_color->red ||
+               spng.trns.green != png_trans_color->green ||
+               spng.trns.blue != png_trans_color->blue)
             {
                 printf("tRNS truecolor samples not identical\n");
                 ret = 1;
             }
         }
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+        else if(spng.ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
         {
-            if(trns.n_type3_entries == png_num_trans)
+            if(spng.trns.n_type3_entries == png_num_trans)
             {
                 int i;
                 for(i=0; i < png_num_trans; i++)
                 {
-                    if(trns.type3_alpha[i] != png_trans_alpha[i])
+                    if(spng.trns.type3_alpha[i] != png_trans_alpha[i])
                     {
                         printf("tRNS alpha entry %d not identical\n", i);
                         ret = 1;
@@ -551,7 +621,6 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
                 }
             }
         }
-
     }
 
     if(spng.have.chrm)
@@ -562,10 +631,14 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         png_get_cHRM_fixed(png_ptr, info_ptr, &png_fwhite_x, &png_fwhite_y, &png_fred_x, &png_fred_y,
                            &png_fgreen_x, &png_fgreen_y, &png_fblue_x, &png_fblue_y);
 
-        if(chrm_int.white_point_x != png_fwhite_x || chrm_int.white_point_y != png_fwhite_y ||
-           chrm_int.red_x != png_fred_x || chrm_int.red_y != png_fred_y ||
-           chrm_int.green_x != png_fgreen_x || chrm_int.green_y != png_fgreen_y ||
-           chrm_int.blue_x != png_fblue_x || chrm_int.blue_y != png_fblue_y)
+        if(spng.chrm_int.white_point_x != png_fwhite_x ||
+           spng.chrm_int.white_point_y != png_fwhite_y ||
+           spng.chrm_int.red_x != png_fred_x ||
+           spng.chrm_int.red_y != png_fred_y ||
+           spng.chrm_int.green_x != png_fgreen_x ||
+           spng.chrm_int.green_y != png_fgreen_y ||
+           spng.chrm_int.blue_x != png_fblue_x ||
+           spng.chrm_int.blue_y != png_fblue_y)
         {
             printf("cHRM fixed point values are not identical\n");
             ret = 1;
@@ -578,7 +651,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_gAMA_fixed(png_ptr, info_ptr, &png_fgamna);
 
-        if(gamma_int != png_fgamna)
+        if(spng.gamma_int != png_fgamna)
         {
             printf("gamma values not identical\n");
             ret = 1;
@@ -594,9 +667,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_iCCP(png_ptr, info_ptr, &png_iccp_name, &png_iccp_compression_type, &png_iccp_profile, &png_iccp_proflen);
 
-        if(iccp.profile_len == png_iccp_proflen)
+        if(spng.iccp.profile_len == png_iccp_proflen)
         {
-            if(memcmp(iccp.profile, png_iccp_profile, iccp.profile_len))
+            if(memcmp(spng.iccp.profile, png_iccp_profile, spng.iccp.profile_len))
             {
                 printf("iccp profile data not identical\n");
                 ret = 1;
@@ -615,35 +688,35 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_sBIT(png_ptr, info_ptr, &png_sig_bit);
 
-        if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && sbit.grayscale_bits != png_sig_bit->gray)
+        if(spng.ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && spng.sbit.grayscale_bits != png_sig_bit->gray)
         {
             printf("grayscale significant bits not identical\n");
             ret = 1;
         }
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR || ihdr.color_type == 3)
+        else if(spng.ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR || spng.ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
         {
-            if(sbit.red_bits != png_sig_bit->red ||
-               sbit.green_bits != png_sig_bit->green ||
-               sbit.blue_bits != png_sig_bit->blue)
+            if(spng.sbit.red_bits != png_sig_bit->red ||
+               spng.sbit.green_bits != png_sig_bit->green ||
+               spng.sbit.blue_bits != png_sig_bit->blue)
             {
                 printf("rgb significant bits not identical\n");
                 ret = 1;
             }
         }
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
+        else if(spng.ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
         {
-            if(sbit.grayscale_bits != png_sig_bit->gray || sbit.alpha_bits != png_sig_bit->alpha)
+            if(spng.sbit.grayscale_bits != png_sig_bit->gray || spng.sbit.alpha_bits != png_sig_bit->alpha)
             {
                 printf("grayscale alpha significant bits not identical\n");
                 ret = 1;
             }
         }
-        else if(ihdr.color_type == 6)
+        else if(spng.ihdr.color_type == 6)
         {
-            if(sbit.red_bits != png_sig_bit->red ||
-               sbit.green_bits != png_sig_bit->green ||
-               sbit.blue_bits != png_sig_bit->blue ||
-               sbit.alpha_bits != png_sig_bit->alpha)
+            if(spng.sbit.red_bits != png_sig_bit->red ||
+               spng.sbit.green_bits != png_sig_bit->green ||
+               spng.sbit.blue_bits != png_sig_bit->blue ||
+               spng.sbit.alpha_bits != png_sig_bit->alpha)
             {
                 printf("rgba significant bits not identical\n");
                 ret = 1;
@@ -656,23 +729,11 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         int png_rgb_intent;
         png_get_sRGB(png_ptr, info_ptr, &png_rgb_intent);
 
-        if(srgb_rendering_intent != png_rgb_intent)
+        if(spng.srgb_rendering_intent != png_rgb_intent)
         {
             printf("sRGB rendering intent mismatch\n");
             ret = 1;
         }
-    }
-
-    if(spng.n_text)
-    {
-        text = malloc(spng.n_text * sizeof(struct spng_text));
-        if(!text)
-        {
-            ret = 2;
-            goto cleanup;
-        }
-
-        spng_get_text(ctx, text, &spng.n_text);
     }
 
     if(spng.n_text != png.n_text)
@@ -685,10 +746,30 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     if(spng.n_text)
     {
         for(i=0; i < spng.n_text; i++)
-        {/* TODO: other fields */
-            if(strcmp(text[i].text, png_text[i].text))
+        {
+            if(strcmp(spng.text[i].keyword, png_text[i].key))
             {
-                printf("text[%d]: text mismatch!\nspng: %s\n\nlibpng: %s\n", i, text[i].text, png_text[i].text);
+                printf("text[%d]: keyword mismatch!\nspng: %s\n\nlibpng: %s\n", i, spng.text[i].keyword, png_text[i].key);
+                ret = 1;
+            }
+
+            if(strcmp(spng.text[i].text, png_text[i].text))
+            {
+                printf("text[%d]: text mismatch!\nspng: %s\n\nlibpng: %s\n", i, spng.text[i].text, png_text[i].text);
+                ret = 1;
+            }
+
+            if(spng.text[i].type != SPNG_ITXT) continue;
+
+            if(strcmp(spng.text[i].language_tag, png_text[i].lang))
+            {
+                printf("text[%d]: language tag mismatch!\nspng: %s\n\nlibpng: %s\n", i, spng.text[i].language_tag, png_text[i].lang);
+                ret = 1;
+            }
+
+            if(strcmp(spng.text[i].translated_keyword, png_text[i].lang_key))
+            {
+                printf("text[%d]: translated keyword mismatch!\nspng: %s\n\nlibpng: %s\n", i, spng.text[i].translated_keyword, png_text[i].lang_key);
                 ret = 1;
             }
         }
@@ -700,25 +781,27 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_bKGD(png_ptr, info_ptr, &png_bkgd);
 
-        if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE || ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
+        if(spng.ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE || spng.ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
         {
-            if(bkgd.gray != png_bkgd->gray)
+            if(spng.bkgd.gray != png_bkgd->gray)
             {
                 printf("bKGD grayscale samples are not identical\n");
                 ret = 1;
             }
         }
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR || ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA)
+        else if(spng.ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR || spng.ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA)
         {
-            if(bkgd.red != png_bkgd->red || bkgd.green != png_bkgd->green || bkgd.blue != png_bkgd->blue)
+            if(spng.bkgd.red != png_bkgd->red ||
+               spng.bkgd.green != png_bkgd->green ||
+               spng.bkgd.blue != png_bkgd->blue)
             {
                 printf("bKGD rgb samples are not identical\n");
                 ret = 1;
             }
         }
-        else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
+        else if(spng.ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
         {
-            if(bkgd.plte_index != png_bkgd->index)
+            if(spng.bkgd.plte_index != png_bkgd->index)
             {
                 printf("bKGD type3 indices are not identical\n");
                 ret = 1;
@@ -733,9 +816,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         png_get_hIST(png_ptr, info_ptr, &png_hist);
 
         int i;
-        for(i=0; i < plte.n_entries; i++)
+        for(i=0; i < spng.plte.n_entries; i++)
         {
-            if(hist.frequency[i] != png_hist[i])
+            if(spng.hist.frequency[i] != png_hist[i])
             {
                 printf("histogram entry %d is not identical\n", i);
                 ret = 1;
@@ -749,9 +832,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_pHYs(png_ptr, info_ptr, &png_phys_res_x, &png_phys_rex_y, &png_phys_unit_type);
 
-        if(png_phys_res_x != phys.ppu_x ||
-           png_phys_rex_y != phys.ppu_y ||
-           png_phys_unit_type != phys.unit_specifier)
+        if(spng.phys.ppu_x != png_phys_res_x ||
+           spng.phys.ppu_y != png_phys_rex_y  ||
+           spng.phys.unit_specifier != png_phys_unit_type)
         {
             printf("pHYs data not indentical\n");
             ret = 1;
@@ -759,18 +842,6 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     }
 
     if(spng.have.splt)
-    {
-        splt = malloc(spng.n_splt * sizeof(struct spng_splt));
-        if(!splt)
-        {
-            ret = 2;
-            goto cleanup;
-        }
-
-        spng_get_splt(ctx, splt, &spng.n_splt);
-    }
-
-    if(spng.have.splt && !after_idat) /* libpng seems to corrupt png_splt[].name */
     {
         png_sPLT_t *png_splt;
 
@@ -782,19 +853,19 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
             for(j=0; j < spng.n_splt; j++)
             {
-                if(strcmp(splt[j].name, png_splt[j].name))
+                if(strcmp(spng.splt[j].name, png_splt[j].name))
                 {
                     printf("sPLT[%d]: name mismatch\n", j);
                     ret = 1;
                 }
 
-                if(splt[j].sample_depth != png_splt[i].depth)
+                if(spng.splt[j].sample_depth != png_splt[j].depth)
                 {
                     printf("sPLT[%d]: sample depth mismatch\n", j);
                     ret = 1;
                 }
 
-                if(splt[j].n_entries != png_splt[j].nentries)
+                if(spng.splt[j].n_entries != png_splt[j].nentries)
                 {
                     printf("sPLT[%d]: entry count mismatch\n", j);
                     ret = 1;
@@ -804,9 +875,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
                 struct spng_splt_entry entry;
                 png_sPLT_entry png_entry;
 
-                for(i=0; i < splt[j].n_entries; i++)
+                for(i=0; i < spng.splt[j].n_entries; i++)
                 {
-                    entry = splt[j].entries[i];
+                    entry = spng.splt[j].entries[i];
                     png_entry = png_splt[j].entries[i];
 
                     if(entry.alpha != png_entry.alpha ||
@@ -834,12 +905,12 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_tIME(png_ptr, info_ptr, &png_time);
 
-        if(time.year != png_time->year ||
-           time.month != png_time->month ||
-           time.day != png_time->day ||
-           time.hour != png_time->hour ||
-           time.minute != png_time->minute ||
-           time.second != png_time->second)
+        if(spng.time.year != png_time->year ||
+           spng.time.month != png_time->month ||
+           spng.time.day != png_time->day ||
+           spng.time.hour != png_time->hour ||
+           spng.time.minute != png_time->minute ||
+           spng.time.second != png_time->second)
         {
             printf("tIME data not identical\n");
             ret = 1;
@@ -853,7 +924,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_oFFs(png_ptr, info_ptr, &png_offset_x, &png_offset_y, &png_offs_unit_type);
 
-        if(offs.x != png_offset_x || offs.y != png_offset_y || offs.unit_specifier != png_offs_unit_type)
+        if(spng.offs.x != png_offset_x ||
+           spng.offs.y != png_offset_y ||
+           spng.offs.unit_specifier != png_offs_unit_type)
         {
             printf("oFFs data not identical\n");
             ret = 1;
@@ -867,9 +940,9 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_eXIf_1(png_ptr, info_ptr, &png_exif_length, &png_exif);
 
-        if(exif.length == png_exif_length)
+        if(spng.exif.length == png_exif_length)
         {
-            if(memcmp(exif.data, png_exif, exif.length))
+            if(memcmp(spng.exif.data, png_exif, spng.exif.length))
             {
                 printf("eXIf data not identical\n");
                 ret = 1;
@@ -897,23 +970,21 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         for(i=0; i < spng.n_unknown_chunks; i++)
         {
-            if(spng_chunks[i].length != png_chunks[i].size)
+            if(spng.chunks[i].length != png_chunks[i].size)
             {
-                printf("chunk[%d]: size mismatch %" PRIu64 "(spng) %" PRIu64" (libpng)\n", i, spng_chunks[i].length, png_chunks[i].size);
+                printf("chunk[%d]: size mismatch %" PRIu64 "(spng) %" PRIu64" (libpng)\n", i, spng.chunks[i].length, png_chunks[i].size);
                 ret = 1;
             }
         }
     }
 
 cleanup:
-    free(splt);
-    free(text);
-    free(spng_chunks);
+    free_chunks(&spng);
 
     return ret;
 }
 
-static int decode_and_compare(const char *filename, int fmt, int flags, int test_flags)
+static int decode_and_compare(spngt_test_case *spng, spngt_test_case *png)
 {
     int ret = 0;
 
@@ -921,38 +992,23 @@ static int decode_and_compare(const char *filename, int fmt, int flags, int test
     size_t img_spng_size;
     unsigned char *img_spng =  NULL;
 
-    struct spngt_test_case spng_test_case =
-    {
-        .source.type = SPNGT_SRC_FILE,
-        .test_flags = test_flags,
-        .flags = flags,
-        .fmt = fmt,
-    };
-
-    struct spngt_test_case png_test_case = spng_test_case;
+    int fmt = spng->fmt, flags = spng->flags, test_flags = spng->test_flags;
 
     png_infop info_ptr = NULL;
     png_structp png_ptr = NULL;
     size_t img_png_size;
     unsigned char *img_png = NULL;
 
-    spng_test_case.source.file = fopen(filename, "rb");
-    png_test_case.source.file = fopen(filename, "rb");
-
-    if(!spng_test_case.source.file || !png_test_case.source.file)
-    {
-        ret = 1;
-        goto cleanup;
-    }
-
     struct spng_ihdr ihdr;
-    ctx = init_spng(&spng_test_case, &ihdr);
+    ctx = init_spng(spng, &ihdr);
 
     if(ctx == NULL)
     {
         ret = 1;
         goto cleanup;
     }
+
+    spng_set_crc_action(ctx, SPNG_CRC_ERROR, SPNG_CRC_ERROR);
 
     img_spng = getimage_spng(ctx, &img_spng_size, fmt, flags);
     if(img_spng == NULL)
@@ -962,7 +1018,7 @@ static int decode_and_compare(const char *filename, int fmt, int flags, int test
         goto cleanup;
     }
 
-    png_ptr = init_libpng(&png_test_case, &info_ptr);
+    png_ptr = init_libpng(png, &info_ptr);
     if(png_ptr == NULL)
     {
         ret = 1;
@@ -1021,7 +1077,7 @@ identical:
 
     if(test_flags & SPNGT_COMPARE_CHUNKS)
     {
-        ret = compare_chunks(ctx, info_ptr, png_ptr, 1);
+        ret |= compare_chunks(ctx, info_ptr, png_ptr, 1);
     }
 
 cleanup:
@@ -1032,8 +1088,150 @@ cleanup:
     free(img_spng);
     free(img_png);
 
-    if(spng_test_case.source.file) fclose(spng_test_case.source.file);
-    if(png_test_case.source.file) fclose(png_test_case.source.file);
+    return ret;
+}
+
+static void dump_buffer(void *buf, size_t size)
+{
+    const char *filename = "dump.png";
+    FILE *f = fopen(filename, "wb");
+
+    if(f == NULL) goto err;
+
+    size_t written = fwrite(buf, size, 1, f);
+
+    if(written != 1) goto err;
+
+    printf("file dumped to %s\n", filename);
+
+    goto cleanup;
+
+err:
+    printf("failed to dump file: %s\n", strerror(errno));
+
+cleanup:
+    if(f != NULL) fclose(f);
+}
+
+static int spngt_run_test(const char *filename, struct spngt_test_case *test_case)
+{
+    enum spng_errno ret;
+    size_t file_length = 0;
+    struct spngt_test_case spng = *test_case;
+    struct spngt_test_case libpng = *test_case;
+
+    if(test_case->source.type == SPNGT_SRC_FILE)
+    {
+        spng.source.file = fopen(filename, "rb");
+        libpng.source.file = fopen(filename, "rb");
+
+        if(!spng.source.file || !libpng.source.file)
+        {
+            ret = 1;
+            goto cleanup;
+        }
+
+        fseek(spng.source.file, 0, SEEK_END);
+        file_length = ftell(spng.source.file);
+        rewind(spng.source.file);
+    }
+
+    ret = decode_and_compare(&spng, &libpng);
+    if(ret) goto cleanup;
+
+    if(test_case->test_flags & SPNGT_ENCODE_ROUNDTRIP)
+    {
+        printf("           compare (reencoded, original)...\n");
+
+        if(test_case->source.type == SPNGT_SRC_FILE)
+        {
+            rewind(spng.source.file);
+            rewind(libpng.source.file);
+        }
+
+        spng_ctx *src = init_spng(&spng, NULL);
+        spng_ctx *dst = NULL;
+        spngt_chunk_data data = {0};
+
+        size_t img_size;
+        void *img_spng = getimage_spng(src, &img_size, test_case->fmt, test_case->flags);
+
+        size_t encoded_len;
+        char *encoded_pngbuf = NULL;
+
+        if(img_spng == NULL)
+        {
+            ret = 1;
+            goto encode_cleanup;
+        }
+
+        ret = get_chunks(src, &data);
+        if(ret) goto encode_cleanup;
+
+        dst = spng_ctx_new(0);
+
+        ret = set_chunks(dst, &data);
+        if(ret) goto encode_cleanup;
+
+        ret = spng_encode_image(dst, img_spng, img_size, SPNG_FMT_PNG, 0);
+        if(ret)
+        {
+            printf("encode error: %s\n", spng_strerror(ret));
+            goto encode_cleanup;
+        }
+
+        encoded_pngbuf = spng_get_png_buffer(dst, &encoded_len, &ret);
+        if(ret) goto encode_cleanup;
+
+        /* Fail the test on a >4% size increase */
+        /*int pct = 25;
+        if( (encoded_len - encoded_len / pct) > file_length)
+        {
+            printf("Reencoded PNG exceeds maximum %d%% size increase: %zu (original: %zu)\n", 100 / pct, encoded_len, file_length);
+            ret = 1;
+            goto encode_cleanup;
+        }*/
+
+        spng.source.type = SPNGT_SRC_BUFFER;
+        spng.source.buffer = encoded_pngbuf;
+        spng.source.png_size = encoded_len;
+        spng.test_flags |= SPNGT_COMPARE_CHUNKS;
+
+        ret = decode_and_compare(&spng, &libpng);
+        if(ret)
+        {
+            printf("compare error (%d))\n", ret);
+            dump_buffer(encoded_pngbuf, encoded_len);
+            goto encode_cleanup;
+        }
+
+        libpng.source.type = SPNGT_SRC_BUFFER;
+        libpng.source.buffer = encoded_pngbuf;
+        libpng.source.png_size = encoded_len;
+        libpng.test_flags |= SPNGT_COMPARE_CHUNKS;
+
+        printf("           compare (reencoded, reencoded)...\n");
+
+        ret = decode_and_compare(&spng, &libpng);
+
+        if(ret)
+        {
+            printf("compare error (%d))\n", ret);
+            dump_buffer(encoded_pngbuf, encoded_len);
+        }
+
+encode_cleanup:
+        free(img_spng);
+        free(encoded_pngbuf);
+        spng_ctx_free(src);
+        spng_ctx_free(dst);
+        free_chunks(&data);
+    }
+
+cleanup:
+
+    if(spng.source.file) fclose(spng.source.file);
+    if(libpng.source.file) fclose(libpng.source.file);
 
     return ret;
 }
@@ -1116,45 +1314,55 @@ int main(int argc, char **argv)
     there are no tests where transparency is not applied
 */
     int gamma_bug = 0;
+    int skip_encode = 0;
+    int fmt_limit = SPNGT_SKIP;
+    int fmt_limit_2 = SPNGT_SKIP;
 
     /* https://github.com/randy408/libspng/issues/17 */
-    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE) gamma_bug = 1;
+    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE) gamma_bug = SPNGT_SKIP;
 
-    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS, SPNGT_COMPARE_CHUNKS);
-    if(!gamma_bug) add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, 0);
+    /* Some output formats are limited to certain PNG formats */
+    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8) fmt_limit = 0;
+    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth == 16) fmt_limit_2 = 0;
+
+    /* Not yet supported */
+    if(ihdr.interlace_method && ihdr.bit_depth < 8) skip_encode = SPNGT_SKIP;
+
+    add_test_case(SPNG_FMT_PNG, 0, SPNGT_COMPARE_CHUNKS);
+    add_test_case(SPNG_FMT_PNG, 0, SPNGT_ENCODE_ROUNDTRIP | skip_encode);
+    add_test_case(SPNG_FMT_RAW, 0, 0);
+    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS, 0);
+    add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, gamma_bug);
     add_test_case(SPNG_FMT_RGBA16, SPNG_DECODE_TRNS, 0);
     add_test_case(SPNG_FMT_RGBA16, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, 0);
     add_test_case(SPNG_FMT_RGB8, 0, 0);
-    if(!gamma_bug) add_test_case(SPNG_FMT_RGB8, SPNG_DECODE_GAMMA, 0);
-    add_test_case(SPNG_FMT_PNG, 0, 0);
-    add_test_case(SPNG_FMT_RAW, 0, 0);
+    add_test_case(SPNG_FMT_RGB8, SPNG_DECODE_GAMMA, gamma_bug);
 
-    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8)
-    {
-        add_test_case(SPNG_FMT_G8, 0, 0);
-        add_test_case(SPNG_FMT_GA8, 0, 0);
-        add_test_case(SPNG_FMT_GA8, SPNG_DECODE_TRNS, 0);
-    }
+    add_test_case(SPNG_FMT_G8, 0, fmt_limit);
+    add_test_case(SPNG_FMT_GA8, 0, fmt_limit);
+    add_test_case(SPNG_FMT_GA8, SPNG_DECODE_TRNS, fmt_limit);
 
-    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth == 16)
-    {
-        add_test_case(SPNG_FMT_GA16, 0, 0);
-        add_test_case(SPNG_FMT_GA16, SPNG_DECODE_TRNS, 0);
-    }
+    add_test_case(SPNG_FMT_GA16, 0, fmt_limit_2);
+    add_test_case(SPNG_FMT_GA16, SPNG_DECODE_TRNS, fmt_limit_2);
 
     /* This tests the input->output format logic used in libvips,
-       it emulates the behavior of their old PNG loader which used libpng. */
+       it emulates the behavior of their old PNG loader which uses libpng. */
     add_test_case(SPNGT_FMT_VIPS, SPNG_DECODE_TRNS, 0);
 
-    printf("%d test cases\n", n_test_cases);
+    printf("%d test cases", n_test_cases);
 
-    int ret = 0;
-    int i;
+    if(n_test_cases != actual_count) printf(" (skipping %d)", n_test_cases - actual_count);
+
+    printf("\n");
+
+    int i, ret = 0;
     for(i=0; i < n_test_cases; i++)
     {
         print_test_args(&test_cases[i]);
 
-        int e = decode_and_compare(filename, test_cases[i].fmt, test_cases[i].flags, test_cases[i].test_flags);
+        if(test_cases[i].test_flags & SPNGT_SKIP) continue;
+
+        int e = spngt_run_test(filename, &test_cases[i]);
         if(!ret) ret = e;
     }
 
