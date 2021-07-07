@@ -363,6 +363,11 @@ struct spng_unknown_chunk
     enum spng_location location;
 };
 
+enum spng_option
+{
+    SPNG_KEEP_UNKNOWN_CHUNKS = 1,
+};
+
 typedef void* spng_malloc_fn(size_t size);
 typedef void* spng_realloc_fn(void* ptr, size_t size);
 typedef void* spng_calloc_fn(size_t count, size_t size);
@@ -405,6 +410,9 @@ SPNG_API int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cach
 SPNG_API int spng_get_chunk_limits(spng_ctx *ctx, size_t *chunk_size, size_t *cache_size);
 
 SPNG_API int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary);
+
+SPNG_API int spng_set_option(spng_ctx *ctx, enum spng_option option, int value);
+SPNG_API int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value);
 
 SPNG_API int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len);
 

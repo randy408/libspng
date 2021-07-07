@@ -4696,6 +4696,40 @@ int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
     return 0;
 }
 
+int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
+{
+    if(ctx == NULL) return 1;
+
+    switch(option)
+    {
+        case SPNG_KEEP_UNKNOWN_CHUNKS:
+        {
+            ctx->keep_unknown = value ? 1 : 0;
+            break;
+        }
+        default: return 1;
+    }
+
+    return 0;
+}
+
+int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
+{
+    if(ctx == NULL || value == NULL) return 1;
+
+    switch(option)
+    {
+        case SPNG_KEEP_UNKNOWN_CHUNKS:
+        {
+            *value = ctx->keep_unknown;
+            break;
+        }
+        default: return 1;
+    }
+
+    return 0;
+}
+
 int spng_decoded_image_size(spng_ctx *ctx, int fmt, size_t *len)
 {
     if(ctx == NULL || len == NULL) return 1;
