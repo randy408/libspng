@@ -242,6 +242,7 @@ struct spng_ctx
     unsigned strict: 1;
     unsigned discard: 1;
     unsigned skip_crc: 1;
+    unsigned keep_unknown: 1;
     unsigned prev_was_idat: 1;
 
     spng__undo *undo;
@@ -2732,6 +2733,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             {
                 ctx->file.unknown = 1;
 
+                if(!ctx->keep_unknown) goto discard;
                 if(ctx->user.unknown) goto discard;
 
                 if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_unknown_chunk))) return SPNG_ECHUNK_LIMITS;
@@ -4465,6 +4467,8 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 
     ctx->crc_action_critical = SPNG_CRC_ERROR;
     ctx->crc_action_ancillary = SPNG_CRC_DISCARD;
+
+    ctx->keep_unknown = 1;
 
     ctx->flags = flags;
 
