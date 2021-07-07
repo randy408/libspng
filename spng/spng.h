@@ -370,7 +370,7 @@ enum spng_option
     SPNG_IMG_COMPRESSION_LEVEL,
     SPNG_IMG_WINDOW_BITS,
     SPNG_IMG_MEM_LEVEL,
-    SPNG_IMG_STRATEGY,
+    SPNG_IMG_COMPRESSION_STRATEGY,
 };
 
 typedef void* spng_malloc_fn(size_t size);

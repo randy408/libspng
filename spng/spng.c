@@ -4754,7 +4754,7 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             ctx->image_options.mem_level = value;
             break;
         }
-        case SPNG_IMG_STRATEGY:
+        case SPNG_IMG_COMPRESSION_STRATEGY:
         {
             ctx->image_options.strategy = value;
             break;
@@ -4791,7 +4791,7 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
             *value = ctx->image_options.mem_level;
             break;
         }
-        case SPNG_IMG_STRATEGY:
+        case SPNG_IMG_COMPRESSION_STRATEGY:
         {
             *value = ctx->image_options.strategy;
             break;
