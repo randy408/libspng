@@ -51,17 +51,17 @@ spng_ctx *init_spng(spngt_test_case *test_case, struct spng_ihdr *ihdr)
     if(test_case->source.type == SPNGT_SRC_FILE) r = spng_set_png_file(ctx, test_case->source.file);
     else if(test_case->source.type == SPNGT_SRC_BUFFER) r = spng_set_png_buffer(ctx, test_case->source.buffer, test_case->source.png_size);
 
+    if(r)
+    {
+        printf("spng_set_png_file/buffer() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
     r = spng_set_option(ctx, SPNG_KEEP_UNKNOWN_CHUNKS, 1);
 
     if(r)
     {
         printf("spng_set_option() error: %s\n", spng_strerror(r));
-        goto err;
-    }
-
-    if(r)
-    {
-        printf("spng_set_png_file() error: %s\n", spng_strerror(r));
         goto err;
     }
 
