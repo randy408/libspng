@@ -2744,13 +2744,13 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(buf == NULL) return SPNG_EMEM;
                 ctx->chunk_list = buf;
 
-                struct spng_unknown_chunk *chunks = &ctx->chunk_list[ctx->n_chunks - 1];
+                struct spng_unknown_chunk *chunkp = &ctx->chunk_list[ctx->n_chunks - 1];
 
-                memset(chunks, 0, sizeof(struct spng_unknown_chunk));
+                memset(chunkp, 0, sizeof(struct spng_unknown_chunk));
 
                 ctx->undo = chunk_undo;
 
-                memcpy(chunks->type, chunk.type, 4);
+                memcpy(chunkp->type, chunk.type, 4);
 
                 if(chunk.length > 0)
                 {
@@ -2764,8 +2764,15 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                         return ret;
                     }
 
-                    chunks->length = chunk.length;
-                    chunks->data = t;
+                    chunkp->length = chunk.length;
+                    chunkp->data = t;
+
+                    if(ctx->state < SPNG_STATE_FIRST_IDAT)
+                    {
+                        if(ctx->file.plte) chunkp->location = SPNG_AFTER_PLTE;
+                        else chunkp->location = SPNG_AFTER_IHDR;
+                    }
+                    else if(ctx->state >= SPNG_STATE_AFTER_IDAT) chunkp->location = SPNG_AFTER_IDAT;
                 }
 
                 ctx->stored.unknown = 1;
@@ -3764,6 +3771,21 @@ static int write_chunks_before_idat(spng_ctx *ctx)
         if(ret) return ret;
     }
 
+    if(ctx->stored.unknown)
+    {
+        uint32_t i;
+        for(i=0; i < ctx->n_chunks; i++)
+        {
+            struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
+
+            if(chunk->location == SPNG_AFTER_IHDR)
+            {
+                int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
+                if(ret) return ret;
+            }
+        }
+    }
+
     if(ctx->stored.plte)
     {
         for(i=0; i < ctx->plte.n_entries; i++)
@@ -4055,11 +4077,16 @@ static int write_chunks_before_idat(spng_ctx *ctx)
 
     if(ctx->stored.unknown)
     {
+        uint32_t i;
         for(i=0; i < ctx->n_chunks; i++)
         {
             struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
-            ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
-            if(ret) return ret;
+
+            if(chunk->location == SPNG_AFTER_PLTE)
+            {
+                int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
+                if(ret) return ret;
+            }
         }
     }
 
@@ -4069,6 +4096,21 @@ static int write_chunks_before_idat(spng_ctx *ctx)
 static int write_chunks_after_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return SPNG_EINTERNAL;
+
+    if(ctx->stored.unknown)
+    {
+        uint32_t i;
+        for(i=0; i < ctx->n_chunks; i++)
+        {
+            struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
+
+            if(chunk->location == SPNG_AFTER_IDAT)
+            {
+                int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
+                if(ret) return ret;
+            }
+        }
+    }
 
     return write_iend(ctx);
 }
@@ -4225,6 +4267,42 @@ static int encode_row(spng_ctx *ctx, const void *row, size_t len)
     int pass = ctx->row_info.pass;
     unsigned char *scanline = ctx->scanline + 1;
     unsigned pixel_size = ctx->pixel_size;
+
+    const struct spng_ihdr *ihdr = &ctx->ihdr;
+
+    if(ihdr->bit_depth < 8)
+    {
+        const unsigned bit_depth = ctx->ihdr.bit_depth;
+        const unsigned samples_per_byte = 8 / bit_depth;
+        const uint8_t mask = (uint16_t)(1 << bit_depth) - 1;
+        const unsigned initial_shift = 8 - bit_depth;
+        unsigned shift_amount = initial_shift;
+        uint8_t sample;
+
+        memset(scanline, 0, len);
+
+        for(k=0; k < ctx->subimage[pass].width; k++)
+        {
+            sample = *(unsigned char*)row;
+
+            size_t ioffset = adam7_x_start[pass] + k * adam7_x_delta[pass];
+
+            sample = sample >> (initial_shift - ioffset * bit_depth % 8);
+            sample = (sample << (8 - shift_amount) ) & mask;
+
+            scanline[k / samples_per_byte] |= sample;
+
+            shift_amount -= bit_depth;
+
+            if(shift_amount > 7)
+            {
+                shift_amount = initial_shift;
+                row = (unsigned char*)row + 1;
+            }
+        }
+
+        return encode_scanline(ctx, scanline, len);
+    }
 
     for(k=0; k < ctx->subimage[pass].width; k++)
     {
@@ -5230,6 +5308,15 @@ int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, ui
     {
         if(chunks[i].length > png_u32max) return SPNG_ECHUNK_STDLEN;
         if(chunks[i].length && chunks[i].data == NULL) return 1;
+
+        switch(chunks[i].location)
+        {
+            case SPNG_AFTER_IHDR:
+            case SPNG_AFTER_PLTE:
+            case SPNG_AFTER_IDAT:
+            break;
+            default: return 1;
+        }
     }
 
     if(ctx->stored.unknown && !ctx->user.unknown)

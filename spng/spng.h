@@ -348,11 +348,19 @@ struct spng_chunk
     uint32_t crc;
 };
 
+enum spng_location
+{
+    SPNG_AFTER_IHDR = 1,
+    SPNG_AFTER_PLTE = 2,
+    SPNG_AFTER_IDAT = 8,
+};
+
 struct spng_unknown_chunk
 {
     uint8_t type[4];
     size_t length;
     void *data;
+    enum spng_location location;
 };
 
 typedef void* spng_malloc_fn(size_t size);
