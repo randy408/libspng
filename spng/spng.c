@@ -4487,7 +4487,7 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
         .window_bits = 15,
         .mem_level = 8,
         .strategy = Z_FILTERED,
-        .data_type = Z_BINARY
+        .data_type = 0 /* Z_BINARY */
     };
 
     const struct spng__deflate_options text_defaults =
@@ -4496,7 +4496,7 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
         .window_bits = 15,
         .mem_level = 8,
         .strategy = Z_DEFAULT_STRATEGY,
-        .data_type = Z_TEXT
+        .data_type = 1 /* Z_TEXT */
     };
 
     ctx->image_options = image_defaults;
