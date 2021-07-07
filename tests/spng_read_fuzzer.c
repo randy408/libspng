@@ -61,7 +61,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     struct spng_phys phys;
     struct spng_splt splt[4] = {0};
     struct spng_time time;
-    uint32_t n_text = 4, n_splt = 4;
+    struct spng_unknown_chunk chunks[4] = {0};
+    uint32_t n_text = 4, n_splt = 4, n_chunks = 4;
 
     struct buf_state state;
     state.data = data;
@@ -122,7 +123,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                memchr(text[i].keyword, 0, 80) == NULL)
             {
                 spng_ctx_free(ctx);
-                if(out != NULL) free(out);
+                free(out);
                 return 1;
             }
             /* This shouldn't cause issues either */
@@ -146,7 +147,24 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                memchr(splt[i].name, 0, 80) == NULL)
             {
                 spng_ctx_free(ctx);
-                if(out != NULL) free(out);
+                free(out);
+                return 1;
+            }
+        }
+    }
+
+    if(!spng_get_unknown_chunks(ctx, chunks, &n_chunks))
+    {
+        spng_get_unknown_chunks(ctx, NULL, &n_chunks);
+
+        uint32_t i;
+        for(i=0; i < n_chunks; i++)
+        {
+            if( (chunks[i].length && !chunks[i].data) ||
+                (!chunks[i].length && chunks[i].data) )
+            {
+                spng_ctx_free(ctx);
+                free(out);
                 return 1;
             }
         }
@@ -173,7 +191,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
 err:
     spng_ctx_free(ctx);
-    if(out != NULL) free(out);
+    free(out);
     if(file != NULL) fclose(file);
 
     return 0;
