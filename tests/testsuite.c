@@ -382,7 +382,11 @@ static int get_chunks(spng_ctx *ctx, spngt_chunk_data *spng)
 
     ret = spng_get_plte(ctx, &spng->plte);
 
-    if(!ret) spng->have.plte = 1;
+    if(!ret)
+    {
+        spng->n_plte_entries = spng->plte.n_entries;
+        spng->have.plte = 1;
+    }
     else if(ret == SPNG_ECHUNKAVAIL) ret = 0;
     else return ret;
 
@@ -496,6 +500,10 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
     png.have.unknown = spng.have.unknown;
 
+    int png_num_palette;
+    png_color *png_palette;
+    if(png_get_PLTE(png_ptr, info_ptr, &png_palette, &png_num_palette) == PNG_INFO_PLTE) png.n_plte_entries = png_num_palette;
+
     png_text *png_text;
     png.n_text = png_get_text(png_ptr, info_ptr, &png_text, NULL);
     if(png.n_text) png.have.text = 1;
@@ -548,31 +556,23 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         }
     }
 
-    if(spng.have.plte)
+    if(spng.plte.n_entries != png.n_plte_entries)
     {
-        png_color *png_palette;
-        int png_num_palette;
-
-        png_get_PLTE(png_ptr, info_ptr, &png_palette, &png_num_palette);
-
-        if(spng.plte.n_entries == png_num_palette)
+        printf("different number of palette entries (%u, %u)\n", spng.plte.n_entries, png.n_plte_entries);
+        ret = 1;
+    }
+    else
+    {
+        int i;
+        for(i=0; i < spng.plte.n_entries; i++)
         {
-            int i;
-            for(i=0; i > spng.plte.n_entries; i++)
+            if(spng.plte.entries[i].red != png_palette[i].red ||
+               spng.plte.entries[i].green != png_palette[i].green ||
+               spng.plte.entries[i].blue != png_palette[i].blue)
             {
-                if(spng.plte.entries[i].red != png_palette->red ||
-                   spng.plte.entries[i].green != png_palette->green ||
-                   spng.plte.entries[i].blue != png_palette->blue)
-                {
-                    printf("palette entry %d not identical\n", i);
-                    ret = 1;
-                }
+                printf("palette entry %d not identical\n", i);
+                ret = 1;
             }
-        }
-        else
-        {
-            printf("different number of palette entries\n");
-            ret = 1;
         }
     }
 
