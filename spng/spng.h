@@ -16,6 +16,12 @@ extern "C" {
     #define SPNG_API
 #endif
 
+#if defined(_MSC_VER)
+    #define SPNG_CDECL __cdecl
+#else
+    #define SPNG_CDECL
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -355,10 +361,10 @@ struct spng_unknown_chunk
     void *data;
 };
 
-typedef void* spng_malloc_fn(size_t size);
-typedef void* spng_realloc_fn(void* ptr, size_t size);
-typedef void* spng_calloc_fn(size_t count, size_t size);
-typedef void spng_free_fn(void* ptr);
+typedef void* SPNG_CDECL spng_malloc_fn(size_t size);
+typedef void* SPNG_CDECL spng_realloc_fn(void* ptr, size_t size);
+typedef void* SPNG_CDECL spng_calloc_fn(size_t count, size_t size);
+typedef void SPNG_CDECL spng_free_fn(void* ptr);
 
 struct spng_alloc
 {
