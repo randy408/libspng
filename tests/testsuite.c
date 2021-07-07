@@ -975,6 +975,12 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
                 printf("chunk[%d]: size mismatch %" PRIu64 "(spng) %" PRIu64" (libpng)\n", i, spng.chunks[i].length, png_chunks[i].size);
                 ret = 1;
             }
+
+            if(spng.chunks[i].location != png_chunks[i].location)
+            {
+                printf("chunk[%d]: location mismatch\n", i);
+                ret = 1;
+            }
         }
     }
 
