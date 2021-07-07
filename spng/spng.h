@@ -366,6 +366,11 @@ struct spng_unknown_chunk
 enum spng_option
 {
     SPNG_KEEP_UNKNOWN_CHUNKS = 1,
+
+    SPNG_IMG_COMPRESSION_LEVEL,
+    SPNG_IMG_WINDOW_BITS,
+    SPNG_IMG_MEM_LEVEL,
+    SPNG_IMG_STRATEGY,
 };
 
 typedef void* spng_malloc_fn(size_t size);
