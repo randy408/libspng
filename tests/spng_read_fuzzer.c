@@ -134,7 +134,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     spng_get_hist(ctx, &hist);
     spng_get_phys(ctx, &phys);
 
-    if(spng_get_splt(ctx, splt, &n_splt))
+    if(!spng_get_splt(ctx, splt, &n_splt))
     {/* Up to 4 entries were read, get the actual count */
         spng_get_splt(ctx, NULL, &n_splt);
 
