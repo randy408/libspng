@@ -197,6 +197,15 @@ union spng__decode_plte
     uint32_t align_this;
 };
 
+struct spng__deflate_options
+{
+    int compression_level;
+    int window_bits;
+    int mem_level;
+    int strategy;
+    int data_type;
+};
+
 typedef void spng__undo(spng_ctx *ctx);
 
 struct spng_ctx
@@ -244,6 +253,9 @@ struct spng_ctx
     unsigned skip_crc: 1;
     unsigned keep_unknown: 1;
     unsigned prev_was_idat: 1;
+
+    struct spng__deflate_options image_options;
+    struct spng__deflate_options text_options;
 
     spng__undo *undo;
 
@@ -1061,7 +1073,7 @@ static int spng__inflate_init(spng_ctx *ctx)
     return 0;
 }
 
-static int spng__deflate_init(spng_ctx *ctx, int level, int strategy)
+static int spng__deflate_init(spng_ctx *ctx, struct spng__deflate_options *options)
 {
     if(ctx->zstream.state) deflateEnd(&ctx->zstream);
 
@@ -1071,8 +1083,9 @@ static int spng__deflate_init(spng_ctx *ctx, int level, int strategy)
     zstream->zalloc = spng__zalloc;
     zstream->zfree = spng__zfree;
     zstream->opaque = ctx;
+    zstream->data_type = options->data_type;
 
-    int ret = deflateInit2(zstream, level, Z_DEFLATED, 15, 8, strategy);
+    int ret = deflateInit2(zstream, options->compression_level, Z_DEFLATED, options->window_bits, options->mem_level, options->strategy);
 
     if(ret != Z_OK) return SPNG_EZLIB_INIT;
 
@@ -4347,7 +4360,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
     ctx->out_width = ctx->total_out_size / ihdr->height;
 
-    ret = spng__deflate_init(ctx, Z_DEFAULT_COMPRESSION, Z_FILTERED);
+    ret = spng__deflate_init(ctx, &ctx->image_options);
     if(ret) return encode_err(ctx, ret);
 
     size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width;
@@ -4467,6 +4480,27 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 
     ctx->crc_action_critical = SPNG_CRC_ERROR;
     ctx->crc_action_ancillary = SPNG_CRC_DISCARD;
+
+    const struct spng__deflate_options image_defaults =
+    {
+        .compression_level = Z_DEFAULT_COMPRESSION,
+        .window_bits = 15,
+        .mem_level = 8,
+        .strategy = Z_FILTERED,
+        .data_type = Z_BINARY
+    };
+
+    const struct spng__deflate_options text_defaults =
+    {
+        .compression_level = Z_DEFAULT_COMPRESSION,
+        .window_bits = 15,
+        .mem_level = 8,
+        .strategy = Z_DEFAULT_STRATEGY,
+        .data_type = Z_TEXT
+    };
+
+    ctx->image_options = image_defaults;
+    ctx->text_options = text_defaults;
 
     ctx->flags = flags;
 
@@ -4705,6 +4739,26 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             ctx->keep_unknown = value ? 1 : 0;
             break;
         }
+        case SPNG_IMG_COMPRESSION_LEVEL:
+        {
+            ctx->image_options.compression_level = value;
+            break;
+        }
+        case SPNG_IMG_WINDOW_BITS:
+        {
+            ctx->image_options.window_bits = value;
+            break;
+        }
+        case SPNG_IMG_MEM_LEVEL:
+        {
+            ctx->image_options.mem_level = value;
+            break;
+        }
+        case SPNG_IMG_STRATEGY:
+        {
+            ctx->image_options.strategy = value;
+            break;
+        }
         default: return 1;
     }
 
@@ -4720,6 +4774,26 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
         case SPNG_KEEP_UNKNOWN_CHUNKS:
         {
             *value = ctx->keep_unknown;
+            break;
+        }
+        case SPNG_IMG_COMPRESSION_LEVEL:
+        {
+            *value = ctx->image_options.compression_level;
+            break;
+        }
+            case SPNG_IMG_WINDOW_BITS:
+        {
+            *value = ctx->image_options.window_bits;
+            break;
+        }
+        case SPNG_IMG_MEM_LEVEL:
+        {
+            *value = ctx->image_options.mem_level;
+            break;
+        }
+        case SPNG_IMG_STRATEGY:
+        {
+            *value = ctx->image_options.strategy;
             break;
         }
         default: return 1;
