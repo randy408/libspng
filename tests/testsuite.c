@@ -359,7 +359,7 @@ static void print_chunks(spngt_chunk_bitfield chunks)
     if(chunks.time) printf(" tIME");
     if(chunks.offs) printf(" oFFs");
     if(chunks.exif) printf(" eXIF");
-
+    if(chunks.unknown) printf(" (unknown)");
 }
 
 static void free_chunks(spngt_chunk_data *spng)
@@ -500,9 +500,13 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     png.n_text = png_get_text(png_ptr, info_ptr, &png_text, NULL);
     if(png.n_text) png.have.text = 1;
 
-    png_sPLT_t *png_splt_entries;
-    png.n_splt = png_get_sPLT(png_ptr, info_ptr, &png_splt_entries);
+    png_sPLT_t *png_splt;
+    png.n_splt = png_get_sPLT(png_ptr, info_ptr, &png_splt);
     if(png.n_splt) png.have.splt = 1;
+
+    png_unknown_chunk *png_chunks;
+    png.n_unknown_chunks = png_get_unknown_chunks(png_ptr, info_ptr, &png_chunks);
+    if(png.n_unknown_chunks) png.have.unknown = 1;
 
     const char *pos = after_idat ? " after IDAT" : "before IDAT";
 
@@ -742,8 +746,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         ret = 1;
         goto cleanup;
     }
-
-    if(spng.n_text)
+    else
     {
         for(i=0; i < spng.n_text; i++)
         {
@@ -841,61 +844,54 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         }
     }
 
-    if(spng.have.splt)
+    if(spng.n_splt != png.n_splt)
     {
-        png_sPLT_t *png_splt;
+        printf("different number of suggested palettes\n");
+        ret = 1;
+    }
+    else
+    {
+        int j;
 
-        int png_n_palettes = png_get_sPLT(png_ptr, info_ptr, &png_splt);
-
-        if(spng.n_splt == png_n_palettes)
+        for(j=0; j < spng.n_splt; j++)
         {
-            int i, j;
-
-            for(j=0; j < spng.n_splt; j++)
+            if(strcmp(spng.splt[j].name, png_splt[j].name))
             {
-                if(strcmp(spng.splt[j].name, png_splt[j].name))
+                printf("sPLT[%d]: name mismatch\n", j);
+                ret = 1;
+            }
+
+            if(spng.splt[j].sample_depth != png_splt[j].depth)
+            {
+                printf("sPLT[%d]: sample depth mismatch\n", j);
+                ret = 1;
+            }
+
+            if(spng.splt[j].n_entries != png_splt[j].nentries)
+            {
+                printf("sPLT[%d]: entry count mismatch\n", j);
+                ret = 1;
+                break;
+            }
+
+            struct spng_splt_entry entry;
+            png_sPLT_entry png_entry;
+
+            for(i=0; i < spng.splt[j].n_entries; i++)
+            {
+                entry = spng.splt[j].entries[i];
+                png_entry = png_splt[j].entries[i];
+
+                if(entry.alpha != png_entry.alpha ||
+                    entry.red != png_entry.red ||
+                    entry.green != png_entry.green ||
+                    entry.blue != png_entry.blue ||
+                    entry.frequency != png_entry.frequency)
                 {
-                    printf("sPLT[%d]: name mismatch\n", j);
+                    printf("sPLT[%d]: mismatch for entry %d\n", j, i);
                     ret = 1;
-                }
-
-                if(spng.splt[j].sample_depth != png_splt[j].depth)
-                {
-                    printf("sPLT[%d]: sample depth mismatch\n", j);
-                    ret = 1;
-                }
-
-                if(spng.splt[j].n_entries != png_splt[j].nentries)
-                {
-                    printf("sPLT[%d]: entry count mismatch\n", j);
-                    ret = 1;
-                    break;
-                }
-
-                struct spng_splt_entry entry;
-                png_sPLT_entry png_entry;
-
-                for(i=0; i < spng.splt[j].n_entries; i++)
-                {
-                    entry = spng.splt[j].entries[i];
-                    png_entry = png_splt[j].entries[i];
-
-                    if(entry.alpha != png_entry.alpha ||
-                       entry.red != png_entry.red ||
-                       entry.green != png_entry.green ||
-                       entry.blue != png_entry.blue ||
-                       entry.frequency != png_entry.frequency)
-                    {
-                        printf("sPLT[%d]: mismatch for entry %d\n", j, i);
-                        ret = 1;
-                    }
                 }
             }
-        }
-        else
-        {
-            printf("different number of suggested palettes\n");
-            ret = 1;
         }
     }
 
@@ -955,19 +951,14 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         }
     }
 
-    if(spng.have.unknown)
+    if(png.n_unknown_chunks != spng.n_unknown_chunks)
     {
-        png_unknown_chunkp png_chunks;
-
-        png.n_unknown_chunks = png_get_unknown_chunks(png_ptr, info_ptr, &png_chunks);
-
-        if(png.n_unknown_chunks != spng.n_unknown_chunks)
-        {
-            printf("unknown chunk count mismatch: %u(spng), %d(libpng)\n", spng.n_unknown_chunks, png.n_unknown_chunks);
-            ret = 1;
-            goto cleanup;
-        }
-
+        printf("unknown chunk count mismatch: %u(spng), %d(libpng)\n", spng.n_unknown_chunks, png.n_unknown_chunks);
+        ret = 1;
+        goto cleanup;
+    }
+    else
+    {
         for(i=0; i < spng.n_unknown_chunks; i++)
         {
             if(spng.chunks[i].length != png_chunks[i].size)
