@@ -4050,20 +4050,31 @@ static int write_chunks_before_idat(spng_ctx *ctx)
 
             if(text->compression_flag)
             {
-                uLongf dest_len = compressBound(text->text_length);
+                ret = spng__deflate_init(ctx, &ctx->text_options);
+                if(ret) return ret;
+
+                z_stream *zstream = &ctx->zstream;
+                uLongf dest_len = deflateBound(zstream, text_length);
+
                 compressed_text = spng__malloc(ctx, dest_len);
 
                 if(compressed_text == NULL) return SPNG_EMEM;
 
-                ret = compress2(compressed_text, &dest_len, (void*)text->text, text_length, Z_DEFAULT_COMPRESSION);
+                zstream->next_in = (void*)text->text;
+                zstream->avail_in = text_length;
 
-                if(ret != Z_OK)
+                zstream->next_out = compressed_text;
+                zstream->avail_out = dest_len;
+
+                ret = deflate(zstream, Z_FINISH);
+
+                if(ret != Z_STREAM_END)
                 {
                     spng__free(ctx, compressed_text);
                     return SPNG_EZLIB;
                 }
 
-                compressed_length = dest_len;
+                compressed_length = zstream->total_out;
 
                 length += compressed_length;
                 if(length < compressed_length) return SPNG_EOVERFLOW;
