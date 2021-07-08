@@ -4810,6 +4810,26 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             ctx->image_options.strategy = value;
             break;
         }
+        case SPNG_TEXT_COMPRESSION_LEVEL:
+        {
+            ctx->text_options.compression_level = value;
+            break;
+        }
+        case SPNG_TEXT_WINDOW_BITS:
+        {
+            ctx->text_options.window_bits = value;
+            break;
+        }
+        case SPNG_TEXT_MEM_LEVEL:
+        {
+            ctx->text_options.mem_level = value;
+            break;
+        }
+        case SPNG_TEXT_COMPRESSION_STRATEGY:
+        {
+            ctx->text_options.strategy = value;
+            break;
+        }
         default: return 1;
     }
 
@@ -4845,6 +4865,26 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
         case SPNG_IMG_COMPRESSION_STRATEGY:
         {
             *value = ctx->image_options.strategy;
+            break;
+        }
+        case SPNG_TEXT_COMPRESSION_LEVEL:
+        {
+            *value = ctx->text_options.compression_level;
+            break;
+        }
+            case SPNG_TEXT_WINDOW_BITS:
+        {
+            *value = ctx->text_options.window_bits;
+            break;
+        }
+        case SPNG_TEXT_MEM_LEVEL:
+        {
+            *value = ctx->text_options.mem_level;
+            break;
+        }
+        case SPNG_TEXT_COMPRESSION_STRATEGY:
+        {
+            *value = ctx->text_options.strategy;
             break;
         }
         default: return 1;
