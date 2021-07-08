@@ -3728,7 +3728,47 @@ static int write_chunks_before_idat(spng_ctx *ctx)
         if(ret) return ret;
     }
 
-    // TODO: iCCP
+    if(ctx->stored.iccp)
+    {
+        uLongf dest_len = compressBound(ctx->iccp.profile_len);
+
+        Bytef *buf = spng__malloc(ctx, dest_len);
+        if(buf == NULL) return SPNG_EMEM;
+
+        ret = compress2(buf, &dest_len, (void*)ctx->iccp.profile, ctx->iccp.profile_len, Z_DEFAULT_COMPRESSION);
+
+        if(ret != Z_OK)
+        {
+            spng__free(ctx, buf);
+            return SPNG_EZLIB;
+        }
+
+        uint32_t name_len = strlen(ctx->iccp.profile_name);
+
+        length = name_len + 2;
+        length += dest_len;
+
+        if(dest_len > length) return SPNG_EOVERFLOW;
+
+        unsigned char *cdata = NULL;
+
+        ret = write_header(ctx, type_iccp, length, &cdata);
+
+        if(ret)
+        {
+            spng__free(ctx, buf);
+            return ret;
+        }
+
+        memcpy(cdata, ctx->iccp.profile_name, name_len + 1);
+        cdata[name_len + 1] = 0; /* compression method */
+        memcpy(cdata + name_len + 2, buf, dest_len);
+
+        spng__free(ctx, buf);
+
+        ret = finish_chunk(ctx);
+        if(ret) return ret;
+    }
 
     if(ctx->stored.sbit)
     {
