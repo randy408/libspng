@@ -1531,7 +1531,7 @@ unsigned int get_best_filter(const unsigned char *prev_scanline, const unsigned 
     scanline_width--;
 
     int i;
-    unsigned int best_filter;
+    unsigned int best_filter = 0;
     enum spng_filter_choice flag;
     int32_t sum, best_score = INT32_MAX;
     int32_t filter_scores[5] = { INT32_MAX, INT32_MAX, INT32_MAX, INT32_MAX, INT32_MAX };
