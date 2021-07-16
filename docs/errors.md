@@ -6,6 +6,8 @@ Some errors such as integer overflow, OOM, decoding errors may lead to a
 non-recoverable state, in this case all subsequent function calls will
 return `SPNG_EBADSTATE`.
 
+See also: [Decoder error handling](decode.md#error-handling)
+
 # Functions
 
 # spng_strerror()
