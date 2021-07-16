@@ -1324,9 +1324,6 @@ int main(int argc, char **argv)
     if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth <= 8) fmt_limit = 0;
     if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr.bit_depth == 16) fmt_limit_2 = 0;
 
-    /* Not yet supported */
-    if(ihdr.interlace_method && ihdr.bit_depth < 8) skip_encode = SPNGT_SKIP;
-
     add_test_case(SPNG_FMT_PNG, 0, SPNGT_COMPARE_CHUNKS);
     add_test_case(SPNG_FMT_PNG, 0, SPNGT_ENCODE_ROUNDTRIP | skip_encode);
     add_test_case(SPNG_FMT_RAW, 0, 0);
