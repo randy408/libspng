@@ -158,7 +158,7 @@ struct spng_encode_flags
     unsigned interlace:      1;
     unsigned same_layout:    1;
 
-    unsigned filter_choice;
+    int filter_choice;
 };
 
 struct spng_chunk_bitfield
@@ -5043,6 +5043,12 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             ctx->text_options.strategy = value;
             break;
         }
+        case SPNG_FILTER_CHOICE:
+        {
+            if(value & ~SPNG_FILTER_CHOICE_ALL) return 1;
+            ctx->encode_flags.filter_choice = value;
+            break;
+        }
         default: return 1;
     }
 
@@ -5098,6 +5104,11 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
         case SPNG_TEXT_COMPRESSION_STRATEGY:
         {
             *value = ctx->text_options.strategy;
+            break;
+        }
+        case SPNG_FILTER_CHOICE:
+        {
+            *value = ctx->encode_flags.filter_choice;
             break;
         }
         default: return 1;
