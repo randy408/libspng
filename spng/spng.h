@@ -387,6 +387,8 @@ enum spng_option
     SPNG_TEXT_WINDOW_BITS,
     SPNG_TEXT_MEM_LEVEL,
     SPNG_TEXT_COMPRESSION_STRATEGY,
+
+    SPNG_FILTER_CHOICE,
 };
 
 typedef void* spng_malloc_fn(size_t size);
