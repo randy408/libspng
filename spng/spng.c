@@ -4509,49 +4509,48 @@ static int encode_row(spng_ctx *ctx, const void *row, size_t len)
 {
     if(ctx == NULL || row == NULL) return SPNG_EINTERNAL;
 
-    const struct spng_encode_flags *f = &ctx->encode_flags;
-
-    if(!f->interlace) return encode_scanline(ctx, row, len);
+    if(!ctx->ihdr.interlace_method) return encode_scanline(ctx, row, len);
 
     uint32_t k;
-    int pass = ctx->row_info.pass;
-    unsigned char *scanline = ctx->scanline + 1;
-    unsigned pixel_size = ctx->pixel_size;
+    const int pass = ctx->row_info.pass;
+    const unsigned pixel_size = ctx->pixel_size;
+    const unsigned bit_depth = ctx->ihdr.bit_depth;
 
-    const struct spng_ihdr *ihdr = &ctx->ihdr;
-
-    if(ihdr->bit_depth < 8)
+    if(bit_depth < 8)
     {
-        const unsigned bit_depth = ctx->ihdr.bit_depth;
         const unsigned samples_per_byte = 8 / bit_depth;
-        const uint8_t mask = (uint16_t)(1 << bit_depth) - 1;
+        const uint8_t mask = (1 << bit_depth) - 1;
         const unsigned initial_shift = 8 - bit_depth;
         unsigned shift_amount = initial_shift;
+
+        unsigned char *scanline = ctx->scanline;
+        const unsigned char *row_uc = row;
         uint8_t sample;
 
         memset(scanline, 0, len);
 
         for(k=0; k < ctx->subimage[pass].width; k++)
         {
-            sample = *(unsigned char*)row;
-
             size_t ioffset = adam7_x_start[pass] + k * adam7_x_delta[pass];
 
-            sample = sample >> (initial_shift - ioffset * bit_depth % 8);
-            sample = (sample << (8 - shift_amount) ) & mask;
+            sample = row_uc[ioffset / samples_per_byte];
 
-            scanline[k / samples_per_byte] |= sample;
+            sample = sample >> (initial_shift - ioffset * bit_depth % 8);
+            sample = sample & mask;
+            sample = sample << shift_amount;
+
+            scanline[0] |= sample;
 
             shift_amount -= bit_depth;
 
             if(shift_amount > 7)
             {
                 shift_amount = initial_shift;
-                row = (unsigned char*)row + 1;
+                scanline++;
             }
         }
 
-        return encode_scanline(ctx, scanline, len);
+        return encode_scanline(ctx, ctx->scanline, len);
     }
 
     for(k=0; k < ctx->subimage[pass].width; k++)
