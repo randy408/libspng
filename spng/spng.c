@@ -4356,17 +4356,6 @@ static int write_idat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int
     z_stream *zstream = &ctx->zstream;
     uint32_t idat_length = SPNG_WRITE_SIZE;
 
-    if(ctx->state < SPNG_STATE_FIRST_IDAT)
-    {
-        ret = write_header(ctx, type_idat, idat_length, &data);
-        if(ret) return encode_err(ctx, ret);
-
-        zstream->next_out = data;
-        zstream->avail_out = idat_length;
-
-        ctx->state = SPNG_STATE_FIRST_IDAT;
-    }
-
     zstream->next_in = scanline;
     zstream->avail_in = len;
 
@@ -4649,14 +4638,11 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
     ctx->fmt = fmt;
 
-    //z_stream *zstream = &ctx->zstream;
-    //uint32_t idat_length = SPNG_WRITE_SIZE;
+    z_stream *zstream = &ctx->zstream;
+    zstream->avail_out = SPNG_WRITE_SIZE;
 
-   // ret = write_header(ctx, type_idat, idat_length, &data);
-    //if(ret) return encode_err(ctx, ret);
-
-    //zstream->avail_out = idat_length;
-    //zstream->next_out = data;
+    ret = write_header(ctx, type_idat, zstream->avail_out, &zstream->next_out);
+    if(ret) return encode_err(ctx, ret);
 
     if(ihdr->interlace_method) encode_flags->interlace = 1;
 
@@ -4677,7 +4663,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
         if(ihdr->bit_depth >= 8) ctx->pixel_size = ctx->bytes_per_pixel;
     }
 
-    //XXX: set state
+    ctx->state = SPNG_STATE_FIRST_IDAT;
 
     do
     {
