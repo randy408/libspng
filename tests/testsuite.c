@@ -1180,7 +1180,9 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         encoded_pngbuf = spng_get_png_buffer(dst, &encoded_len, &ret);
         if(ret) goto encode_cleanup;
 
-        /* Fail the test on a >4% size increase */
+        /* Unfortunately there's a handful of testsuite image that don't
+           compress well with the default filter heuristic */
+        /* Fail the test on a 4% size increase */
         /*int pct = 25;
         if( (encoded_len - encoded_len / pct) > file_length)
         {

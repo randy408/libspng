@@ -136,6 +136,17 @@ enum spng_filter
     SPNG_FILTER_PAETH = 4
 };
 
+enum spng_filter_choice
+{
+    SPNG_DISABLE_FILTERING = 0,
+    SPNG_FILTER_CHOICE_NONE = 8,
+    SPNG_FILTER_CHOICE_SUB = 16,
+    SPNG_FILTER_CHOICE_UP = 32,
+    SPNG_FILTER_CHOICE_AVG = 64,
+    SPNG_FILTER_CHOICE_PAETH = 128,
+    SPNG_FILTER_CHOICE_ALL = (8|16|32|64|128)
+};
+
 enum spng_interlace_method
 {
     SPNG_INTERLACE_NONE = 0,
