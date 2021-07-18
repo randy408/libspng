@@ -1523,8 +1523,8 @@ static int32_t filter_sum(const unsigned char *prev_scanline, const unsigned cha
     return sum;
 }
 
-unsigned int get_best_filter(const unsigned char *prev_scanline, const unsigned char *scanline,
-                             size_t scanline_width, unsigned bytes_per_pixel, const unsigned choices)
+static unsigned get_best_filter(const unsigned char *prev_scanline, const unsigned char *scanline,
+                                size_t scanline_width, unsigned bytes_per_pixel, const unsigned choices)
 {
     if(!choices) return SPNG_FILTER_NONE;
 
@@ -1785,11 +1785,11 @@ static inline void scale_row(unsigned char *row, uint32_t pixels, int fmt, unsig
 }
 
 /* Expand to *row using 8-bit palette indices from *scanline */
-void expand_row(unsigned char *row,
-                const unsigned char *scanline,
-                const union spng__decode_plte *decode_plte,
-                uint32_t width,
-                int fmt)
+static void expand_row(unsigned char *row,
+                       const unsigned char *scanline,
+                       const union spng__decode_plte *decode_plte,
+                       uint32_t width,
+                       int fmt)
 {
     uint32_t i = 0;
     unsigned char *px;
