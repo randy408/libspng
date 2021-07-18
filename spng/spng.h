@@ -200,6 +200,11 @@ enum spng_crc_action
     SPNG_CRC_USE = 2
 };
 
+enum spng_encode_flags
+{
+    SPNG_ENCODE_PROGRESSIVE = 1, /* Initialize for progressive writes */
+};
+
 struct spng_ihdr
 {
     uint32_t width;
@@ -446,10 +451,15 @@ SPNG_API int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, in
 SPNG_API int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len);
 SPNG_API int spng_decode_row(spng_ctx *ctx, void *out, size_t len);
 
+/* Encode/decode */
 SPNG_API int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info);
 
 /* Encode */
 SPNG_API int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags);
+
+/* Progressive encode */
+SPNG_API int spng_encode_scanline(spng_ctx *ctx, const void *scanline, size_t len);
+SPNG_API int spng_encode_row(spng_ctx *ctx, const void *row, size_t len);
 
 SPNG_API int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 SPNG_API int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte);

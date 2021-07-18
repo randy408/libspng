@@ -152,7 +152,7 @@ struct decode_flags
     unsigned unpack:      1;
 };
 
-struct spng_encode_flags
+struct encode_flags
 {
     unsigned chunk_zerocopy: 1;
     unsigned interlace:      1;
@@ -339,7 +339,7 @@ struct spng_ctx
     struct decode_flags decode_flags;
     struct spng_row_info row_info;
 
-    struct spng_encode_flags encode_flags;
+    struct encode_flags encode_flags;
 };
 
 static const uint32_t png_u32max = 2147483647;
@@ -4424,13 +4424,13 @@ static int finish_idat(spng_ctx *ctx)
 
 static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
 {
-    if(ctx == NULL) return SPNG_EINTERNAL;
+    if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
 
     int ret, pass = ctx->row_info.pass;
     uint8_t filter = 0;
     struct spng_row_info *ri = &ctx->row_info;
     const struct spng_subimage *sub = ctx->subimage;
-    struct spng_encode_flags f = ctx->encode_flags;
+    struct encode_flags f = ctx->encode_flags;
     unsigned char *filtered_scanline = ctx->filtered_scanline;
     size_t scanline_width = sub[pass].scanline_width;
 
@@ -4552,6 +4552,24 @@ static int encode_row(spng_ctx *ctx, const void *row, size_t len)
     return encode_scanline(ctx, ctx->scanline, len);
 }
 
+int spng_encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
+{
+    if(ctx == NULL || scanline == NULL) return SPNG_EINVAL;
+    if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(len < (ctx->subimage[ctx->row_info.pass].scanline_width -1) ) return SPNG_EBUFSIZ;
+
+    return encode_scanline(ctx, scanline, len);
+}
+
+int spng_encode_row(spng_ctx *ctx, const void *row, size_t len)
+{
+    if(ctx == NULL || row == NULL) return SPNG_EINVAL;
+    if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(len < ctx->out_width) return SPNG_EBUFSIZ;
+
+    return encode_row(ctx, row, len);
+}
+
 int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags)
 {
     if(ctx == NULL || img == NULL) return 1;
@@ -4562,7 +4580,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     int ret = 0;
     size_t img_len = 0;
     const struct spng_ihdr *ihdr = &ctx->ihdr;
-    struct spng_encode_flags *encode_flags = &ctx->encode_flags;
+    struct encode_flags *encode_flags = &ctx->encode_flags;
 
     if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED && !ctx->stored.plte) return SPNG_ENOPLTE;
 
@@ -4664,6 +4682,11 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     }
 
     ctx->state = SPNG_STATE_FIRST_IDAT;
+
+    if(flags & SPNG_ENCODE_PROGRESSIVE)
+    {
+        return 0;
+    }
 
     do
     {
