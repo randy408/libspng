@@ -3136,6 +3136,38 @@ static int read_scanline(spng_ctx *ctx)
     return 0;
 }
 
+static int update_row_info(spng_ctx *ctx)
+{
+    int interlacing = ctx->ihdr.interlace_method;
+    struct spng_row_info *ri = &ctx->row_info;
+    const struct spng_subimage *sub = ctx->subimage;
+
+    if(ri->scanline_idx == (sub[ri->pass].height - 1)) /* Last scanline */
+    {
+        if(ri->pass == ctx->last_pass)
+        {
+            ctx->state = SPNG_STATE_EOI;
+
+            return SPNG_EOI;
+        }
+
+        ri->scanline_idx = 0;
+        ri->pass++;
+
+        /* Skip empty passes */
+        while( (!sub[ri->pass].width || !sub[ri->pass].height) && (ri->pass < ctx->last_pass)) ri->pass++;
+    }
+    else
+    {
+        ri->row_num++;
+        ri->scanline_idx++;
+    }
+
+    if(interlacing) ri->row_num = adam7_y_start[ri->pass] + ri->scanline_idx * adam7_y_delta[ri->pass];
+
+    return 0;
+}
+
 int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
@@ -3382,38 +3414,20 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     ctx->prev_scanline = ctx->scanline;
     ctx->scanline = t;
 
-    if(ri->scanline_idx == (sub[pass].height - 1)) /* Last scanline */
+    ret = update_row_info(ctx);
+
+    if(ret == SPNG_EOI)
     {
-        if(ri->pass == ctx->last_pass)
-        {
-            ctx->state = SPNG_STATE_EOI;
-
-            if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
-            {/* Discard the rest of the chunk */
-                int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
-                if(ret) return decode_err(ctx, ret);
-            }
-
-            ctx->last_idat = ctx->current_chunk;
-
-            return SPNG_EOI;
+        if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
+        {/* Discard the rest of the chunk */
+            int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+            if(ret) return decode_err(ctx, ret);
         }
 
-        ri->scanline_idx = 0;
-        ri->pass++;
-
-        /* Skip empty passes */
-        while( (!sub[ri->pass].width || !sub[ri->pass].height) && (ri->pass < ctx->last_pass)) ri->pass++;
-    }
-    else
-    {
-        ri->row_num++;
-        ri->scanline_idx++;
+        ctx->last_idat = ctx->current_chunk;
     }
 
-    if(f.interlaced) ri->row_num = adam7_y_start[ri->pass] + ri->scanline_idx * adam7_y_delta[ri->pass];
-
-    return 0;
+    return ret;
 }
 
 int spng_decode_row(spng_ctx *ctx, void *out, size_t len)
@@ -4463,35 +4477,12 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
     ret = write_idat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
     if(ret) return encode_err(ctx, ret);
 
-    /* The previous scanline is always defiltered */
+    /* The previous scanline is always unfiltered */
     void *t = ctx->prev_scanline;
     ctx->prev_scanline = ctx->scanline;
     ctx->scanline = t;
 
-    if(ri->scanline_idx == (sub[pass].height - 1)) /* Last scanline */
-    {
-        if(ri->pass == ctx->last_pass)
-        {
-            ctx->state = SPNG_STATE_EOI;
-
-            return SPNG_EOI;
-        }
-
-        ri->scanline_idx = 0;
-        ri->pass++;
-
-        /* Skip empty passes */
-        while( (!sub[ri->pass].width || !sub[ri->pass].height) && (ri->pass < ctx->last_pass)) ri->pass++;
-    }
-    else
-    {
-        ri->row_num++;
-        ri->scanline_idx++;
-    }
-
-    if(f.interlace) ri->row_num = adam7_y_start[ri->pass] + ri->scanline_idx * adam7_y_delta[ri->pass];
-
-    return 0;
+    return update_row_info(ctx);
 }
 
 static int encode_row(spng_ctx *ctx, const void *row, size_t len)
