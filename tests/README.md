@@ -32,14 +32,17 @@ The testsuite also covers deinterlacing with 1, 2, 4-bit samples.
 
 ## Regression tests
 
-The `crashers` directory contains regressions tests, some of these PNG's
-were taken from the libpng repository.
+The `crashers` directory contains regressions tests, some of these files
+were copied from the libpng repository.
 
 ## Fuzz testing
 
-The project is continuously fuzzed on [OSS-Fuzz](https://google.github.io/oss-fuzz/)
-using `spng_read_fuzzer.c` as the fuzz target,
-pull requests are also tested with [CIFuzz](https://google.github.io/oss-fuzz/getting-started/continuous-integration/).
+Code is continuously fuzzed on [OSS-Fuzz](https://google.github.io/oss-fuzz/)
+using [`spng_read_fuzzer.c`](spng_read_fuzzer.c) as the fuzz target,
+[code coverage](https://oss-fuzz.com/coverage-report/job/libfuzzer_asan_libspng/latest) information is constantly updated.
+
+Pull requests are also tested with [CIFuzz](https://google.github.io/oss-fuzz/getting-started/continuous-integration/),
+this runs a short fuzz test and catches most bugs before they could be merged.
 
 The `fuzz_repro` executable is used for reproducing test cases,
 it uses a dummy entrypoint to replace the libFuzzer dependency.
