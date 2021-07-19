@@ -4563,7 +4563,7 @@ int spng_encode_row(spng_ctx *ctx, const void *row, size_t len)
 
 int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags)
 {
-    if(ctx == NULL || img == NULL) return 1;
+    if(ctx == NULL) return 1;
     if(!ctx->state) return SPNG_EBADSTATE;
     if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
     if(fmt != SPNG_FMT_PNG) return SPNG_EFMT;
@@ -4580,7 +4580,11 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     ret = calculate_image_size(ctx, fmt, &img_len);
     if(ret) return encode_err(ctx, ret);
 
-    if(img_len != len) return SPNG_EBUFSIZ;
+    if( !(flags & SPNG_ENCODE_PROGRESSIVE) )
+    {
+        if(img == NULL) return 1;
+        if(img_len != len) return SPNG_EBUFSIZ;
+    }
 
     ret = write_chunks_before_idat(ctx);
     if(ret) return encode_err(ctx, ret);
