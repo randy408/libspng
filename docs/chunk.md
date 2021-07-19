@@ -57,6 +57,13 @@ int spng_get_gama(spng_ctx *ctx, double *gamma)
 
 Get image gamma
 
+# spng_get_gama_int()
+```c
+int spng_get_gama_int(spng_ctx *ctx, uint32_t *gamma)
+```
+
+Get image gamma in PNG's internal representation
+
 # spng_get_iccp()
 ```c
 int spng_get_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
@@ -216,6 +223,13 @@ int spng_set_gama(spng_ctx *ctx, double gamma)
 
 Set image gamma
 
+# spng_set_gama_int()
+```c
+int spng_set_gama_int(spng_ctx *ctx, uint32_t gamma)
+```
+
+Set image gamma in PNG's internal representation
+
 # spng_set_iccp()
 ```c
 int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
@@ -310,3 +324,21 @@ Set image offset
 int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
 ```
 Set EXIF data
+
+# spng_get_unknown_chunks()
+```c
+int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks)
+```
+
+Copies unknown chunk information to `chunks`.
+
+`n_chunks` should be greater than or equal to the number of stored unknown chunks.
+
+If `chunks` is NULL and `n_chunks` is non-NULL then `n_chunks` is set to the number
+of stored chunks.
+
+!!! note
+    To retrieve all unknown chunks call this functions after `spng_decode_image()`.
+
+!!! warning
+    Chunk data is freed when calling `spng_ctx_free()`.

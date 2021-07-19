@@ -8,13 +8,39 @@
 #endif
 
 #include <png.h>
-#include "test_spng.h"
+
+#include "spngt_common.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
-png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
+struct buf_state
+{
+    unsigned char *data;
+    size_t bytes_left;
+};
+
+static struct buf_state state;
+
+void libpng_read_fn(png_structp png_ptr, png_bytep data, png_size_t length)
+{
+    struct buf_state *state = png_get_io_ptr(png_ptr);
+
+#if defined(SPNGT_STREAM_READ_INFO)
+    printf("libpng bytes read: %lu\n", length);
+#endif
+
+    if(length > state->bytes_left)
+    {
+        png_error(png_ptr, "read_fn error");
+    }
+
+    memcpy(data, state->data, length);
+    state->bytes_left -= length;
+    state->data += length;
+}
+
+png_structp init_libpng(spngt_test_case *test_case, png_infop *iptr)
 {
     png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(png_ptr == NULL)
@@ -30,7 +56,13 @@ png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
         return NULL;
     }
 
-    png_init_io(png_ptr, file);
+    if(test_case->source.type == SPNGT_SRC_FILE) png_init_io(png_ptr, test_case->source.file);
+    else if(test_case->source.type == SPNGT_SRC_BUFFER)
+    {
+        state.data = test_case->source.buffer;
+        state.bytes_left = test_case->source.png_size;
+        png_set_read_fn(png_ptr, &state, libpng_read_fn);
+    }
 
     if(setjmp(png_jmpbuf(png_ptr)))
     {
@@ -38,6 +70,8 @@ png_structp init_libpng(FILE *file, int flags, png_infop *iptr)
         png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
         return NULL;
     }
+
+    png_set_keep_unknown_chunks(png_ptr, PNG_HANDLE_CHUNK_ALWAYS, NULL, 0);
 
     png_read_info(png_ptr, info_ptr);
 

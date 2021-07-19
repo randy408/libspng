@@ -42,6 +42,7 @@ any configuration, SSE2 intrinsics are enabled by default on x86.
 | (auto)      | (auto)     | `SPNG_STATIC`               |         | Controls symbol visibility on Windows              |
 | enable_opt  | ENABLE_OPT | `SPNG_DISABLE_OPT`          | ON      | Compile with optimizations                         |
 |             |            | `SPNG_SSE=<1-4>`            | 1       | SSE version target for x86 (ignored on non-x86)    |
+|             |            | `SPNG_ARM`                  | (auto)  | Enable ARM NEON optimizations (ARM64 only)         |
 | static_zlib |            |                             | OFF     | Link zlib statically                               |
 | use_miniz   |            | `SPNG_USE_MINIZ`            | OFF     | Compile using miniz, disables some features        |
 | (auto)      |            | `SPNG_ENABLE_TARGET_CLONES` |         | Use target_clones() to optimize (GCC + glibc only) |
