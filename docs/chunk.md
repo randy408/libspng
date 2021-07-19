@@ -324,6 +324,9 @@ Set suggested palette(s).
 
 `splt` should point to an `spng_splt` array of `n_splt` elements.
 
+!!! note
+    `splt` should be a valid reference for the lifetime of the context.
+
 # spng_set_time()
 ```c
 int spng_set_time(spng_ctx *ctx, struct spng_time *time)
