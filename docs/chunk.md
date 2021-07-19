@@ -158,6 +158,25 @@ Get modification time
     after `spng_decode_image()`.
 
 
+# spng_get_unknown_chunks()
+```c
+int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks)
+```
+
+Copies unknown chunk information to `chunks`.
+
+`n_chunks` should be greater than or equal to the number of stored unknown chunks.
+
+If `chunks` is NULL and `n_chunks` is non-NULL then `n_chunks` is set to the number
+of stored chunks.
+
+!!! note
+    To retrieve all unknown chunks call this functions after `spng_decode_image()`.
+
+!!! warning
+    Chunk data is freed when calling `spng_ctx_free()`.
+
+
 # spng_get_offs()
 ```c
 int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs)
@@ -312,6 +331,17 @@ int spng_set_time(spng_ctx *ctx, struct spng_time *time)
 
 Set modification time
 
+# spng_set_unknown_chunks()
+```c
+int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t n_chunks)
+```
+
+Set unknown chunk data.
+
+!!! note
+    `chunks` should be a valid reference for the lifetime of the context.
+
+
 # spng_set_offs()
 ```c
 int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs)
@@ -324,21 +354,3 @@ Set image offset
 int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
 ```
 Set EXIF data
-
-# spng_get_unknown_chunks()
-```c
-int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, uint32_t *n_chunks)
-```
-
-Copies unknown chunk information to `chunks`.
-
-`n_chunks` should be greater than or equal to the number of stored unknown chunks.
-
-If `chunks` is NULL and `n_chunks` is non-NULL then `n_chunks` is set to the number
-of stored chunks.
-
-!!! note
-    To retrieve all unknown chunks call this functions after `spng_decode_image()`.
-
-!!! warning
-    Chunk data is freed when calling `spng_ctx_free()`.
