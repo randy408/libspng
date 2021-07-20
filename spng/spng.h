@@ -420,13 +420,16 @@ struct spng_row_info
 typedef struct spng_ctx spng_ctx;
 
 typedef int spng_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length);
+typedef int spng_write_fn(spng_ctx *ctx, void *user, void *src, size_t length);
+
+typedef int spng_rw_fn(spng_ctx *ctx, void *user, void *dst_src, size_t length);
 
 SPNG_API spng_ctx *spng_ctx_new(int flags);
 SPNG_API spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags);
 SPNG_API void spng_ctx_free(spng_ctx *ctx);
 
 SPNG_API int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size);
-SPNG_API int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user);
+SPNG_API int spng_set_png_stream(spng_ctx *ctx, spng_rw_fn *rw_func, void *user);
 SPNG_API int spng_set_png_file(spng_ctx *ctx, FILE *file);
 
 SPNG_API void *spng_get_png_buffer(spng_ctx *ctx, size_t *len, int *error);
