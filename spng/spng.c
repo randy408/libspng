@@ -4718,12 +4718,13 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
 spng_ctx *spng_ctx_new(int flags)
 {
-    struct spng_alloc alloc = {0};
-
-    alloc.malloc_fn = malloc;
-    alloc.realloc_fn = realloc;
-    alloc.calloc_fn = calloc;
-    alloc.free_fn = free;
+    struct spng_alloc alloc =
+    {
+        .malloc_fn = malloc,
+        .realloc_fn = realloc,
+        .calloc_fn = calloc,
+        .free_fn = free
+    };
 
     return spng_ctx_new2(&alloc, flags);
 }
