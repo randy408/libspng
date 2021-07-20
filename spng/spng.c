@@ -95,6 +95,11 @@ enum spng_state
     SPNG_STATE_IEND, /* Reached IEND */
 };
 
+enum spng__internal
+{
+    SPNG__IO_SIGNAL = 1 < 9
+};
+
 #define SPNG_STR(x) _SPNG_STR(x)
 #define _SPNG_STR(x) #x
 
@@ -220,6 +225,9 @@ struct spng_ctx
     /* User-defined pointers for streaming */
     spng_read_fn *read_fn;
     void *read_user_ptr;
+
+    spng_write_fn *write_fn;
+    void *write_user_ptr;
 
     /* Used for buffer reads */
     const unsigned char *png_base;
@@ -4883,9 +4891,9 @@ int spng_set_png_buffer(spng_ctx *ctx, const void *buf, size_t size)
     return 0;
 }
 
-int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
+int spng_set_png_stream(spng_ctx *ctx, spng_rw_fn *rw_func, void *user)
 {
-    if(ctx == NULL || read_func == NULL) return 1;
+    if(ctx == NULL || rw_func == NULL) return 1;
     if(!ctx->state) return SPNG_EBADSTATE;
     if(ctx->encode_only) return SPNG_ENCODE_ONLY;
 
@@ -4897,7 +4905,7 @@ int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_func, void *user)
     ctx->data = ctx->stream_buf;
     ctx->data_size = SPNG_READ_SIZE;
 
-    ctx->read_fn = read_func;
+    ctx->read_fn = rw_func;
     ctx->read_user_ptr = user;
 
     ctx->streaming = 1;
