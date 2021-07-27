@@ -1,17 +1,23 @@
 # Semantics
 
 * Chunk data is stored in `spng_ctx`.
+
+* All `spng_get_*()` functions return 0 on success and non-zero error,
+  `SPNG_ECHUNKAVAIL` if the PNG does not contain that chunk or was not previously
+  set.
+* A successful `spng_set_*()` call will replace any previously set value or list,
+  it does not combine chunk data from the file or multiple `spng_set_*() calls.
+
+The following apply to decoder contexts:
+
 * When calling `spng_get_*()` or `spng_set_*()` functions all
-  chunks up to the first IDAT are read, validated then stored,
-  with the exception of `spng_get_ihdr()`, which only reads the
-  the header.
+  chunks up to the first IDAT are read, validated then stored
+  with the exception of `spng_get_ihdr()`, which only reads the header.
 * When calling `spng_get_*()` after the image has been decoded all
   chunks up to the IEND marker are read.
 * `spng_set_*()` functions replace stored chunk data for that type.
 * Chunk data stored with `spng_set_*()` functions are never replaced with
   input file chunk data i.e. if you set something it will stay that way.
-* All `spng_get_*()` functions return 0 on success and non-zero error or
-  `SPNG_ECHUNKAVAIL` if the PNG does not contain that chunk.
 
 # API
 
