@@ -64,6 +64,7 @@ enum spngt_flags
     SPNGT_COMPARE_CHUNKS = 1,
     SPNGT_PRELOAD_FILE = 2, /* Preload PNG from file and/or decode from buffer */
     SPNGT_ENCODE_ROUNDTRIP = 4,
+    SPNGT_EXTENDED_TESTS = 8,
     SPNGT_SKIP = 8192
 };
 

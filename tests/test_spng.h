@@ -163,6 +163,16 @@ unsigned char *getimage_spng(spng_ctx *ctx, size_t *out_size, int fmt, int flags
         goto err;
     }
 
+    r = spng_get_time(ctx, NULL);
+
+    if(r == SPNG_ECHUNKAVAIL || r == SPNG_EINVAL) r = 0;
+
+    if(r)
+    {
+        printf("error at end of image: %s\n", spng_strerror(r));
+        goto err;
+    }
+
     return out;
 
 err:

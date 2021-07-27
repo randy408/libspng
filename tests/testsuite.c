@@ -8,6 +8,8 @@
 static int n_test_cases, actual_count;
 static struct spngt_test_case test_cases[100];
 
+static int extended_tests(FILE *file);
+
 const char* fmt_str(int fmt)
 {
     switch(fmt)
@@ -45,6 +47,8 @@ static void print_test_args(struct spngt_test_case *test_case)
     if(test_case->flags & SPNG_DECODE_GAMMA) printf("GAMMA ");
 
     if(test_case->test_flags & SPNGT_COMPARE_CHUNKS) printf("COMPARE_CHUNKS ");
+
+    if(test_case->test_flags & SPNGT_EXTENDED_TESTS) printf("EXTENDED ");
 
     if(test_case->test_flags & SPNGT_SKIP) printf("[SKIPPED]");
 
@@ -451,7 +455,11 @@ static int set_chunks(spng_ctx *dst, spngt_chunk_data *spng)
     int ret = 0;
 
     ret = spng_set_ihdr(dst, &spng->ihdr);
-    if(ret) return ret;
+    if(ret)
+    {
+        printf("spng_set_ihdr() error: %s\n", spng_strerror(ret));
+        return ret;
+    }
 
     if(spng->have.plte) spng_set_plte(dst, &spng->plte);
     if(spng->have.trns) spng_set_trns(dst, &spng->trns);
@@ -1088,9 +1096,9 @@ cleanup:
     return ret;
 }
 
-static void dump_buffer(void *buf, size_t size)
+static void dump_buffer(void *buf, size_t size, const char *opt_name)
 {
-    const char *filename = "dump.png";
+    const char *filename = opt_name ? opt_name : "dump.png";
     FILE *f = fopen(filename, "wb");
 
     if(f == NULL) goto err;
@@ -1165,12 +1173,12 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         ret = get_chunks(src, &data);
         if(ret) goto encode_cleanup;
 
-        dst = spng_ctx_new(0);
+        dst = spng_ctx_new(SPNG_CTX_ENCODER);
 
         ret = set_chunks(dst, &data);
         if(ret) goto encode_cleanup;
 
-        ret = spng_encode_image(dst, img_spng, img_size, SPNG_FMT_PNG, 0);
+        ret = spng_encode_image(dst, img_spng, img_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
         if(ret)
         {
             printf("encode error: %s\n", spng_strerror(ret));
@@ -1178,7 +1186,12 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         }
 
         encoded_pngbuf = spng_get_png_buffer(dst, &encoded_len, &ret);
-        if(ret) goto encode_cleanup;
+
+        if(ret)
+        {
+            printf("failed to get encoded PNG: %s\n", spng_strerror(ret));
+            goto encode_cleanup;
+        }
 
         /* Unfortunately there's a handful of testsuite image that don't
            compress well with the default filter heuristic */
@@ -1200,7 +1213,7 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         if(ret)
         {
             printf("compare error (%d))\n", ret);
-            dump_buffer(encoded_pngbuf, encoded_len);
+            dump_buffer(encoded_pngbuf, encoded_len, NULL);
             goto encode_cleanup;
         }
 
@@ -1216,7 +1229,7 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         if(ret)
         {
             printf("compare error (%d))\n", ret);
-            dump_buffer(encoded_pngbuf, encoded_len);
+            dump_buffer(encoded_pngbuf, encoded_len, NULL);
         }
 
 encode_cleanup:
@@ -1225,6 +1238,13 @@ encode_cleanup:
         spng_ctx_free(src);
         spng_ctx_free(dst);
         free_chunks(&data);
+    }
+
+    if(test_case->test_flags & SPNGT_EXTENDED_TESTS)
+    {
+        rewind(spng.source.file);
+        ret = extended_tests(spng.source.file);
+        if(ret) printf("extended tests failed\n");
     }
 
 cleanup:
@@ -1345,6 +1365,8 @@ int main(int argc, char **argv)
        it emulates the behavior of their old PNG loader which uses libpng. */
     add_test_case(SPNGT_FMT_VIPS, SPNG_DECODE_TRNS, 0);
 
+    add_test_case(SPNG_FMT_PNG, 0, SPNGT_EXTENDED_TESTS);
+
     printf("%d test cases", n_test_cases);
 
     if(n_test_cases != actual_count) printf(" (skipping %d)", n_test_cases - actual_count);
@@ -1361,6 +1383,155 @@ int main(int argc, char **argv)
         int e = spngt_run_test(filename, &test_cases[i]);
         if(!ret) ret = e;
     }
+
+    return ret;
+}
+
+static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t len)
+{
+    struct buf_state *state = user;
+
+    if(len > state->bytes_left) return SPNG_IO_EOF;
+
+    if(memcmp(data, state->data, len))
+    {
+        printf("stream write does not match buffer data\n");
+        return SPNG_IO_ERROR;
+    }
+
+    state->data += len;
+    state->bytes_left -= len;
+
+    return 0;
+}
+
+/* Tests that don't fit anywhere else */
+static int extended_tests(FILE *file)
+{
+    int i, ret = 0;
+    unsigned char *image = NULL;
+    unsigned char *encoded = NULL;
+    spng_ctx *enc = NULL;
+    spng_ctx *dec = spng_ctx_new(0);
+
+    struct spng_ihdr ihdr = {0};
+    struct spng_plte plte = {0};
+    static unsigned char chunk_data[9000];
+
+    spng_set_png_file(dec, file);
+
+    spng_get_ihdr(dec, &ihdr);
+
+    spng_get_plte(dec, &plte);
+
+    size_t image_size;
+
+    image = getimage_spng(dec, &image_size, SPNG_FMT_PNG, 0);
+
+    enc = spng_ctx_new(SPNG_CTX_ENCODER);
+
+    spng_set_ihdr(enc, &ihdr);
+
+    if(plte.n_entries) spng_set_plte(enc, &plte);
+
+    struct spng_unknown_chunk chunk =
+    {
+        .location = SPNG_AFTER_IHDR,
+        .type = "cHNK",
+        .length = sizeof(chunk_data),
+        .data = chunk_data
+    };
+
+    uint8_t x = 0;
+    for(i=0; i < chunk.length; i++)
+    {
+        chunk_data[i] = x;
+        x++;
+    }
+
+    spng_set_unknown_chunks(enc, &chunk, 1);
+
+    ret = spng_encode_image(enc, image, image_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+
+    if(ret)
+    {
+        printf("encoding failed (%d): %s\n", ret, spng_strerror(ret));
+        goto cleanup;
+    }
+
+    size_t bytes_encoded;
+    encoded = spng_get_png_buffer(enc, &bytes_encoded, &ret);
+
+    if(!encoded)
+    {
+        printf("getting buffer failed (%d): %s\n", ret, spng_strerror(ret));
+        goto cleanup;
+    }
+
+    spng_ctx_free(enc);
+
+    /* Reencode the same image but to a stream this time */
+    enc = spng_ctx_new(SPNG_CTX_ENCODER);
+
+    struct buf_state state = { .data = encoded, .bytes_left = bytes_encoded };
+
+    spng_set_png_stream(enc, stream_write_checked, &state);
+
+    spng_set_ihdr(enc, &ihdr);
+
+    if(plte.n_entries) spng_set_plte(enc, &plte);
+
+    spng_set_unknown_chunks(enc, &chunk, 1);
+
+    ret = spng_encode_image(enc, 0, 0, SPNG_FMT_PNG, SPNG_ENCODE_PROGRESSIVE | SPNG_ENCODE_FINALIZE);
+
+    if(ret)
+    {
+        printf("progressive init failed: %s\n", spng_strerror(ret));
+        goto cleanup;
+    }
+
+    struct spng_row_info row_info = {0};
+    size_t image_width = image_size / ihdr.height;
+
+    do
+    {
+        ret = spng_get_row_info(enc, &row_info);
+
+        if(ret) break;
+
+        void *ptr = image + image_width * row_info.row_num;
+
+        ret = spng_encode_row(enc, ptr, image_width);
+    }while(!ret);
+
+    if(ret == SPNG_EOI) ret = 0;
+
+    if(ret)
+    {
+        printf("reencode to stream failed (%d): %s\n", ret, spng_strerror(ret));
+        printf("stream offset: %zu\n", bytes_encoded - state.bytes_left);
+    }
+
+    if(spng_get_png_buffer(enc, &bytes_encoded, &ret))
+    {
+        printf("this should not happen\n");
+        ret = 1;
+        goto cleanup;
+    }
+
+    if(state.bytes_left)
+    {
+        printf("incomplete stream (%zu bytes shorter)\n", state.bytes_left);
+        ret = 1;
+    }
+
+cleanup:
+    free(image);
+    free(encoded);
+
+    spng_ctx_free(dec);
+    spng_ctx_free(enc);
 
     return ret;
 }
