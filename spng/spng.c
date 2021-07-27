@@ -5543,28 +5543,27 @@ int spng_set_trns(spng_ctx *ctx, struct spng_trns *trns)
 {
     SPNG_SET_CHUNK_BOILERPLATE(trns);
 
-    if(!ctx->stored.ihdr) return 1;
+    if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
 
-    uint16_t mask = ~0;
-    if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
-
-    if(ctx->ihdr.color_type == 0)
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
     {
-        trns->gray &= mask;
+        ctx->trns.gray = trns->gray;
     }
-    else if(ctx->ihdr.color_type == 2)
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
     {
-        trns->red &= mask;
-        trns->green &= mask;
-        trns->blue &= mask;
+        ctx->trns.red = trns->red;
+        ctx->trns.green = trns->green;
+        ctx->trns.blue = trns->blue;
     }
-    else if(ctx->ihdr.color_type == 3)
+    else if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
     {
         if(!ctx->stored.plte) return SPNG_ETRNS_NO_PLTE;
+        if(trns->n_type3_entries > ctx->plte.n_entries) return 1;
+
+        ctx->trns.n_type3_entries = trns->n_type3_entries;
+        memcpy(ctx->trns.type3_alpha, trns->type3_alpha, trns->n_type3_entries);
     }
     else return SPNG_ETRNS_COLOR_TYPE;
-
-    ctx->trns = *trns;
 
     ctx->stored.trns = 1;
     ctx->user.trns = 1;
