@@ -109,6 +109,11 @@ enum spng_errno
     SPNG_EZLIB_INIT,
     SPNG_ECHUNK_STDLEN,
     SPNG_EINTERNAL,
+    SPNG_ECTXTYPE,
+    SPNG_ENOSRC,
+    SPNG_ENODST,
+    SPNG_EOPSTATE,
+    SPNG_ENOTFINAL,
 };
 
 enum spng_text_type
@@ -172,7 +177,8 @@ enum spng_format
 
 enum spng_ctx_flags
 {
-    SPNG_CTX_IGNORE_ADLER32 = 1 /* Ignore checksum in DEFLATE streams */
+    SPNG_CTX_IGNORE_ADLER32 = 1, /* Ignore checksum in DEFLATE streams */
+    SPNG_CTX_ENCODER = 2 /* Create an encoder context */
 };
 
 enum spng_decode_flags
@@ -203,6 +209,7 @@ enum spng_crc_action
 enum spng_encode_flags
 {
     SPNG_ENCODE_PROGRESSIVE = 1, /* Initialize for progressive writes */
+    SPNG_ENCODE_FINALIZE = 2, /* Finalize PNG after encoding image */
 };
 
 struct spng_ihdr
@@ -463,6 +470,7 @@ SPNG_API int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int f
 /* Progressive encode */
 SPNG_API int spng_encode_scanline(spng_ctx *ctx, const void *scanline, size_t len);
 SPNG_API int spng_encode_row(spng_ctx *ctx, const void *row, size_t len);
+SPNG_API int spng_encode_chunks(spng_ctx *ctx);
 
 SPNG_API int spng_get_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 SPNG_API int spng_get_plte(spng_ctx *ctx, struct spng_plte *plte);
