@@ -33,7 +33,7 @@ it outperforms the reference implementation in common use cases.
 | Progressive image read               | ✅      |  ✅               | ❌       | ❌      |
 | Parses all standard chunks           | ✅      |  ✅               | ❌       | ❌      |
 | Doesn't require zlib<sup>[2]</sup>   | ✅      |  ❌               | ✅       | ✅      |
-| Encoding                             | Planned  |  ✅               | ✅       | ✅      |
+| Encoding                             | ✅      |  ✅               | ✅       | ✅      |
 | Animated PNG                         | Planned  |  ✅<sup>[3]</sup> | ❌       | ❌      |
 
 <sup>[1]</sup> The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
@@ -52,7 +52,7 @@ you can also build with CMake or Meson, refer to the [documentation](docs/build.
 ```c
 #include <spng.h>
 
-/* Create a context */
+/* Create a decoder context */
 spng_ctx *ctx = spng_ctx_new(0);
 
 /* Set an input buffer */
@@ -66,6 +66,35 @@ spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 
 /* Free context memory */
 spng_ctx_free(ctx);
+
+
+/* Creating an encoder context requires a flag */
+spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
+
+/* Specify image dimensions, PNG format */
+struct spng_ihdr ihdr =
+{
+    .height = height,
+    .width = width,
+    .bit_depth = 8,
+    .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+};
+
+/* Image will be encoded according to ihdr.color_type, .bit_depth */
+spng_set_ihdr(enc, &ihdr);
+
+/* SPNG_FMT_PNG is a special value that matches the format in ihdr,
+   SPNG_ENCODE_FINALIZE will finalize the PNG with the end-of-file marker */
+spng_encode_image(enc, image, image_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+
+/* PNG is written to an internal buffer by default */
+void *png = spng_get_png_buffer(enc, &png_size, &error);
+
+/* User owns the buffer after a successful call */
+free(png);
+
+/* Free context memory */
+spng_ctx_free(enc);
 ```
 
 See [example.c](examples/example.c).
