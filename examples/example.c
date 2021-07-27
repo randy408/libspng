@@ -74,7 +74,7 @@ int main(int argc, char **argv)
            ihdr.compression_method, ihdr.filter_method,
            ihdr.interlace_method);
 
-    struct spng_plte plte;
+    struct spng_plte plte = {0};
     r = spng_get_plte(ctx, &plte);
 
     if(r && r != SPNG_ECHUNKAVAIL)
@@ -200,6 +200,54 @@ int main(int argc, char **argv)
 no_text:
     free(text);
 
+    /* Formats other than SPNG_FMT_PNG are not yet supported */
+    if(fmt != SPNG_FMT_PNG) goto skip_encode;
+
+    /* This example reencodes the decoded image */
+
+    /* Creating an encoder context requires a flag */
+    spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
+
+    /* The default behavior is to allocate and write the PNG to an internal buffer,
+       this can be overriden by calling spng_set_png_file() or spng_set_png_stream() */
+
+    /* In this case we're reencoding to the same PNG format */
+    spng_set_ihdr(enc, &ihdr);
+
+    /* Copy the palette from the source file */
+    if(plte.n_entries > 0) spng_set_plte(enc, &plte);
+
+    /* SPNG_FMT_PNG is a special value that matches the format in ihdr */
+    fmt = SPNG_FMT_PNG;
+
+    /* SPNG_ENCODE_FINALIZE will finalize the PNG with the end-of-file marker */
+    r = spng_encode_image(enc, out, out_size, fmt, SPNG_ENCODE_FINALIZE);
+
+    if(r)
+    {
+        printf("spng_encode_image() error: %s\n", spng_strerror(r));
+        goto encode_error;
+    }
+
+    size_t png_size;
+    void *png_buf = NULL;
+
+    /* Get the internal buffer of the finished PNG */
+    png_buf = spng_get_png_buffer(enc, &png_size, &r);
+
+    if(png_buf == NULL)
+    {
+        printf("spng_get_png_buffer() error: %s\n", spng_strerror(r));
+    }
+
+    /* User owns the buffer after a successful call */
+    free(png_buf);
+
+encode_error:
+
+    spng_ctx_free(enc);
+
+skip_encode:
 error:
 
     spng_ctx_free(ctx);
