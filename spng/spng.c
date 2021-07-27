@@ -2521,33 +2521,26 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             if(ctx->file.trns) return SPNG_EDUP_TRNS;
             if(!chunk.length) return SPNG_ECHUNK_SIZE;
 
-            uint16_t mask = ~0;
-            if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
-
             if(ctx->ihdr.color_type == 0)
             {
                 if(chunk.length != 2) return SPNG_ECHUNK_SIZE;
 
-                ctx->trns.gray = read_u16(data) & mask;
+                ctx->trns.gray = read_u16(data);
             }
             else if(ctx->ihdr.color_type == 2)
             {
                 if(chunk.length != 6) return SPNG_ECHUNK_SIZE;
 
-                ctx->trns.red = read_u16(data) & mask;
-                ctx->trns.green = read_u16(data + 2) & mask;
-                ctx->trns.blue = read_u16(data + 4) & mask;
+                ctx->trns.red = read_u16(data);
+                ctx->trns.green = read_u16(data + 2);
+                ctx->trns.blue = read_u16(data + 4);
             }
             else if(ctx->ihdr.color_type == 3)
             {
                 if(chunk.length > ctx->plte.n_entries) return SPNG_ECHUNK_SIZE;
                 if(!ctx->file.plte) return SPNG_ETRNS_NO_PLTE;
 
-                size_t k;
-                for(k=0; k < chunk.length; k++)
-                {
-                    ctx->trns.type3_alpha[k] = data[k];
-                }
+                memcpy(ctx->trns.type3_alpha, data, chunk.length);
                 ctx->trns.n_type3_entries = chunk.length;
             }
 
@@ -3823,6 +3816,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     if(f.apply_trns)
     {
+        uint16_t mask = ~0;
+        if(ctx->ihdr.bit_depth < 16) mask = (1 << ctx->ihdr.bit_depth) - 1;
+
         if(fmt & (SPNG_FMT_RGBA8 | SPNG_FMT_RGBA16))
         {
             if(ihdr->color_type == SPNG_COLOR_TYPE_TRUECOLOR)
@@ -3835,9 +3831,9 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
                 }
                 else
                 {
-                    trns_px[0] = ctx->trns.red;
-                    trns_px[1] = ctx->trns.green;
-                    trns_px[2] = ctx->trns.blue;
+                    trns_px[0] = ctx->trns.red & mask;
+                    trns_px[1] = ctx->trns.green & mask;
+                    trns_px[2] = ctx->trns.blue & mask;
                 }
             }
         }
@@ -3849,7 +3845,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
             }
             else
             {
-                trns_px[0] = ctx->trns.gray;
+                trns_px[0] = ctx->trns.gray & mask;
             }
         }
     }
