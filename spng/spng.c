@@ -2999,6 +2999,13 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 memcpy(chunkp->type, chunk.type, 4);
 
+                if(ctx->state < SPNG_STATE_FIRST_IDAT)
+                {
+                    if(ctx->file.plte) chunkp->location = SPNG_AFTER_PLTE;
+                    else chunkp->location = SPNG_AFTER_IHDR;
+                }
+                else if(ctx->state >= SPNG_STATE_AFTER_IDAT) chunkp->location = SPNG_AFTER_IDAT;
+
                 if(chunk.length > 0)
                 {
                     void *t = spng__malloc(ctx, chunk.length);
@@ -3013,13 +3020,6 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                     chunkp->length = chunk.length;
                     chunkp->data = t;
-
-                    if(ctx->state < SPNG_STATE_FIRST_IDAT)
-                    {
-                        if(ctx->file.plte) chunkp->location = SPNG_AFTER_PLTE;
-                        else chunkp->location = SPNG_AFTER_IHDR;
-                    }
-                    else if(ctx->state >= SPNG_STATE_AFTER_IDAT) chunkp->location = SPNG_AFTER_IDAT;
                 }
 
                 ctx->stored.unknown = 1;
