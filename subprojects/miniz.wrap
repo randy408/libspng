@@ -1,7 +1,4 @@
-[wrap-file]
+[wrap-git]
 directory = miniz-2.2.0
-lead_directory_missing = true
-
-source_url = https://github.com/richgel999/miniz/releases/download/2.2.0/miniz-2.2.0.zip
-source_filename = miniz-2.2.0.zip
-source_hash = e4aa5078999c7f7466fa6b8f9848e39ddfff9a4bafc50215764aebe1f13b3841
+url = https://github.com/richgel999/miniz.git
+revision=2.2.0
