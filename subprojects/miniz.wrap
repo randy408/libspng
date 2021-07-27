@@ -1,11 +1,7 @@
 [wrap-file]
-directory = miniz-2.1.0
+directory = miniz-2.2.0
 lead_directory_missing = true
 
-source_url = https://github.com/richgel999/miniz/releases/download/2.1.0/miniz-2.1.0.zip
-source_filename = miniz-2.1.0.zip
-source_hash = d133132721ad5efbcda2507699d44c54b0da5e31379e4ff049d78d6b1a571f0d
-
-patch_url = https://wrapdb.mesonbuild.com/v1/projects/miniz/2.1.0/2/get_zip
-patch_filename = miniz-2.1.0-2-wrap.zip
-patch_hash = 529e05709a00e5b0fd1d27669a6b4f14b9b32da82d4f6f5669933657842610b1
+source_url = https://github.com/richgel999/miniz/releases/download/2.2.0/miniz-2.2.0.zip
+source_filename = miniz-2.2.0.zip
+source_hash = e4aa5078999c7f7466fa6b8f9848e39ddfff9a4bafc50215764aebe1f13b3841
