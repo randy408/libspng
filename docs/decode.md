@@ -1,37 +1,22 @@
 # Data types
 
+# spng_crc_action
 ```c
-typedef int spng_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length)
-```
-
-Type definition for callback passed to `spng_set_png_stream()`.
-
-A read callback function should copy `length` bytes to `dest` and return 0 or
-`SPNG_IO_EOF`/`SPNG_IO_ERROR` on error.
-
-# spng_format
-
-```c
-enum spng_format
+enum spng_crc_action
 {
-    SPNG_FMT_RGBA8 = 1,
-    SPNG_FMT_RGBA16 = 2,
-    SPNG_FMT_RGB8 = 4,
+    /* Default for critical chunks */
+    SPNG_CRC_ERROR = 0,
 
-    SPNG_FMT_GA8 = 16,
-    SPNG_FMT_GA16 = 32,
-    SPNG_FMT_G8 = 64,
+    /* Discard chunk, invalid for critical chunks,
+       since v0.6.2: default for ancillary chunks */
+    SPNG_CRC_DISCARD = 1,
 
-    /* No conversion or scaling */
-    SPNG_FMT_PNG = 256, /* host-endian */
-    SPNG_FMT_RAW = 512  /* big-endian */
+    /* Ignore and don't calculate checksum */
+    SPNG_CRC_USE = 2
 };
 ```
 
-The channels are always in [byte-order](https://en.wikipedia.org/wiki/RGBA_color_model#RGBA8888) representation.
-
 # spng_decode_flags
-
 ```c
 enum spng_decode_flags
 {
@@ -166,6 +151,8 @@ This function combines the functionality of libpng's `png_set_chunk_cache_max()`
 
 # API
 
+See also: [spng_set_png_stream()](context.md#spng_set_png_stream), [spng_set_png_file()](context.md#spng_set_png_file).
+
 # spng_set_png_buffer()
 ```c
 int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size)
@@ -173,22 +160,12 @@ int spng_set_png_buffer(spng_ctx *ctx, void *buf, size_t size)
 
 Set input PNG buffer, this can only be done once per context.
 
-# spng_set_png_stream()
+# spng_set_crc_action()
 ```c
-int spng_set_png_stream(spng_ctx *ctx, spng_read_fn *read_fn, void *user)
+int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
 ```
 
-Set input PNG stream, this can only be done once per context.
-
-!!! info
-    PNG's are read up to the file end marker, this is identical behavior to libpng.
-
-# spng_set_png_file()
-```c
-int spng_set_png_file(spng_ctx *ctx, FILE *file)
-```
-
-Set input PNG file, this can only be done once per context.
+Set how chunk CRC errors should be handled for critical and ancillary chunks.
 
 # spng_decoded_image_size()
 ```c
@@ -205,7 +182,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 ```
 
 Decodes the PNG file and writes the image to `out`,
-the image is converted from any PNG format to the destination format `fmt`.
+the image is converted from the PNG format to the destination format `fmt`.
 
 Interlaced images are deinterlaced, 16-bit images are converted to host-endian.
 
@@ -249,14 +226,11 @@ This function requires the decoder to be initialized by calling
 
 The width of the row is the decoded image size divided by `ihdr.height`.
 
+For interlaced images rows are accessed multiple times and non-sequentially,
+use [spng_get_row_info()](context.md#spng_get_row_info) to get the current row number.
+
 For the last row and subsequent calls the return value is `SPNG_EOI`.
 
 If the image is not interlaced this function's behavior is identical to
 `spng_decode_scanline()`.
 
-# spng_get_row_info()
-```c
-int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
-```
-
-Copies the current, to-be-decoded row's information to `row_info`.
