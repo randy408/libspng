@@ -1,4 +1,4 @@
-test('example_notext', example_exe, args : files('basi0g01.png'))
+test('example_notext', example_exe, args : files('basi0g08.png'))
 test('example_text', example_exe, args : files('ct1n0g04.png'))
 
 test('basi0g01', test_exe, args: files('basi0g01.png'))
