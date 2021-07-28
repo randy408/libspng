@@ -2,6 +2,7 @@
 
 * [Error handling](errors.md)
 * [Versioning](version.md)
-* [Context](context.md)
-* [Retrieving and setting chunks](chunk.md)
-* [Decode](decode.md)
+* [Common](context.md)
+* [Getting and setting chunk data](chunk.md)
+* [Decoder API](decode.md)
+* [Encoder API](encode.md)
