@@ -425,30 +425,24 @@ static void spng__zfree(void *opqaue, void *ptr)
     spng__free(ctx, ptr);
 }
 
-static inline uint16_t read_u16(const void *_data)
+static inline uint16_t read_u16(const void *src)
 {
-    const unsigned char *data = _data;
+    const unsigned char *data = src;
 
     return (data[0] & 0xFFU) << 8 | (data[1] & 0xFFU);
 }
 
-static inline uint32_t read_u32(const void *_data)
+static inline uint32_t read_u32(const void *src)
 {
-    const unsigned char *data = _data;
+    const unsigned char *data = src;
 
     return (data[0] & 0xFFUL) << 24 | (data[1] & 0xFFUL) << 16 |
            (data[2] & 0xFFUL) << 8  | (data[3] & 0xFFUL);
 }
 
-static inline int32_t read_s32(const void *_data)
+static inline int32_t read_s32(const void *src)
 {
-    const unsigned char *data = _data;
-
-    int32_t ret;
-    uint32_t val = (data[0] & 0xFFUL) << 24 | (data[1] & 0xFFUL) << 16 |
-                   (data[2] & 0xFFUL) << 8  | (data[3] & 0xFFUL);
-
-    memcpy(&ret, &val, 4);
+    int32_t ret = (int32_t)read_u32(src);
 
     return ret;
 }
