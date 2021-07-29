@@ -1353,10 +1353,10 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 
 static uint8_t paeth(uint8_t a, uint8_t b, uint8_t c)
 {
-    int16_t p = (int16_t)a + (int16_t)b - (int16_t)c;
-    int16_t pa = abs(p - (int16_t)a);
-    int16_t pb = abs(p - (int16_t)b);
-    int16_t pc = abs(p - (int16_t)c);
+    int16_t p = a + b - c;
+    int16_t pa = abs(p - a);
+    int16_t pb = abs(p - b);
+    int16_t pc = abs(p - c);
 
     if(pa <= pb && pa <= pc) return a;
     else if(pb <= pc) return b;
