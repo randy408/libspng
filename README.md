@@ -25,7 +25,7 @@ it outperforms the reference implementation in common use cases.
 
 ## Features
 
-| Feature                              |   spng  | libpng             | stb_image | lodepng |
+| Feature                              |  spng   | libpng             | stb_image | lodepng |
 |--------------------------------------|---------|--------------------|-----------|---------|
 | Decode from stream                   | ✅      |  ✅               | ✅       | ❌      |
 | Gamma correction                     | ✅      |  ✅               | ❌       | ❌      |
@@ -138,7 +138,6 @@ Online documentation is available at [libspng.org/docs](https://libspng.org/docs
  for all PNG color type and bit depth combinations, see documentation for details.
 * Gamma correction is not implemented for `SPNG_FMT_PNG`, `SPNG_FMT_G8`, `SPNG_FMT_GA8`
  and `SPNG_FMT_GA16` output formats.
-* Non-critical errors may cause an image to not load ([#132](https://github.com/randy408/libspng/issues/132)).
 
 ## Supporting spng
 
