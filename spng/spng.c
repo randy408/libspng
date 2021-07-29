@@ -163,6 +163,7 @@ struct encode_flags
 {
     unsigned interlace:      1;
     unsigned same_layout:    1;
+    unsigned to_bigendian:   1;
     unsigned progressive:    1;
     unsigned finalize:       1;
 
@@ -4501,8 +4502,7 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
     /* encode_row() interlaces directly to ctx->scanline */
     if(scanline != ctx->scanline) memcpy(ctx->scanline, scanline, scanline_width - 1);
 
-    if(ctx->ihdr.bit_depth == 16 && ctx->fmt != SPNG_FMT_RAW) u16_row_to_bigendian(ctx->scanline, scanline_width - 1);
-
+    if(f.to_bigendian) u16_row_to_bigendian(ctx->scanline, scanline_width - 1);
     const int requires_previous = f.filter_choice & (SPNG_FILTER_CHOICE_UP | SPNG_FILTER_CHOICE_AVG | SPNG_FILTER_CHOICE_PAETH);
 
     /* XXX: exclude 'requires_previous' filters by default for first scanline? */
@@ -4753,6 +4753,8 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     if(ihdr->interlace_method) encode_flags->interlace = 1;
 
     if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW) ) encode_flags->same_layout = 1;
+
+    if(ihdr->bit_depth == 16 && fmt != SPNG_FMT_RAW) encode_flags->to_bigendian = 1;
 
     if(flags & SPNG_ENCODE_FINALIZE) encode_flags->finalize = 1;
 
