@@ -4553,10 +4553,11 @@ static int encode_row(spng_ctx *ctx, const void *row, size_t len)
 {
     if(ctx == NULL || row == NULL) return SPNG_EINTERNAL;
 
-    if(!ctx->ihdr.interlace_method) return encode_scanline(ctx, row, len);
+    const int pass = ctx->row_info.pass;
+
+    if(!ctx->ihdr.interlace_method || pass == 6) return encode_scanline(ctx, row, len);
 
     uint32_t k;
-    const int pass = ctx->row_info.pass;
     const unsigned pixel_size = ctx->pixel_size;
     const unsigned bit_depth = ctx->ihdr.bit_depth;
 
