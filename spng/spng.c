@@ -829,10 +829,9 @@ static int write_data(spng_ctx *ctx, const void *data, size_t bytes)
     return 0;
 }
 
-static int write_header(spng_ctx *ctx, const uint8_t chunk_type[4], uint32_t chunk_length, unsigned char **data)
+static int write_header(spng_ctx *ctx, const uint8_t chunk_type[4], size_t chunk_length, unsigned char **data)
 {
     if(ctx == NULL || chunk_type == NULL) return SPNG_EINTERNAL;
-
     if(chunk_length > png_u32max) return SPNG_EINTERNAL;
 
     size_t total = chunk_length + 12;
@@ -844,7 +843,7 @@ static int write_header(spng_ctx *ctx, const uint8_t chunk_type[4], uint32_t chu
     ctx->current_chunk.crc = crc32(crc, chunk_type, 4);
 
     memcpy(&ctx->current_chunk.type, chunk_type, 4);
-    ctx->current_chunk.length = chunk_length;
+    ctx->current_chunk.length = (uint32_t)chunk_length;
 
     if(!data) return SPNG_EINTERNAL;
 
@@ -864,7 +863,7 @@ static int trim_chunk(spng_ctx *ctx, uint32_t length)
     return 0;
 }
 
-static int inline finish_chunk(spng_ctx *ctx)
+static int finish_chunk(spng_ctx *ctx)
 {
     if(ctx == NULL) return SPNG_EINTERNAL;
 
@@ -1593,7 +1592,7 @@ static int32_t filter_sum(const unsigned char *prev_scanline, const unsigned cha
 }
 
 static unsigned get_best_filter(const unsigned char *prev_scanline, const unsigned char *scanline,
-                                size_t scanline_width, unsigned bytes_per_pixel, const unsigned choices)
+                                size_t scanline_width, unsigned bytes_per_pixel, const int choices)
 {
     if(!choices) return SPNG_FILTER_NONE;
 
@@ -2135,7 +2134,7 @@ static int check_exif(const struct spng_exif *exif)
 static int check_png_keyword(const char *str)
 {
     if(str == NULL) return 1;
-    char len = strlen(str);
+    size_t len = strlen(str);
     const char *end = str + len;
 
     if(!len) return 1;
@@ -3918,7 +3917,8 @@ static int write_chunks_before_idat(spng_ctx *ctx)
     if(!ctx->stored.ihdr) return SPNG_EINTERNAL;
 
     int ret;
-    uint32_t i, length;
+    uint32_t i;
+    size_t length;
     const struct spng_ihdr *ihdr = &ctx->ihdr;
     unsigned char *data = ctx->decode_plte.raw;
 
@@ -3961,12 +3961,12 @@ static int write_chunks_before_idat(spng_ctx *ctx)
 
     if(ctx->stored.iccp)
     {
-        uLongf dest_len = compressBound(ctx->iccp.profile_len);
+        uLongf dest_len = compressBound((uLong)ctx->iccp.profile_len);
 
         Bytef *buf = spng__malloc(ctx, dest_len);
         if(buf == NULL) return SPNG_EMEM;
 
-        ret = compress2(buf, &dest_len, (void*)ctx->iccp.profile, ctx->iccp.profile_len, Z_DEFAULT_COMPRESSION);
+        ret = compress2(buf, &dest_len, (void*)ctx->iccp.profile, (uLong)ctx->iccp.profile_len, Z_DEFAULT_COMPRESSION);
 
         if(ret != Z_OK)
         {
@@ -3974,7 +3974,7 @@ static int write_chunks_before_idat(spng_ctx *ctx)
             return SPNG_EZLIB;
         }
 
-        uint32_t name_len = strlen(ctx->iccp.profile_name);
+        size_t name_len = strlen(ctx->iccp.profile_name);
 
         length = name_len + 2;
         length += dest_len;
@@ -4285,14 +4285,14 @@ static int write_chunks_before_idat(spng_ctx *ctx)
                 if(ret) return ret;
 
                 z_stream *zstream = &ctx->zstream;
-                uLongf dest_len = deflateBound(zstream, text_length);
+                uLongf dest_len = deflateBound(zstream, (uLong)text_length);
 
                 compressed_text = spng__malloc(ctx, dest_len);
 
                 if(compressed_text == NULL) return SPNG_EMEM;
 
                 zstream->next_in = (void*)text->text;
-                zstream->avail_in = text_length;
+                zstream->avail_in = (uInt)text_length;
 
                 zstream->next_out = compressed_text;
                 zstream->avail_out = dest_len;
@@ -4416,6 +4416,7 @@ static int write_chunks_after_idat(spng_ctx *ctx)
 static int write_idat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int flush)
 {
     if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
+    if(len > UINT_MAX) return SPNG_EINTERNAL;
 
     int ret = 0;
     unsigned char *data = NULL;
@@ -4423,7 +4424,7 @@ static int write_idat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int
     uint32_t idat_length = SPNG_WRITE_SIZE;
 
     zstream->next_in = scanline;
-    zstream->avail_in = len;
+    zstream->avail_in = (uInt)len;
 
     do
     {
@@ -4498,6 +4499,8 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
     struct encode_flags f = ctx->encode_flags;
     unsigned char *filtered_scanline = ctx->filtered_scanline;
     size_t scanline_width = sub[pass].scanline_width;
+
+    if(len < scanline_width - 1) return SPNG_EINTERNAL;
 
     /* encode_row() interlaces directly to ctx->scanline */
     if(scanline != ctx->scanline) memcpy(ctx->scanline, scanline, scanline_width - 1);
@@ -5640,7 +5643,7 @@ int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
     SPNG_SET_CHUNK_BOILERPLATE(iccp);
 
     if(check_png_keyword(iccp->profile_name)) return SPNG_EICCP_NAME;
-    if(!iccp->profile_len) return 1;
+    if(!iccp->profile_len || iccp->profile_len > UINT_MAX) return 1;
 
     if(ctx->iccp.profile && !ctx->user.iccp) spng__free(ctx, ctx->iccp.profile);
 
@@ -5692,6 +5695,7 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
     {
         if(check_png_keyword(text[i].keyword)) return SPNG_ETEXT_KEYWORD;
         if(!text[i].length) return 1;
+        if(text[i].length > UINT_MAX) return 1;
         if(text[i].text == NULL) return 1;
 
         if(text[i].type == SPNG_TEXT)
