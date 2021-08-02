@@ -3467,8 +3467,8 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
     {
         if(ctx->cur_chunk_bytes_left) /* zlib stream ended before an IDAT chunk boundary */
         {/* Discard the rest of the chunk */
-            int ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
-            if(ret) return decode_err(ctx, ret);
+            int error = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+            if(error) return decode_err(ctx, error);
         }
 
         ctx->last_idat = ctx->current_chunk;
