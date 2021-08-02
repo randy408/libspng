@@ -3,6 +3,7 @@
 
 int main(int argc, char **argv)
 {
+    (void)argc; (void)argv;
     unsigned char buf[30] = {0};
     spng_ctx *ctx = spng_ctx_new(0);
 

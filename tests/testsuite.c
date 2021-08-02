@@ -483,7 +483,7 @@ static int set_chunks(spng_ctx *dst, spngt_chunk_data *spng)
 
 static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr, int after_idat)
 {
-    int i, ret = 0;
+    uint32_t i, ret = 0;
     spngt_chunk_data spng = {0};
     spngt_chunk_data png = {0};
 
@@ -571,7 +571,6 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     }
     else
     {
-        int i;
         for(i=0; i < spng.plte.n_entries; i++)
         {
             if(spng.plte.entries[i].red != png_palette[i].red ||
@@ -614,8 +613,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         {
             if(spng.trns.n_type3_entries == png_num_trans)
             {
-                int i;
-                for(i=0; i < png_num_trans; i++)
+                for(i=0; i < spng.trns.n_type3_entries; i++)
                 {
                     if(spng.trns.type3_alpha[i] != png_trans_alpha[i])
                     {
@@ -826,7 +824,6 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
 
         png_get_hIST(png_ptr, info_ptr, &png_hist);
 
-        int i;
         for(i=0; i < spng.plte.n_entries; i++)
         {
             if(spng.hist.frequency[i] != png_hist[i])
@@ -859,7 +856,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
     }
     else
     {
-        int j;
+        uint32_t j;
 
         for(j=0; j < spng.n_splt; j++)
         {
@@ -1196,13 +1193,13 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         /* Unfortunately there's a handful of testsuite image that don't
            compress well with the default filter heuristic */
         /* Fail the test on a 4% size increase */
-        /*int pct = 25;
+        int pct = 25;
         if( (encoded_len - encoded_len / pct) > file_length)
         {
             printf("Reencoded PNG exceeds maximum %d%% size increase: %zu (original: %zu)\n", 100 / pct, encoded_len, file_length);
             ret = 1;
             goto encode_cleanup;
-        }*/
+        }
 
         spng.source.type = SPNGT_SRC_BUFFER;
         spng.source.buffer = encoded_pngbuf;
@@ -1389,6 +1386,7 @@ int main(int argc, char **argv)
 
 static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t len)
 {
+    (void)ctx;
     struct buf_state *state = user;
 
     if(len > state->bytes_left) return SPNG_IO_EOF;
@@ -1408,7 +1406,8 @@ static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t le
 /* Tests that don't fit anywhere else */
 static int extended_tests(FILE *file)
 {
-    int i, ret = 0;
+    uint32_t i;
+    int ret = 0;
     unsigned char *image = NULL;
     unsigned char *encoded = NULL;
     spng_ctx *enc = NULL;
