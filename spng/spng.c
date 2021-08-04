@@ -5697,11 +5697,11 @@ int spng_set_text(spng_ctx *ctx, struct spng_text *text, uint32_t n_text)
 
         if(text[i].type == SPNG_TEXT)
         {
-            if(check_png_text(text[i].text, text[i].length)) return 1;
+            if(ctx->strict && check_png_text(text[i].text, text[i].length)) return 1;
         }
         else if(text[i].type == SPNG_ZTXT)
         {
-            if(check_png_text(text[i].text, text[i].length)) return 1;
+            if(ctx->strict && check_png_text(text[i].text, text[i].length)) return 1;
 
             if(text[i].compression_method != 0) return SPNG_EZTXT_COMPRESSION_METHOD;
         }
