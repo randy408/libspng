@@ -4773,10 +4773,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     else if(fmt == SPNG_FMT_RGB8) ctx->pixel_size = 3;
     else if(fmt == SPNG_FMT_G8) ctx->pixel_size = 1;
     else if(fmt == SPNG_FMT_GA8) ctx->pixel_size = 2;
-    else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW))
-    {
-        if(ihdr->bit_depth >= 8) ctx->pixel_size = ctx->bytes_per_pixel;
-    }
+    else if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW)) ctx->pixel_size = ctx->bytes_per_pixel;
 
     ctx->state = SPNG_STATE_ENCODE_INIT;
 
