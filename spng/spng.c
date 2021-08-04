@@ -4993,16 +4993,12 @@ int spng_set_png_stream(spng_ctx *ctx, spng_rw_fn *rw_func, void *user)
     if(ctx == NULL || rw_func == NULL) return 1;
     if(!ctx->state) return SPNG_EBADSTATE;
 
-    if(ctx->stream_buf != NULL) return SPNG_EBUF_SET;
+    /* SPNG_STATE_OUTPUT shares the same value */
+    if(ctx->state >= SPNG_STATE_INPUT) return SPNG_EBUF_SET;
 
     if(ctx->encode_only)
     {
         if(ctx->out_png != NULL) return SPNG_EBUF_SET;
-
-        ctx->stream_buf_size = SPNG_WRITE_SIZE * 2;
-
-        ctx->stream_buf = spng__malloc(ctx, ctx->stream_buf_size);
-        if(ctx->stream_buf == NULL) return SPNG_EMEM;
 
         ctx->write_fn = rw_func;
         ctx->write_ptr = ctx->stream_buf;
