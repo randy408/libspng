@@ -737,23 +737,6 @@ static inline int read_data(spng_ctx *ctx, size_t bytes)
     return 0;
 }
 
-static void *grow_buffer(void *buf, size_t size, size_t *new_size)
-{
-    if(new_size == NULL) return NULL;
-
-    if(!size) size = SPNG_WRITE_SIZE;
-
-    if(2 > SIZE_MAX / size) return NULL; /* overflow */
-    size *= 2;
-
-    void *temp = realloc(buf, size);
-    if(temp == NULL) return NULL;
-
-    *new_size = size;
-
-    return temp;
-}
-
 /* Ensure there is enough space for encoding starting at ctx->write_ptr  */
 static int require_bytes(spng_ctx *ctx, size_t bytes)
 {
@@ -763,13 +746,19 @@ static int require_bytes(spng_ctx *ctx, size_t bytes)
     {
         if(bytes > ctx->stream_buf_size)
         {
-            size_t new_size;
-            void *temp = grow_buffer(ctx->stream_buf, ctx->stream_buf_size, &new_size);
+            size_t new_size = ctx->stream_buf_size;
+
+            /* Start at default IDAT size + header + crc */
+            if(new_size < (SPNG_WRITE_SIZE + 12)) new_size = SPNG_WRITE_SIZE + 12;
+
+            if(new_size < bytes) new_size = bytes;
+
+            void *temp = spng__realloc(ctx, ctx->stream_buf, new_size);
 
             if(temp == NULL) return encode_err(ctx, SPNG_EMEM);
 
             ctx->stream_buf = temp;
-            ctx->stream_buf_size = new_size;
+            ctx->stream_buf_size = bytes;
             ctx->write_ptr = ctx->stream_buf;
         }
 
@@ -781,8 +770,20 @@ static int require_bytes(spng_ctx *ctx, size_t bytes)
 
     if(required > ctx->out_png_size)
     {
-        size_t new_size;
-        void *temp = grow_buffer(ctx->out_png, ctx->out_png_size, &new_size);
+        size_t new_size = ctx->out_png_size;
+
+        /* Start with a size that doesn't require a realloc() 100% of the time */
+        if(new_size < (SPNG_WRITE_SIZE * 2)) new_size = SPNG_WRITE_SIZE * 2;
+
+        /* Prefer the next power of two over the requested size */
+        while(new_size < required)
+        {
+            if(new_size / SIZE_MAX > 2) return encode_err(ctx, SPNG_EOVERFLOW);
+
+            new_size *= 2;
+        }
+
+        void *temp = spng__realloc(ctx, ctx->out_png, new_size);
 
         if(temp == NULL) return encode_err(ctx, SPNG_EMEM);
 
