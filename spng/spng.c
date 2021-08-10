@@ -26,8 +26,10 @@
     #include <pthread.h>
 #endif
 
+/* Not build options, edit at your own risk! */
 #define SPNG_READ_SIZE (8192)
 #define SPNG_WRITE_SIZE SPNG_READ_SIZE
+#define SPNG_MAX_CHUNK_COUNT (1000)
 
 #define SPNG_TARGET_CLONES(x)
 
@@ -291,6 +293,8 @@ struct spng_ctx
     size_t max_chunk_size;
     size_t chunk_cache_limit;
     size_t chunk_cache_usage;
+    uint32_t chunk_count_limit;
+    uint32_t chunk_count_total;
 
     int crc_action_critical;
     int crc_action_ancillary;
@@ -668,9 +672,17 @@ static int calculate_image_size(spng_ctx *ctx, int fmt, size_t *len)
     return 0;
 }
 
-static int increase_cache_usage(spng_ctx *ctx, size_t bytes)
+static int increase_cache_usage(spng_ctx *ctx, size_t bytes, int new_chunk)
 {
     if(ctx == NULL || !bytes) return SPNG_EINTERNAL;
+
+    if(new_chunk)
+    {
+        ctx->chunk_count_total++;
+        if(ctx->chunk_count_total < 1) return SPNG_EOVERFLOW;
+
+        if(ctx->chunk_count_total > ctx->chunk_count_limit) return SPNG_ECHUNK_LIMITS;
+    }
 
     size_t new_usage = ctx->chunk_cache_usage + bytes;
 
@@ -1270,7 +1282,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
     buf = t;
 
-    (void)increase_cache_usage(ctx, size);
+    (void)increase_cache_usage(ctx, size, 0);
 
     *out = buf;
     *len = size;
@@ -2627,7 +2639,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 if(ctx->user.exif) goto discard;
 
-                if(increase_cache_usage(ctx, chunk.length)) return SPNG_ECHUNK_LIMITS;
+                if(increase_cache_usage(ctx, chunk.length, 1)) return SPNG_ECHUNK_LIMITS;
 
                 struct spng_exif exif;
 
@@ -2698,7 +2710,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 if(ctx->user.text) goto discard;
 
-                if(increase_cache_usage(ctx, sizeof(struct spng_text2))) return SPNG_ECHUNK_LIMITS;
+                if(increase_cache_usage(ctx, sizeof(struct spng_text2), 1)) return SPNG_ECHUNK_LIMITS;
 
                 ctx->n_text++;
                 if(ctx->n_text < 1) return SPNG_EOVERFLOW;
@@ -2791,7 +2803,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(text->compression_flag)
                 {
                     /* cache usage = peek_bytes + decompressed text size + nul */
-                    if(increase_cache_usage(ctx, peek_bytes)) return SPNG_ECHUNK_LIMITS;
+                    if(increase_cache_usage(ctx, peek_bytes, 0)) return SPNG_ECHUNK_LIMITS;
 
                     text->keyword = spng__calloc(ctx, 1, peek_bytes);
                     if(text->keyword == NULL) return SPNG_EMEM;
@@ -2809,7 +2821,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 }
                 else
                 {
-                    if(increase_cache_usage(ctx, chunk.length + 1)) return SPNG_ECHUNK_LIMITS;
+                    if(increase_cache_usage(ctx, chunk.length + 1, 0)) return SPNG_ECHUNK_LIMITS;
 
                     text->keyword = spng__malloc(ctx, chunk.length + 1);
                     if(text->keyword == NULL) return SPNG_EMEM;
@@ -2860,7 +2872,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 ctx->file.splt = 1;
 
                 /* chunk.length + sizeof(struct spng_splt) + splt->n_entries * sizeof(struct spng_splt_entry) */
-                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt))) return SPNG_ECHUNK_LIMITS;
+                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_splt), 1)) return SPNG_ECHUNK_LIMITS;
 
                 ctx->n_splt++;
                 if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
@@ -2929,7 +2941,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 list_size *= sizeof(struct spng_splt_entry);
 
-                if(increase_cache_usage(ctx, list_size)) return SPNG_ECHUNK_LIMITS;
+                if(increase_cache_usage(ctx, list_size, 0)) return SPNG_ECHUNK_LIMITS;
 
                 splt->entries = spng__malloc(ctx, list_size);
                 if(splt->entries == NULL)
@@ -2976,7 +2988,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
                 if(!ctx->keep_unknown) goto discard;
                 if(ctx->user.unknown) goto discard;
 
-                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_unknown_chunk))) return SPNG_ECHUNK_LIMITS;
+                if(increase_cache_usage(ctx, chunk.length + sizeof(struct spng_unknown_chunk), 1)) return SPNG_ECHUNK_LIMITS;
 
                 ctx->n_chunks++;
                 if(ctx->n_chunks < 1) return SPNG_EOVERFLOW;
@@ -4830,6 +4842,7 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 
     ctx->max_chunk_size = png_u32max;
     ctx->chunk_cache_limit = SIZE_MAX;
+    ctx->chunk_count_limit = SPNG_MAX_CHUNK_COUNT;
 
     ctx->state = SPNG_STATE_INIT;
 
@@ -5187,6 +5200,13 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             ctx->encode_flags.filter_choice = value;
             break;
         }
+        case SPNG_CHUNK_COUNT_LIMIT:
+        {
+            if(value < 0) return 1;
+            if(value > ctx->chunk_count_total) return 1;
+            ctx->chunk_count_limit = value;
+            break;
+        }
         default: return 1;
     }
 
@@ -5247,6 +5267,11 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
         case SPNG_FILTER_CHOICE:
         {
             *value = ctx->encode_flags.filter_choice;
+            break;
+        }
+        case SPNG_CHUNK_COUNT_LIMIT:
+        {
+            *value = ctx->chunk_count_limit;
             break;
         }
         default: return 1;
