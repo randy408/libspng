@@ -176,6 +176,18 @@ Calculates decoded image buffer size for the given output format.
 
 An input PNG must be set.
 
+# spng_decode_chunks()
+```c
+int spng_decode_chunks(spng_ctx *ctx)
+```
+
+Decode all chunks before or after the image data (IDAT) stream,
+depending on the state of the decoder.
+
+If the image is decoded this function will read up to the end-of-file (IEND) marker.
+
+Calling this function before `spng_decode_image()` is optional.
+
 # spng_decode_image()
 ```c
 int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)

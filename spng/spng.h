@@ -468,6 +468,7 @@ SPNG_API int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, in
 /* Progressive decode */
 SPNG_API int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len);
 SPNG_API int spng_decode_row(spng_ctx *ctx, void *out, size_t len);
+SPNG_API int spng_decode_chunks(spng_ctx *ctx);
 
 /* Encode/decode */
 SPNG_API int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info);
