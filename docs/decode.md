@@ -147,7 +147,9 @@ Chunks of arbitrary length (e.g. text, color profiles) take up additional memory
 `spng_set_chunk_limits()` is used to set hard limits on chunk length- and cache limits,
 note that reaching either limit is handled as a fatal error.
 
-This function combines the functionality of libpng's `png_set_chunk_cache_max()` and `png_set_chunk_malloc_max()`.
+Since v0.7.0 the `SPNG_CHUNK_COUNT_LIMIT` option controls how many chunks can be stored,
+the default is `1000` and is configurable through [`spng_set_option()`](context.md#spng_set_option),
+this limit is independent of the chunk cache limit.
 
 # API
 
