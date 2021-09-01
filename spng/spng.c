@@ -3547,6 +3547,16 @@ int spng_decode_row(spng_ctx *ctx, void *out, size_t len)
     return 0;
 }
 
+int spng_decode_chunks(spng_ctx *ctx)
+{
+    if(ctx == NULL) return 1;
+    if(ctx->encode_only) return SPNG_ECTXTYPE;
+    if(ctx->state < SPNG_STATE_INPUT) return SPNG_ENOSRC;
+    if(ctx->state == SPNG_STATE_IEND) return 0;
+
+    return read_chunks(ctx, 0);
+}
+
 int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 {
     if(ctx == NULL) return 1;

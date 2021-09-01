@@ -115,6 +115,14 @@ unsigned char *getimage_spng(spng_ctx *ctx, size_t *out_size, int fmt, int flags
         goto err;
     }
 
+    r = spng_decode_chunks(ctx);
+
+    if(r)
+    {
+        printf("spng_decode_chunks() error: %s\n", spng_strerror(r));
+        goto err;
+    }
+
     if(fmt == SPNGT_FMT_VIPS)
     {
         fmt = SPNG_FMT_PNG;
