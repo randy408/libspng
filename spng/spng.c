@@ -5913,7 +5913,7 @@ int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, ui
             case SPNG_AFTER_PLTE:
             case SPNG_AFTER_IDAT:
             break;
-            default: return 1;
+            default: return SPNG_ECHUNK_POS;
         }
     }
 
