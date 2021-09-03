@@ -4688,7 +4688,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     if(!ctx->state) return SPNG_EBADSTATE;
     if(!ctx->encode_only) return SPNG_ECTXTYPE;
     if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
-    if(fmt != SPNG_FMT_PNG) return SPNG_EFMT;
+    if( !(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW) ) return SPNG_EFMT;
 
     int ret = 0;
     size_t img_len = 0;

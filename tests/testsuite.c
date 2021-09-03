@@ -8,7 +8,7 @@
 static int n_test_cases, actual_count;
 static struct spngt_test_case test_cases[100];
 
-static int extended_tests(FILE *file);
+static int extended_tests(FILE *file, int fmt);
 
 const char* fmt_str(int fmt)
 {
@@ -1175,7 +1175,7 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
         ret = set_chunks(dst, &data);
         if(ret) goto encode_cleanup;
 
-        ret = spng_encode_image(dst, img_spng, img_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+        ret = spng_encode_image(dst, img_spng, img_size, test_case->fmt, SPNG_ENCODE_FINALIZE);
         if(ret)
         {
             printf("encode error: %s\n", spng_strerror(ret));
@@ -1241,7 +1241,7 @@ encode_cleanup:
     if(test_case->test_flags & SPNGT_EXTENDED_TESTS)
     {
         rewind(spng.source.file);
-        ret = extended_tests(spng.source.file);
+        ret = extended_tests(spng.source.file, test_case->fmt);
         if(ret) printf("extended tests failed\n");
     }
 
@@ -1344,6 +1344,7 @@ int main(int argc, char **argv)
 
     add_test_case(SPNG_FMT_PNG, 0, SPNGT_COMPARE_CHUNKS);
     add_test_case(SPNG_FMT_PNG, 0, SPNGT_ENCODE_ROUNDTRIP | skip_encode);
+    add_test_case(SPNG_FMT_RAW, 0, SPNGT_ENCODE_ROUNDTRIP | skip_encode);
     add_test_case(SPNG_FMT_RAW, 0, 0);
     add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS, 0);
     add_test_case(SPNG_FMT_RGBA8, SPNG_DECODE_TRNS | SPNG_DECODE_GAMMA, gamma_bug);
@@ -1405,7 +1406,7 @@ static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t le
 }
 
 /* Tests that don't fit anywhere else */
-static int extended_tests(FILE *file)
+static int extended_tests(FILE *file, int fmt)
 {
     uint32_t i;
     int ret = 0;
@@ -1426,7 +1427,7 @@ static int extended_tests(FILE *file)
 
     size_t image_size;
 
-    image = getimage_spng(dec, &image_size, SPNG_FMT_PNG, 0);
+    image = getimage_spng(dec, &image_size, fmt, 0);
 
     enc = spng_ctx_new(SPNG_CTX_ENCODER);
 
@@ -1451,7 +1452,7 @@ static int extended_tests(FILE *file)
 
     spng_set_unknown_chunks(enc, &chunk, 1);
 
-    ret = spng_encode_image(enc, image, image_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+    ret = spng_encode_image(enc, image, image_size, fmt, SPNG_ENCODE_FINALIZE);
 
     if(ret)
     {
@@ -1483,7 +1484,7 @@ static int extended_tests(FILE *file)
 
     spng_set_unknown_chunks(enc, &chunk, 1);
 
-    ret = spng_encode_image(enc, 0, 0, SPNG_FMT_PNG, SPNG_ENCODE_PROGRESSIVE | SPNG_ENCODE_FINALIZE);
+    ret = spng_encode_image(enc, 0, 0, fmt, SPNG_ENCODE_PROGRESSIVE | SPNG_ENCODE_FINALIZE);
 
     if(ret)
     {
