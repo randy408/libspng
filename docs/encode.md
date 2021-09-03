@@ -46,7 +46,7 @@ The width, height, color type, bit depth and interlace method must be set with [
 
 Format conversion is currently not supported, the image format must match the
 color type and bit depth set with [spng_set_ihdr()](chunk.md#spng_set_ihdr),
-`fmt` must be `SPNG_FMT_PNG`.
+`fmt` must be `SPNG_FMT_PNG` or `SPNG_FMT_RAW`.
 
 `img` must point to a buffer of length `len`, `len` must be equal to the expected image
 size for the given format `fmt`.
