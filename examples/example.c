@@ -5,7 +5,7 @@
 
 int main(int argc, char **argv)
 {
-    int r = 0;
+    int r = 0, err;
     FILE *png;
     spng_ctx *ctx = NULL;
     unsigned char *out = NULL;
@@ -16,8 +16,14 @@ int main(int argc, char **argv)
         goto error;
     }
 
+#if defined(_MSC_VER) || defined(WIN32)  || defined(_WIN32) || defined(__WIN32__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64__)
+    err = fopen_s(&png, argv[1], "rb");
+#else
     png = fopen(argv[1], "rb");
     if(png == NULL)
+        err = 1;
+#endif
+    if (err)
     {
         printf("error opening input file %s\n", argv[1]);
         goto error;
