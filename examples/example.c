@@ -20,8 +20,7 @@ int main(int argc, char **argv)
     err = fopen_s(&png, argv[1], "rb");
 #else
     png = fopen(argv[1], "rb");
-    if(png == NULL)
-        err = 1;
+    err = png == NULL;
 #endif
     if (err)
     {
