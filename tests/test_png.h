@@ -176,7 +176,7 @@ unsigned char *getimage_libpng(png_structp png_ptr, png_infop info_ptr, size_t *
         if(color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) png_set_expand_gray_1_2_4_to_8(png_ptr);
 
 #if defined(SPNGT_LITTLE_ENDIAN)
-         png_set_swap(png_ptr);
+        png_set_swap(png_ptr);
 #endif
     }
 
@@ -197,9 +197,9 @@ unsigned char *getimage_libpng(png_structp png_ptr, png_infop info_ptr, size_t *
     image = calloc(1, image_size);
     if(image == NULL)
     {
-         printf("libpng: malloc() failed\n");
-         png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-         return NULL;
+        printf("libpng: malloc() failed\n");
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+        return NULL;
     }
 
     row_pointers = malloc(height * sizeof(png_bytep));
