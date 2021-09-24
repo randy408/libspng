@@ -10,6 +10,7 @@ set(SPNG_VERSION ${SPNG_MAJOR}.${SPNG_MINOR}.${SPNG_REVISION}-rc3)
 option(ENABLE_OPT "Enable architecture-specific optimizations" ON)
 option(SPNG_SHARED "Build shared lib" ON)
 option(SPNG_STATIC "Build static lib" ON)
+option(BUILD_EXAMPLES "Build examples" ON)
 
 include(GNUInstallDirs)
 
@@ -33,9 +34,11 @@ if(SPNG_SHARED)
     target_link_libraries(spng ${spng_LIBS})
     install(TARGETS spng DESTINATION lib)
 
-    add_executable(example examples/example.c)
-    target_include_directories(example PRIVATE ${PROJECT_SOURCE_DIR}/spng)
-    target_link_libraries(example spng ${spng_LIBS})
+    if(BUILD_EXAMPLES)
+        add_executable(example examples/example.c)
+        target_include_directories(example PRIVATE ${PROJECT_SOURCE_DIR}/spng)
+        target_link_libraries(example spng ${spng_LIBS})
+    endif()
 endif()
 
 if(SPNG_STATIC)
