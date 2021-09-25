@@ -56,23 +56,29 @@ Encodes the image from `img` in the source format `fmt` to the specified PNG for
 
 The width, height, color type, bit depth and interlace method must be set with [spng_set_ihdr()](chunk.md#spng_set_ihdr).
 
-Format conversion is currently not supported, the image format must match the
-color type and bit depth set with [spng_set_ihdr()](chunk.md#spng_set_ihdr),
-`fmt` must be `SPNG_FMT_PNG` or `SPNG_FMT_RAW`.
-
 `img` must point to a buffer of length `len`, `len` must be equal to the expected image
 size for the given format `fmt`.
 
 This function may call `spng_encode_chunks()`, writing any pending chunks before the image data.
 
-If the `SPNG_ENCODE_FINALIZE` flag is set the encoder will any write any pending chunks
-after the image data and finalize the PNG with the end-of-file (IEND) marker.
-In most cases the only pending data is the end-of-file marker, which is 12 bytes.
+If the `SPNG_ENCODE_FINALIZE` flag is set this function will call `spng_encode_chunks()` on the last
+scanline/row, writing any pending chunks after the image data and finalize the PNG with the
+end-of-file (IEND) marker before returning.
+In most cases the only data after the image is the 12-byte IEND marker.
 
 When the image is encoded to an internal buffer and the PNG is finalized
 [spng_get_png_buffer()](#spng_get_png_buffer) will return the encoded buffer,
 this must be freed by the user. If this function isn't called or an error is encountered
 the internal buffer is freed by [spng_ctx_free()](context.md#spng_ctx_free).
+
+## Supported format, flag combinations
+
+| Input format   | PNG Format  | Flags | Notes                                  |
+|----------------|-------------|-------|----------------------------------------|
+| `SPNG_FMT_PNG` | Any format* | All   | Converted from host-endian if required |
+| `SPNG_FMT_RAW` | Any format* | All   | No conversion (assumes big-endian)     |
+
+\* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
 
 16-bit images are assumed to be host-endian except for `SPNG_FMT_RAW`.
 
@@ -104,7 +110,8 @@ for(i = 0; i < ihdr.height; i++)
 if(error == SPNG_EOI) /* success */
 ```
 
-But for interlaced images rows are accessed multiple times and non-sequentially,
+But for interlaced images (`spng_ihdr.interlaced_method` set to `1`))
+rows are accessed multiple times and non-sequentially,
 use [spng_get_row_info()](context.md#spng_get_row_info) to get the current row number:
 
 ```c
