@@ -5158,6 +5158,7 @@ int spng_set_crc_action(spng_ctx *ctx, int critical, int ancillary)
 int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
 {
     if(ctx == NULL) return 1;
+    if(!ctx->state) return SPNG_EBADSTATE;
 
     switch(option)
     {
@@ -5241,6 +5242,7 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
 int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
 {
     if(ctx == NULL || value == NULL) return 1;
+    if(!ctx->state) return SPNG_EBADSTATE;
 
     switch(option)
     {
