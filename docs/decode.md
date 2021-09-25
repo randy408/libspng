@@ -1,6 +1,6 @@
 # Data types
 
-# spng_crc_action
+## spng_crc_action
 ```c
 enum spng_crc_action
 {
@@ -16,7 +16,7 @@ enum spng_crc_action
 };
 ```
 
-# spng_decode_flags
+## spng_decode_flags
 ```c
 enum spng_decode_flags
 {
@@ -28,26 +28,6 @@ enum spng_decode_flags
     SPNG_DECODE_PROGRESSIVE = 256 /* Initialize for progressive reads */
 };
 ```
-
-# Supported format, flag combinations
-
-| PNG Format   | Output format     | Flags  | Notes                                         |
-|--------------|-------------------|--------|-----------------------------------------------|
-| Any format*  | `SPNG_FMT_RGBA8`  | All    | Convert from any PNG format and bit depth     |
-| Any format   | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth     |
-| Any format   | `SPNG_FMT_RGB8`   | All    | Convert from any PNG format and bit depth     |
-| Gray <=8-bit | `SPNG_FMT_G8`     | None** | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
-| Gray 16-bit  | `SPNG_FMT_GA16`   | All**  | Only valid for 16-bit grayscale PNG's         |
-| Gray <=8-bit | `SPNG_FMT_GA8`    | All**  | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
-| Any format   | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian               |
-| Any format   | `SPNG_FMT_RAW`    | None   | The PNG's format in big-endian                |
-
-
-\* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
-
-\*\* Gamma correction is not implemented
-
-The `SPNG_DECODE_PROGRESSIVE` flag is supported in all cases.
 
 # Error handling
 
@@ -213,6 +193,75 @@ The `SPNG_DECODE_TNRS` flag is silently ignored if the PNG does not
 contain a tRNS chunk or is not applicable for the color type.
 
 This function can only be called once per context.
+
+## Supported format, flag combinations
+
+| PNG Format   | Output format     | Flags  | Notes                                         |
+|--------------|-------------------|--------|-----------------------------------------------|
+| Any format*  | `SPNG_FMT_RGBA8`  | All    | Convert from any PNG format and bit depth     |
+| Any format   | `SPNG_FMT_RGBA16` | All    | Convert from any PNG format and bit depth     |
+| Any format   | `SPNG_FMT_RGB8`   | All    | Convert from any PNG format and bit depth     |
+| Gray <=8-bit | `SPNG_FMT_G8`     | None** | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
+| Gray 16-bit  | `SPNG_FMT_GA16`   | All**  | Only valid for 16-bit grayscale PNG's         |
+| Gray <=8-bit | `SPNG_FMT_GA8`    | All**  | Only valid for 1, 2, 4, 8-bit grayscale PNG's |
+| Any format   | `SPNG_FMT_PNG`    | None** | The PNG's format in host-endian               |
+| Any format   | `SPNG_FMT_RAW`    | None   | The PNG's format in big-endian                |
+
+
+\* Any combination of color type and bit depth defined in the [standard](https://www.w3.org/TR/2003/REC-PNG-20031110/#table111).
+
+\*\* Gamma correction is not implemented
+
+The `SPNG_DECODE_PROGRESSIVE` flag is supported in all cases.
+
+## Progressive image decoding
+
+If the `SPNG_DECODE_PROGRESSIVE` flag is set the decoder will be initialized
+with `fmt` and `flags` for progressive decoding, the values of `img`, `len` are ignored.
+
+Progressive decoding is straightforward when the image is not interlaced,
+calling [spng_decode_row()](#spng_decode_row) for each row of the image will yield
+the return value `SPNG_EOI` for the final row:
+
+```c
+int error;
+size_t image_width = image_size / ihdr.height;
+
+for(i = 0; i < ihdr.height; i++)
+{
+    void *row = image + image_width * i;
+
+    error = spng_decode_row(ctx, row, image_width);
+
+    if(error) break;
+}
+
+if(error == SPNG_EOI) /* success */
+```
+
+But for interlaced images rows are accessed multiple times and non-sequentially,
+use [spng_get_row_info()](context.md#spng_get_row_info) to get the current row number:
+
+```c
+int error;
+struct spng_row_info row_info;
+
+do
+{
+    error = spng_get_row_info(ctx, &row_info);
+    if(error) break;
+
+    void *row = image + image_width * row_info.row_num;
+
+    error = spng_decode_row(ctx, row, len);
+}
+while(!error)
+
+if(error == SPNG_EOI) /* success */
+```
+
+This is the recommended solution in all cases, for non-interlaced images `row_num` will increase
+linearly.
 
 # spng_decode_scanline()
 ```c
