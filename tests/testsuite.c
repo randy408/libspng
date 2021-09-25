@@ -1172,6 +1172,8 @@ static int spngt_run_test(const char *filename, struct spngt_test_case *test_cas
 
         dst = spng_ctx_new(SPNG_CTX_ENCODER);
 
+        spng_set_option(dst, SPNG_ENCODE_TO_BUFFER, 1);
+
         ret = set_chunks(dst, &data);
         if(ret) goto encode_cleanup;
 
@@ -1430,6 +1432,8 @@ static int extended_tests(FILE *file, int fmt)
     image = getimage_spng(dec, &image_size, fmt, 0);
 
     enc = spng_ctx_new(SPNG_CTX_ENCODER);
+
+    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
 
     spng_set_ihdr(enc, &ihdr);
 
