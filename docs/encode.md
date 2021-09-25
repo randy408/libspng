@@ -3,7 +3,7 @@
 The context must be created with the `SPNG_CTX_ENCODER` flag set.
 
 Before any (implicit) write operation an output must be set with
-[spng_set_png_stream()](context.md#spng_set_png_stream), [spng_set_png_file()](context.md#spng_set_png_file).
+[spng_set_png_stream()](context.md#spng_set_png_stream) or [spng_set_png_file()](context.md#spng_set_png_file).
 
 Alternatively the `SPNG_ENCODE_TO_BUFFER` option can be enabled with [spng_set_option()](context.md#spng_set_option),
 in this case the encoder will create and manage an internal output buffer,
@@ -16,7 +16,7 @@ In all cases the PNG must be explicitly finalized, this can be done with the `SP
 
 On top of the overhead of the the context buffer the internal write buffer
 may grow to the length of entire chunks or more than the length of
-the PNG file when no output stream or file is set.
+the PNG file when encoding to the internal buffer.
 
 Encoding an image requires at least 2 rows to be kept in memory,
 this may increase to 3 rows for future versions.
