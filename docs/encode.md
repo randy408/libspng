@@ -1,6 +1,29 @@
+# Usage
+
+The context must be created with the `SPNG_CTX_ENCODER` flag set.
+
+Before any (implicit) write operation an output must be set with
+[spng_set_png_stream()](context.md#spng_set_png_stream), [spng_set_png_file()](context.md#spng_set_png_file).
+
+Alternatively the `SPNG_ENCODE_TO_BUFFER` option can be enabled with [spng_set_option()](context.md#spng_set_option),
+in this case the encoder will create and manage an internal output buffer,
+it is freed by `spng_ctx_free()` unless it's retrieved with [`spng_get_png_buffer()`](#spng_get_png_buffer).
+
+In all cases the PNG must be explicitly finalized, this can be done with the `SPNG_ENCODE_FINALIZE` flag or with a call to
+[`spng_encode_chunks()`](#spng_encode_chunks) after the image has been encoded.
+
+# Memory usage
+
+On top of the overhead of the the context buffer the internal write buffer
+may grow to the length of entire chunks or more than the length of
+the PNG file when no output stream or file is set.
+
+Encoding an image requires at least 2 rows to be kept in memory,
+this may increase to 3 rows for future versions.
+
 # Data types
 
-# spng_encode_flags
+## spng_encode_flags
 
 ```c
 enum spng_encode_flags
@@ -10,18 +33,7 @@ enum spng_encode_flags
 };
 ```
 
-## Memory usage
-
-On top of the overhead of the the context buffer the internal write buffer
-may grow to the length of entire chunks or more than the length of
-the PNG file when no output stream or file is set.
-
-Encoding an image requires at least 2 rows to be kept in memory,
-this may increase to 3 rows for future versions.
-
 # API
-
-See also: [spng_set_png_stream()](context.md#spng_set_png_stream), [spng_set_png_file()](context.md#spng_set_png_file).
 
 # spng_encode_chunks()
 ```c
@@ -57,10 +69,10 @@ If the `SPNG_ENCODE_FINALIZE` flag is set the encoder will any write any pending
 after the image data and finalize the PNG with the end-of-file (IEND) marker.
 In most cases the only pending data is the end-of-file marker, which is 12 bytes.
 
-If no output stream or file is set the encoder will allocate and write to an internal buffer,
+When the image is encoded to an internal buffer and the PNG is finalized
 [spng_get_png_buffer()](#spng_get_png_buffer) will return the encoded buffer,
 this must be freed by the user. If this function isn't called or an error is encountered
-the internal buffer is freed with [spng_ctx_free()](context.md#spng_ctx_free).
+the internal buffer is freed by [spng_ctx_free()](context.md#spng_ctx_free).
 
 16-bit images are assumed to be host-endian except for `SPNG_FMT_RAW`.
 
@@ -149,8 +161,7 @@ If the image is not interlaced this function's behavior is identical to
 void *spng_get_png_buffer(spng_ctx *ctx, size_t *len, int *error)
 ```
 
-If the context is an encoder and no output stream or file was set the encoded buffer is returned,
-it must be called after [spng_encode_image()](encode.md#spng_encode_image),
-the PNG must be finalized.
+If `SPNG_ENCODE_TO_BUFFER` is enabled via [spng_set_option()](context.md#spng_set_option) the encoded buffer is returned,
+it must be called after [spng_encode_image()](encode.md#spng_encode_image) and the PNG must be finalized.
 
 On success the buffer must be freed by the user.
