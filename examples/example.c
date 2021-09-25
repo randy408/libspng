@@ -5,7 +5,7 @@
 
 int main(int argc, char **argv)
 {
-    int r = 0;
+    int ret = 0;
     FILE *png;
     spng_ctx *ctx = NULL;
     unsigned char *out = NULL;
@@ -43,11 +43,11 @@ int main(int argc, char **argv)
     spng_set_png_file(ctx, png); /* or _buffer(), _stream() */
 
     struct spng_ihdr ihdr;
-    r = spng_get_ihdr(ctx, &ihdr);
+    ret = spng_get_ihdr(ctx, &ihdr);
 
-    if(r)
+    if(ret)
     {
-        printf("spng_get_ihdr() error: %s\n", spng_strerror(r));
+        printf("spng_get_ihdr() error: %s\n", spng_strerror(ret));
         goto error;
     }
 
@@ -75,15 +75,15 @@ int main(int argc, char **argv)
            ihdr.interlace_method);
 
     struct spng_plte plte = {0};
-    r = spng_get_plte(ctx, &plte);
+    ret = spng_get_plte(ctx, &plte);
 
-    if(r && r != SPNG_ECHUNKAVAIL)
+    if(ret && ret != SPNG_ECHUNKAVAIL)
     {
-        printf("spng_get_plte() error: %s\n", spng_strerror(r));
+        printf("spng_get_plte() error: %s\n", spng_strerror(ret));
         goto error;
     }
 
-    if(!r) printf("palette entries: %" PRIu32 "\n", plte.n_entries);
+    if(!ret) printf("palette entries: %" PRIu32 "\n", plte.n_entries);
 
 
     size_t out_size, out_width;
@@ -98,18 +98,18 @@ int main(int argc, char **argv)
        if you want to expand them pick another format */
     if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
 
-    r = spng_decoded_image_size(ctx, fmt, &out_size);
+    ret = spng_decoded_image_size(ctx, fmt, &out_size);
 
-    if(r) goto error;
+    if(ret) goto error;
 
     out = malloc(out_size);
     if(out == NULL) goto error;
 
     /* This is required to initialize for progressive decoding */
-    r = spng_decode_image(ctx, NULL, 0, fmt, SPNG_DECODE_PROGRESSIVE);
-    if(r)
+    ret = spng_decode_image(ctx, NULL, 0, fmt, SPNG_DECODE_PROGRESSIVE);
+    if(ret)
     {
-        printf("progressive spng_decode_image() error: %s\n", spng_strerror(r));
+        printf("progressive spng_decode_image() error: %s\n", spng_strerror(ret));
         goto error;
     }
 
@@ -120,16 +120,16 @@ int main(int argc, char **argv)
 
     do
     {
-        r = spng_get_row_info(ctx, &row_info);
-        if(r) break;
+        ret = spng_get_row_info(ctx, &row_info);
+        if(ret) break;
 
-        r = spng_decode_row(ctx, out + row_info.row_num * out_width, out_width);
+        ret = spng_decode_row(ctx, out + row_info.row_num * out_width, out_width);
     }
-    while(!r);
+    while(!ret);
 
-    if(r != SPNG_EOI)
+    if(ret != SPNG_EOI)
     {
-        printf("progressive decode error: %s\n", spng_strerror(r));
+        printf("progressive decode error: %s\n", spng_strerror(ret));
 
         if(ihdr.interlace_method)
             printf("last pass: %d, scanline: %" PRIu32 "\n", row_info.pass, row_info.scanline_idx);
@@ -150,17 +150,17 @@ int main(int argc, char **argv)
     struct spng_text *text = NULL;
     uint32_t n_text;
 
-    r = spng_get_text(ctx, NULL, &n_text);
+    ret = spng_get_text(ctx, NULL, &n_text);
 
-    if(r == SPNG_ECHUNKAVAIL)
+    if(ret == SPNG_ECHUNKAVAIL)
     {
-        r = 0;
+        ret = 0;
         goto no_text; /* no text chunks found in file */
     }
 
-    if(r)
+    if(ret)
     {
-        printf("spng_get_text() error: %s\n", spng_strerror(r));
+        printf("spng_get_text() error: %s\n", spng_strerror(ret));
         goto error;
     }
 
@@ -168,11 +168,11 @@ int main(int argc, char **argv)
 
     if(text == NULL) goto error;
 
-    r = spng_get_text(ctx, text, &n_text);
+    ret = spng_get_text(ctx, text, &n_text);
 
-    if(r)
+    if(ret)
     {
-        printf("spng_get_text() error: %s\n", spng_strerror(r));
+        printf("spng_get_text() error: %s\n", spng_strerror(ret));
         goto no_text;
     }
 
@@ -200,7 +200,7 @@ int main(int argc, char **argv)
 no_text:
     free(text);
 
-    /* Formats other than SPNG_FMT_PNG are not yet supported */
+    /* The encoder supports all PNG formats but format conversion support is limited */
     if(fmt != SPNG_FMT_PNG) goto skip_encode;
 
     /* This example reencodes the decoded image */
@@ -208,8 +208,10 @@ no_text:
     /* Creating an encoder context requires a flag */
     spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
 
-    /* The default behavior is to allocate and write the PNG to an internal buffer,
-       this can be overriden by calling spng_set_png_file() or spng_set_png_stream() */
+    /* Encode to internal buffer managed by the library */
+    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+
+    /* Alternatively you can set an output FILE* or stream with spng_set_png_file() or spng_set_png_stream() */
 
     /* In this case we're reencoding to the same PNG format */
     spng_set_ihdr(enc, &ihdr);
@@ -221,11 +223,11 @@ no_text:
     fmt = SPNG_FMT_PNG;
 
     /* SPNG_ENCODE_FINALIZE will finalize the PNG with the end-of-file marker */
-    r = spng_encode_image(enc, out, out_size, fmt, SPNG_ENCODE_FINALIZE);
+    ret = spng_encode_image(enc, out, out_size, fmt, SPNG_ENCODE_FINALIZE);
 
-    if(r)
+    if(ret)
     {
-        printf("spng_encode_image() error: %s\n", spng_strerror(r));
+        printf("spng_encode_image() error: %s\n", spng_strerror(ret));
         goto encode_error;
     }
 
@@ -233,11 +235,11 @@ no_text:
     void *png_buf = NULL;
 
     /* Get the internal buffer of the finished PNG */
-    png_buf = spng_get_png_buffer(enc, &png_size, &r);
+    png_buf = spng_get_png_buffer(enc, &png_size, &ret);
 
     if(png_buf == NULL)
     {
-        printf("spng_get_png_buffer() error: %s\n", spng_strerror(r));
+        printf("spng_get_png_buffer() error: %s\n", spng_strerror(ret));
     }
 
     /* User owns the buffer after a successful call */
@@ -253,5 +255,5 @@ error:
     spng_ctx_free(ctx);
     free(out);
 
-    return r;
+    return ret;
 }

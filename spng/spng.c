@@ -259,6 +259,7 @@ struct spng_ctx
     enum spng_state state;
 
     unsigned streaming: 1;
+    unsigned internal_buffer: 1; /* encoding to internal buffer */
 
     unsigned inflate: 1;
     unsigned deflate: 1;
@@ -777,6 +778,8 @@ static int require_bytes(spng_ctx *ctx, size_t bytes)
         return 0;
     }
 
+    if(!ctx->internal_buffer) return SPNG_ENODST;
+
     size_t required = ctx->bytes_encoded + bytes;
     if(required < bytes) return SPNG_EOVERFLOW;
 
@@ -828,8 +831,7 @@ static int write_data(spng_ctx *ctx, const void *data, size_t bytes)
     else
     {
         int ret = require_bytes(ctx, bytes);
-
-        if(ret) return encode_err(ctx, SPNG_EMEM);
+        if(ret) return encode_err(ctx, ret);
 
         memcpy(ctx->write_ptr, data, bytes);
 
@@ -5217,6 +5219,19 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             ctx->chunk_count_limit = value;
             break;
         }
+        case SPNG_ENCODE_TO_BUFFER:
+        {
+            if(value < 0) return 1;
+            if(!ctx->encode_only) return SPNG_ECTXTYPE;
+            if(ctx->state >= SPNG_STATE_OUTPUT) return SPNG_EOPSTATE;
+
+            if(!value) return 0;
+
+            ctx->internal_buffer = 1;
+            ctx->state = SPNG_STATE_OUTPUT;
+
+            break;
+        }
         default: return 1;
     }
 
@@ -5282,6 +5297,13 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
         case SPNG_CHUNK_COUNT_LIMIT:
         {
             *value = ctx->chunk_count_limit;
+            break;
+        }
+        case SPNG_ENCODE_TO_BUFFER:
+        {
+            if(ctx->internal_buffer) *value = 1;
+            else *value = 0;
+
             break;
         }
         default: return 1;

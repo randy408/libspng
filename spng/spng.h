@@ -407,8 +407,8 @@ enum spng_option
     SPNG_TEXT_COMPRESSION_STRATEGY,
 
     SPNG_FILTER_CHOICE,
-
     SPNG_CHUNK_COUNT_LIMIT,
+    SPNG_ENCODE_TO_BUFFER,
 };
 
 typedef void* SPNG_CDECL spng_malloc_fn(size_t size);
