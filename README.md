@@ -71,6 +71,9 @@ spng_ctx_free(ctx);
 /* Creating an encoder context requires a flag */
 spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
 
+/* Encode to internal buffer managed by the library */
+spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+
 /* Specify image dimensions, PNG format */
 struct spng_ihdr ihdr =
 {
