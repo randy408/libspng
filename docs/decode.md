@@ -214,6 +214,9 @@ This function can only be called once per context.
 
 The `SPNG_DECODE_PROGRESSIVE` flag is supported in all cases.
 
+The alpha channel is always [straight alpha](https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied),
+premultiplied alpha is not supported.
+
 ## Progressive image decoding
 
 If the `SPNG_DECODE_PROGRESSIVE` flag is set the decoder will be initialized

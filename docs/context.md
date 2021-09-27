@@ -59,8 +59,11 @@ enum spng_format
     SPNG_FMT_RAW = 512  /* big-endian */
 };
 ```
+!!! note
+    The channels are always in [byte-order](https://en.wikipedia.org/wiki/RGBA_color_model#RGBA8888) representation.
 
-The channels are always in [byte-order](https://en.wikipedia.org/wiki/RGBA_color_model#RGBA8888) representation.
+    The alpha channel is always [straight alpha](https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied),
+    premultiplied alpha is not supported.
 
 # spng_filter
 ```c

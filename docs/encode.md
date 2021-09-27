@@ -82,6 +82,9 @@ the internal buffer is freed by [spng_ctx_free()](context.md#spng_ctx_free).
 
 16-bit images are assumed to be host-endian except for `SPNG_FMT_RAW`.
 
+The alpha channel is always [straight alpha](https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied),
+premultiplied alpha is not supported.
+
 ## Progressive image encoding
 
 If the `SPNG_ENCODE_PROGRESSIVE` flag is set the encoder will be initialized
