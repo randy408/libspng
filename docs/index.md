@@ -8,8 +8,9 @@ format files with a focus on security and ease of use.
 ## Documentation
 
 * [Build](build.md)
-* [API documentation](api.md)
 * [Usage](usage.md)
+* [API documentation](api.md)
+* [libpng migration guide](migrate-libpng.md)
 
 ## Download
 

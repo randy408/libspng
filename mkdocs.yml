@@ -8,8 +8,9 @@ copyright: © 2018-2021, Randy
 nav:
     - 'libspng documentation': 'index.md'
     - 'Build': 'build.md'
-    - 'API Documentation': 'api.md'
     - 'Usage': 'usage.md'
+    - 'API Documentation': 'api.md'
+    - 'Migration guide - libpng': 'migrate-libpng.md'
 
 theme:
     name: material
