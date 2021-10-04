@@ -82,8 +82,8 @@ png_structp init_libpng(spngt_test_case *test_case, png_infop *iptr)
 
 unsigned char *getimage_libpng(png_structp png_ptr, png_infop info_ptr, size_t *out_size, int fmt, int flags)
 {
-    unsigned char *image = NULL;
-    png_bytep *row_pointers = NULL;
+    unsigned char *volatile image = NULL;
+    png_bytep *volatile row_pointers = NULL;
 
     if(setjmp(png_jmpbuf(png_ptr)))
     {
