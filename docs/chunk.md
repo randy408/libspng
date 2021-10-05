@@ -6,7 +6,7 @@
   `SPNG_ECHUNKAVAIL` if the PNG does not contain that chunk or was not previously
   set.
 * A successful `spng_set_*()` call will replace any previously set value or list,
-  it does not combine chunk data from the file or multiple `spng_set_*() calls.
+  it does not combine chunk data from the file or multiple `spng_set_*()` calls.
 
 The following apply to decoder contexts:
 
