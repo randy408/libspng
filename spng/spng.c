@@ -5580,7 +5580,9 @@ int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte)
 
     if(check_plte(plte, &ctx->ihdr)) return 1;
 
-    ctx->plte = *plte;
+    ctx->plte.n_entries = plte->n_entries;
+
+    memcpy(ctx->plte.entries, plte->entries, plte->n_entries * sizeof(struct spng_plte_entry));
 
     ctx->stored.plte = 1;
     ctx->user.plte = 1;
