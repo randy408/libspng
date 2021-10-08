@@ -358,14 +358,14 @@ struct spng_ctx
     struct encode_flags encode_flags;
 };
 
-static const uint32_t png_u32max = 2147483647;
+static const uint32_t spng_u32max = INT32_MAX;
 
 static const uint32_t adam7_x_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
 static const uint32_t adam7_y_start[7] = { 0, 0, 4, 0, 2, 0, 1 };
 static const uint32_t adam7_x_delta[7] = { 8, 8, 4, 4, 2, 2, 1 };
 static const uint32_t adam7_y_delta[7] = { 8, 8, 8, 4, 4, 2, 2 };
 
-static const uint8_t png_signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+static const uint8_t spng_signature[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
 static const uint8_t type_ihdr[4] = { 73, 72, 68, 82 };
 static const uint8_t type_plte[4] = { 80, 76, 84, 69 };
@@ -847,7 +847,7 @@ static int write_data(spng_ctx *ctx, const void *data, size_t bytes)
 static int write_header(spng_ctx *ctx, const uint8_t chunk_type[4], size_t chunk_length, unsigned char **data)
 {
     if(ctx == NULL || chunk_type == NULL) return SPNG_EINTERNAL;
-    if(chunk_length > png_u32max) return SPNG_EINTERNAL;
+    if(chunk_length > spng_u32max) return SPNG_EINTERNAL;
 
     size_t total = chunk_length + 12;
 
@@ -870,7 +870,7 @@ static int write_header(spng_ctx *ctx, const uint8_t chunk_type[4], size_t chunk
 
 static int trim_chunk(spng_ctx *ctx, uint32_t length)
 {
-    if(length > png_u32max) return SPNG_EINTERNAL;
+    if(length > spng_u32max) return SPNG_EINTERNAL;
     if(length > ctx->current_chunk.length) return SPNG_EINTERNAL;
 
     ctx->current_chunk.length = length;
@@ -1018,7 +1018,7 @@ static inline int read_header(spng_ctx *ctx)
 
     memcpy(&chunk.type, ctx->data + 4, 4);
 
-    if(chunk.length > png_u32max) return SPNG_ECHUNK_STDLEN;
+    if(chunk.length > spng_u32max) return SPNG_ECHUNK_STDLEN;
 
     ctx->cur_chunk_bytes_left = chunk.length;
 
@@ -1972,8 +1972,8 @@ ga16:
 
 static int check_ihdr(const struct spng_ihdr *ihdr, uint32_t max_width, uint32_t max_height)
 {
-    if(ihdr->width > png_u32max || !ihdr->width) return SPNG_EWIDTH;
-    if(ihdr->height > png_u32max || !ihdr->height) return SPNG_EHEIGHT;
+    if(ihdr->width > spng_u32max || !ihdr->width) return SPNG_EWIDTH;
+    if(ihdr->height > spng_u32max || !ihdr->height) return SPNG_EHEIGHT;
 
     if(ihdr->width > max_width) return SPNG_EUSER_WIDTH;
     if(ihdr->height > max_height) return SPNG_EUSER_HEIGHT;
@@ -2083,14 +2083,14 @@ static int check_chrm_int(const struct spng_chrm_int *chrm_int)
 {
     if(chrm_int == NULL) return 1;
 
-    if(chrm_int->white_point_x > png_u32max ||
-       chrm_int->white_point_y > png_u32max ||
-       chrm_int->red_x > png_u32max ||
-       chrm_int->red_y > png_u32max ||
-       chrm_int->green_x  > png_u32max ||
-       chrm_int->green_y  > png_u32max ||
-       chrm_int->blue_x > png_u32max ||
-       chrm_int->blue_y > png_u32max) return SPNG_ECHRM;
+    if(chrm_int->white_point_x > spng_u32max ||
+       chrm_int->white_point_y > spng_u32max ||
+       chrm_int->red_x > spng_u32max ||
+       chrm_int->red_y > spng_u32max ||
+       chrm_int->green_x  > spng_u32max ||
+       chrm_int->green_y  > spng_u32max ||
+       chrm_int->blue_x > spng_u32max ||
+       chrm_int->blue_y > spng_u32max) return SPNG_ECHRM;
 
     return 0;
 }
@@ -2101,8 +2101,8 @@ static int check_phys(const struct spng_phys *phys)
 
     if(phys->unit_specifier > 1) return SPNG_EPHYS;
 
-    if(phys->ppu_x > png_u32max) return SPNG_EPHYS;
-    if(phys->ppu_y > png_u32max) return SPNG_EPHYS;
+    if(phys->ppu_x > spng_u32max) return SPNG_EPHYS;
+    if(phys->ppu_y > spng_u32max) return SPNG_EPHYS;
 
     return 0;
 }
@@ -2135,7 +2135,7 @@ static int check_exif(const struct spng_exif *exif)
     if(exif->data == NULL) return 1;
 
     if(exif->length < 4) return SPNG_ECHUNK_SIZE;
-    if(exif->length > png_u32max) return SPNG_ECHUNK_STDLEN;
+    if(exif->length > spng_u32max) return SPNG_ECHUNK_STDLEN;
 
     const uint8_t exif_le[4] = { 73, 73, 42, 0 };
     const uint8_t exif_be[4] = { 77, 77, 0, 42 };
@@ -2220,7 +2220,7 @@ static int read_ihdr(spng_ctx *ctx)
 
     data = ctx->data;
 
-    if(memcmp(data, png_signature, sizeof(png_signature))) return SPNG_ESIGNATURE;
+    if(memcmp(data, spng_signature, sizeof(spng_signature))) return SPNG_ESIGNATURE;
 
     chunk->length = read_u32(data + 8);
     memcpy(&chunk->type, data + 12, 4);
@@ -2431,7 +2431,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             ctx->gama = read_u32(data);
 
             if(!ctx->gama) return SPNG_EGAMA;
-            if(ctx->gama > png_u32max) return SPNG_EGAMA;
+            if(ctx->gama > spng_u32max) return SPNG_EGAMA;
 
             ctx->file.gama = 1;
             ctx->stored.gama = 1;
@@ -3947,7 +3947,7 @@ static int write_chunks_before_idat(spng_ctx *ctx)
     const struct spng_ihdr *ihdr = &ctx->ihdr;
     unsigned char *data = ctx->decode_plte.raw;
 
-    ret = write_data(ctx, png_signature, 8);
+    ret = write_data(ctx, spng_signature, 8);
     if(ret) return ret;
 
     write_u32(data,     ihdr->width);
@@ -4849,10 +4849,10 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
 
     ctx->alloc = *alloc;
 
-    ctx->max_width = png_u32max;
-    ctx->max_height = png_u32max;
+    ctx->max_width = spng_u32max;
+    ctx->max_height = spng_u32max;
 
-    ctx->max_chunk_size = png_u32max;
+    ctx->max_chunk_size = spng_u32max;
     ctx->chunk_cache_limit = SIZE_MAX;
     ctx->chunk_count_limit = SPNG_MAX_CHUNK_COUNT;
 
@@ -5099,7 +5099,7 @@ int spng_set_image_limits(spng_ctx *ctx, uint32_t width, uint32_t height)
 {
     if(ctx == NULL) return 1;
 
-    if(width > png_u32max || height > png_u32max) return 1;
+    if(width > spng_u32max || height > spng_u32max) return 1;
 
     ctx->max_width = width;
     ctx->max_height = height;
@@ -5119,7 +5119,7 @@ int spng_get_image_limits(spng_ctx *ctx, uint32_t *width, uint32_t *height)
 
 int spng_set_chunk_limits(spng_ctx *ctx, size_t chunk_size, size_t cache_limit)
 {
-    if(ctx == NULL || chunk_size > png_u32max || chunk_size > cache_limit) return 1;
+    if(ctx == NULL || chunk_size > spng_u32max || chunk_size > cache_limit) return 1;
 
     ctx->max_chunk_size = chunk_size;
 
@@ -5666,7 +5666,7 @@ int spng_set_gama(spng_ctx *ctx, double gamma)
     uint32_t gama = gamma * 100000.0;
 
     if(!gama) return 1;
-    if(gama > png_u32max) return 1;
+    if(gama > spng_u32max) return 1;
 
     ctx->gama = gama;
 
@@ -5681,7 +5681,7 @@ int spng_set_gama_int(spng_ctx *ctx, uint32_t gamma)
     SPNG_SET_CHUNK_BOILERPLATE(ctx);
 
     if(!gamma) return 1;
-    if(gamma > png_u32max) return 1;
+    if(gamma > spng_u32max) return 1;
 
     ctx->gama = gamma;
 
@@ -5928,7 +5928,7 @@ int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *chunks, ui
     uint32_t i;
     for(i=0; i < n_chunks; i++)
     {
-        if(chunks[i].length > png_u32max) return SPNG_ECHUNK_STDLEN;
+        if(chunks[i].length > spng_u32max) return SPNG_ECHUNK_STDLEN;
         if(chunks[i].length && chunks[i].data == NULL) return 1;
 
         switch(chunks[i].location)
