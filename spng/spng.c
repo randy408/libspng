@@ -66,7 +66,7 @@
 
         #if defined(SPNG_ARM)
         static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);
-        static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);
+        /*static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);*/
         #endif
     #endif
 #endif
@@ -1883,7 +1883,7 @@ static void expand_row(unsigned char *row,
     if(fmt == SPNG_FMT_RGBA8) i = expand_palette_rgba8_neon(row, scanline, decode_plte->raw, width);
     else if(fmt == SPNG_FMT_RGB8)
     {
-        i = expand_palette_rgb8_neon(row, scanline, decode_plte->raw, width);
+        /*i = expand_palette_rgb8_neon(row, scanline, decode_plte->raw, width);*/
 
         for(; i < width; i++)
         {/* In this case the LUT is 3 bytes packed */
@@ -6903,7 +6903,7 @@ static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned cha
 
     return i;
 }
-
+#if 0 /* Disabled pending a fix in the next version */
 /* Expands a palettized row into RGB8. */
 static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width)
 {
@@ -6931,5 +6931,5 @@ static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char
 
     return i;
 }
-
+#endif
 #endif /* SPNG_ARM */
