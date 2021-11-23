@@ -5216,7 +5216,7 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
         case SPNG_CHUNK_COUNT_LIMIT:
         {
             if(value < 0) return 1;
-            if(value > ctx->chunk_count_total) return 1;
+            if(value > (int)ctx->chunk_count_total) return 1;
             ctx->chunk_count_limit = value;
             break;
         }
