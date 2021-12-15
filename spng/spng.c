@@ -6048,7 +6048,7 @@ const char *spng_strerror(int err)
         case SPNG_EIDAT_STREAM: return "IDAT stream error";
         case SPNG_EZLIB: return "zlib error";
         case SPNG_EFILTER: return "invalid scanline filter";
-        case SPNG_EBUFSIZ: return "output buffer too small";
+        case SPNG_EBUFSIZ: return "invalid buffer size";
         case SPNG_EIO: return "i/o error";
         case SPNG_EOF: return "end of file";
         case SPNG_EBUF_SET: return "buffer already set";
