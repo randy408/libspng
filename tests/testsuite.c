@@ -483,7 +483,8 @@ static int set_chunks(spng_ctx *dst, spngt_chunk_data *spng)
 
 static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr, int after_idat)
 {
-    uint32_t i, ret = 0;
+    uint32_t i;
+    enum spng_errno ret = 0;
     spngt_chunk_data spng = {0};
     spngt_chunk_data png = {0};
 
@@ -968,7 +969,7 @@ static int compare_chunks(spng_ctx *ctx, png_infop info_ptr, png_structp png_ptr
         {
             if(spng.chunks[i].length != png_chunks[i].size)
             {
-                printf("chunk[%d]: size mismatch %" PRIu64 "(spng) %" PRIu64" (libpng)\n", i, spng.chunks[i].length, png_chunks[i].size);
+                printf("chunk[%d]: size mismatch %zu (spng) %zu (libpng)\n", i, spng.chunks[i].length, png_chunks[i].size);
                 ret = 1;
             }
 
