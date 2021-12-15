@@ -6882,26 +6882,25 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
 /* Expands a palettized row into RGBA8. */
 static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width)
 {
-    const uint32_t stride = 4;
+    const uint32_t scanline_stride = 4;
+    const uint32_t row_stride = scanline_stride * 4;
+    const uint32_t count = width / scanline_stride;
     const uint32_t *palette = (const uint32_t*)plte;
 
-    if(width < stride) return 0;
+    if(!count) return 0;
 
     uint32_t i;
-    for(i=0; i < width; i += stride, scanline += stride, row += stride * 4)
+    uint32x4_t cur;
+    for(i=0; i < count; i++, scanline += scanline_stride)
     {
-        uint32x4_t cur;
         cur = vld1q_dup_u32 (palette + scanline[0]);
         cur = vld1q_lane_u32(palette + scanline[1], cur, 1);
         cur = vld1q_lane_u32(palette + scanline[2], cur, 2);
         cur = vld1q_lane_u32(palette + scanline[3], cur, 3);
-        vst1q_u32((void*)row, cur);
+        vst1q_u32((uint32_t*)(row + i * row_stride), cur);
     }
 
-    /* Remove the amount that wasn't processed. */
-    if(i != width) i -= stride;
-
-    return i;
+    return count * scanline_stride;
 }
 
 /* Expands a palettized row into RGB8. */
