@@ -1411,7 +1411,7 @@ static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t le
 static int extended_tests(FILE *file, int fmt)
 {
     uint32_t i;
-    int ret = 0;
+    enum spng_errno ret = 0;
     unsigned char *image = NULL;
     unsigned char *encoded = NULL;
     spng_ctx *enc = NULL;
@@ -1524,6 +1524,14 @@ static int extended_tests(FILE *file, int fmt)
         ret = 1;
         goto cleanup;
     }
+
+    if(!ret)
+    {
+        printf("spng_get_png_buffer(): invalid return value\n");
+        ret = 1;
+        goto cleanup;
+    }
+    else ret = 0; /* clear the (expected) error */
 
     if(state.bytes_left)
     {

@@ -5057,36 +5057,21 @@ int spng_set_png_file(spng_ctx *ctx, FILE *file)
 
 void *spng_get_png_buffer(spng_ctx *ctx, size_t *len, int *error)
 {
-    if(ctx == NULL || !len)
-    {
-        if(error) *error = SPNG_EINVAL;
-        return NULL;
-    }
-
     int tmp = 0;
     error = error ? error : &tmp;
-
-    if(!ctx->encode_only)
-    {
-        *error = SPNG_ECTXTYPE;
-        return NULL;
-    }
-
-    if(!ctx->state)
-    {
-        *error = SPNG_EBADSTATE;
-        return NULL;
-    }
-
-    if(ctx->state != SPNG_STATE_IEND)
-    {
-        if(ctx->state >= SPNG_STATE_ENCODE_INIT) *error = SPNG_ENOTFINAL;
-        else *error = SPNG_EOPSTATE;
-
-        return NULL;
-    }
-
     *error = 0;
+
+    if(ctx == NULL || !len) *error = SPNG_EINVAL;
+
+    if(*error) return NULL;
+
+    if(!ctx->encode_only) *error = SPNG_ECTXTYPE;
+    else if(!ctx->state) *error = SPNG_EBADSTATE;
+    else if(!ctx->internal_buffer) *error = SPNG_EOPSTATE;
+    else if(ctx->state < SPNG_STATE_EOI) *error = SPNG_EOPSTATE;
+    else if(ctx->state != SPNG_STATE_IEND) *error = SPNG_ENOTFINAL;
+
+    if(*error) return NULL;
 
     ctx->user_owns_out_png = 1;
 
