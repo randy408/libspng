@@ -12,6 +12,7 @@ struct buf_state
 static int buffer_read_fn(spng_ctx *ctx, void *user, void *dest, size_t length)
 {
     struct buf_state *state = (struct buf_state*)user;
+    (void)ctx;
 
     if(length > state->bytes_left) return SPNG_IO_EOF;
 
