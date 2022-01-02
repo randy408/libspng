@@ -3,7 +3,7 @@ site_url: https://libspng.org/docs
 repo_url: https://github.com/randy408/libspng/
 site_description: libspng documentation
 site_author: Randy
-copyright: © 2018-2021, Randy
+copyright: © 2018-2022, Randy
 
 nav:
     - 'libspng documentation': 'index.md'
