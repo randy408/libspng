@@ -169,7 +169,7 @@ struct encode_flags
     unsigned progressive:    1;
     unsigned finalize:       1;
 
-    int filter_choice;
+    enum spng_filter_choice filter_choice;
 };
 
 struct spng_chunk_bitfield
@@ -4719,20 +4719,21 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     if(ihdr->bit_depth < 8) ctx->bytes_per_pixel = 1;
     else ctx->bytes_per_pixel = ctx->channels * (ihdr->bit_depth / 8);
 
+    /* Filtering would make no difference */
     if(!ctx->image_options.compression_level)
     {
-        encode_flags->filter_choice = 0; /* Filtering would make no difference */
+        encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
     }
 
     if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED || ihdr->bit_depth < 8)
     {
-        encode_flags->filter_choice = 0;
+        encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
     }
 
     /* This is the same as disabling filtering */
     if(encode_flags->filter_choice == SPNG_FILTER_CHOICE_NONE)
     {
-        encode_flags->filter_choice = 0;
+        encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
     }
 
     if(!encode_flags->filter_choice)
