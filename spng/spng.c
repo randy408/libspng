@@ -66,7 +66,7 @@
 
         #if defined(SPNG_ARM)
         static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);
-        /*static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);*/
+        static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width);
         #endif
     #endif
 #endif
@@ -1883,7 +1883,7 @@ static void expand_row(unsigned char *row,
     if(fmt == SPNG_FMT_RGBA8) i = expand_palette_rgba8_neon(row, scanline, decode_plte->raw, width);
     else if(fmt == SPNG_FMT_RGB8)
     {
-        /*i = expand_palette_rgb8_neon(row, scanline, decode_plte->raw, width);*/
+        i = expand_palette_rgb8_neon(row, scanline, decode_plte->raw, width);
 
         for(; i < width; i++)
         {/* In this case the LUT is 3 bytes packed */
@@ -6868,39 +6868,40 @@ static void defilter_paeth4(size_t rowbytes, unsigned char *row, const unsigned 
 /* Expands a palettized row into RGBA8. */
 static uint32_t expand_palette_rgba8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width)
 {
-    const uint32_t stride = 4;
+    const uint32_t scanline_stride = 4;
+    const uint32_t row_stride = scanline_stride * 4;
+    const uint32_t count = width / scanline_stride;
     const uint32_t *palette = (const uint32_t*)plte;
 
-    if(width < stride) return 0;
+    if(!count) return 0;
 
     uint32_t i;
-    for(i=0; i < width; i += stride, scanline += stride, row += stride * 4)
+    uint32x4_t cur;
+    for(i=0; i < count; i++, scanline += scanline_stride)
     {
-        uint32x4_t cur;
         cur = vld1q_dup_u32 (palette + scanline[0]);
         cur = vld1q_lane_u32(palette + scanline[1], cur, 1);
         cur = vld1q_lane_u32(palette + scanline[2], cur, 2);
         cur = vld1q_lane_u32(palette + scanline[3], cur, 3);
-        vst1q_u32((void*)row, cur);
+        vst1q_u32((uint32_t*)(row + i * row_stride), cur);
     }
 
-    /* Remove the amount that wasn't processed. */
-    if(i != width) i -= stride;
-
-    return i;
+    return count * scanline_stride;
 }
-#if 0 /* Disabled pending a fix in the next version */
+
 /* Expands a palettized row into RGB8. */
 static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char *scanline, const unsigned char *plte, uint32_t width)
 {
-    const uint32_t stride = 8;
+    const uint32_t scanline_stride = 8;
+    const uint32_t row_stride = scanline_stride * 3;
+    const uint32_t count = width / scanline_stride;
 
-    if(width <= stride) return 0;
+    if(!count) return 0;
 
     uint32_t i;
-    for(i=0; i < width; i += stride, scanline += stride, row += stride * 3)
+    uint8x8x3_t cur;
+    for(i=0; i < count; i++, scanline += scanline_stride)
     {
-        uint8x8x3_t cur;
         cur = vld3_dup_u8 (plte + 3 * scanline[0]);
         cur = vld3_lane_u8(plte + 3 * scanline[1], cur, 1);
         cur = vld3_lane_u8(plte + 3 * scanline[2], cur, 2);
@@ -6909,13 +6910,10 @@ static uint32_t expand_palette_rgb8_neon(unsigned char *row, const unsigned char
         cur = vld3_lane_u8(plte + 3 * scanline[5], cur, 5);
         cur = vld3_lane_u8(plte + 3 * scanline[6], cur, 6);
         cur = vld3_lane_u8(plte + 3 * scanline[7], cur, 7);
-        vst3_u8((void*)row, cur);
+        vst3_u8(row + i * row_stride, cur);
     }
 
-    /* Remove the amount that wasn't processed. */
-    if(i != width) i -= stride;
-
-    return i;
+    return count * scanline_stride;
 }
-#endif
+
 #endif /* SPNG_ARM */
