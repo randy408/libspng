@@ -16,8 +16,13 @@ int main(int argc, char **argv)
         goto error;
     }
 
+#if defined(_MSC_VER)
+    r = fopen_s(&png, argv[1], "rb");
+#else
     png = fopen(argv[1], "rb");
-    if(png == NULL)
+    if(!png) r = 1;
+#endif
+    if(r)
     {
         printf("error opening input file %s\n", argv[1]);
         goto error;
