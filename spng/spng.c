@@ -124,6 +124,9 @@ enum spng__internal
     int ret = read_chunks(ctx, 0); \
     if(ret) return ret
 
+/* Determine if the spng_option can be overriden/optimized */
+#define spng__optimize(option) (ctx->optimize_option & option)
+
 struct spng_subimage
 {
     uint32_t width;
@@ -299,6 +302,8 @@ struct spng_ctx
 
     int crc_action_critical;
     int crc_action_ancillary;
+
+    int32_t optimize_option;
 
     struct spng_ihdr ihdr;
 
@@ -4719,24 +4724,28 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     if(ihdr->bit_depth < 8) ctx->bytes_per_pixel = 1;
     else ctx->bytes_per_pixel = ctx->channels * (ihdr->bit_depth / 8);
 
-    /* Filtering would make no difference */
-    if(!ctx->image_options.compression_level)
+    if(spng__optimize(SPNG_FILTER_CHOICE))
     {
-        encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
+        /* Filtering would make no difference */
+        if(!ctx->image_options.compression_level)
+        {
+            encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
+        }
+
+        /* Palette indices and low bit-depth images do not benefit from filtering */
+        if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED || ihdr->bit_depth < 8)
+        {
+            encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
+        }
     }
 
-    if(ihdr->color_type == SPNG_COLOR_TYPE_INDEXED || ihdr->bit_depth < 8)
-    {
-        encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
-    }
-
-    /* This is the same as disabling filtering */
+    /* This is technically the same as disabling filtering */
     if(encode_flags->filter_choice == SPNG_FILTER_CHOICE_NONE)
     {
         encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
     }
 
-    if(!encode_flags->filter_choice)
+    if(!encode_flags->filter_choice && spng__optimize(SPNG_FILTER_CHOICE))
     {
         ctx->image_options.strategy = Z_DEFAULT_STRATEGY;
     }
@@ -4883,6 +4892,7 @@ spng_ctx *spng_ctx_new2(struct spng_alloc *alloc, int flags)
     ctx->image_options = image_defaults;
     ctx->text_options = text_defaults;
 
+    ctx->optimize_option = ~0;
     ctx->encode_flags.filter_choice = SPNG_FILTER_CHOICE_ALL;
 
     ctx->flags = flags;
@@ -5221,6 +5231,9 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
         }
         default: return 1;
     }
+
+    /* Option can no longer be overriden by the library */
+    if(option < 32) ctx->optimize_option &= ~(1 << option);
 
     return 0;
 }
