@@ -125,7 +125,7 @@ enum spng__internal
     if(ret) return ret
 
 /* Determine if the spng_option can be overriden/optimized */
-#define spng__optimize(option) (ctx->optimize_option & option)
+#define spng__optimize(option) (ctx->optimize_option & (1 << option))
 
 struct spng_subimage
 {
@@ -303,7 +303,7 @@ struct spng_ctx
     int crc_action_critical;
     int crc_action_ancillary;
 
-    int32_t optimize_option;
+    uint32_t optimize_option;
 
     struct spng_ihdr ihdr;
 
@@ -5222,7 +5222,7 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
             if(!ctx->encode_only) return SPNG_ECTXTYPE;
             if(ctx->state >= SPNG_STATE_OUTPUT) return SPNG_EOPSTATE;
 
-            if(!value) return 0;
+            if(!value) break;
 
             ctx->internal_buffer = 1;
             ctx->state = SPNG_STATE_OUTPUT;
