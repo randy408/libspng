@@ -4745,7 +4745,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
         encode_flags->filter_choice = SPNG_DISABLE_FILTERING;
     }
 
-    if(!encode_flags->filter_choice && spng__optimize(SPNG_FILTER_CHOICE))
+    if(!encode_flags->filter_choice && spng__optimize(SPNG_IMG_COMPRESSION_STRATEGY))
     {
         ctx->image_options.strategy = Z_DEFAULT_STRATEGY;
     }
