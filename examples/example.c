@@ -5,8 +5,8 @@
 
 int main(int argc, char **argv)
 {
-    int ret = 0;
     FILE *png;
+    int ret = 0;
     spng_ctx *ctx = NULL;
     unsigned char *out = NULL;
 
@@ -17,6 +17,7 @@ int main(int argc, char **argv)
     }
 
     png = fopen(argv[1], "rb");
+
     if(png == NULL)
     {
         printf("error opening input file %s\n", argv[1]);
@@ -94,8 +95,8 @@ int main(int argc, char **argv)
        Note that for these two formats <8-bit images are left byte-packed */
     int fmt = SPNG_FMT_PNG;
 
-    /* For this format indexed color images are output as palette indices,
-       if you want to expand them pick another format */
+    /* With SPNG_FMT_PNG indexed color images are output as palette indices,
+       pick another format to expand them. */
     if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
 
     ret = spng_decoded_image_size(ctx, fmt, &out_size);
@@ -107,6 +108,7 @@ int main(int argc, char **argv)
 
     /* This is required to initialize for progressive decoding */
     ret = spng_decode_image(ctx, NULL, 0, fmt, SPNG_DECODE_PROGRESSIVE);
+
     if(ret)
     {
         printf("progressive spng_decode_image() error: %s\n", spng_strerror(ret));
@@ -139,11 +141,11 @@ int main(int argc, char **argv)
 
     /* Alternatively you can decode the image in one go,
        this doesn't require a separate initialization step. */
-    /* r = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
+    /* ret = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
 
-    if(r)
+    if(ret)
     {
-        printf("spng_decode_image() error: %s\n", spng_strerror(r));
+        printf("spng_decode_image() error: %s\n", spng_strerror(ret));
         goto error;
     } */
 
