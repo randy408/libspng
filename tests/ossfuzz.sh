@@ -31,6 +31,13 @@ $CXX $CXXFLAGS -std=c++11 -I$SRC/zlib/build -I$SRC/zlib \
     -D PNG_MUTATOR_DEFINE_LIBFUZZER_CUSTOM_MUTATOR \
     $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng_static.a $SRC/zlib/build/libz.a
 
+$CXX $CXXFLAGS -std=c++11 \
+    $SRC/libspng/tests/spng_write_fuzzer.c \
+    -DSPNGT_HAVE_FMEMOPEN=1 \
+    -o $OUT/spng_write_fuzzer \
+    $LIB_FUZZING_ENGINE $SRC/libspng/build/libspng_static.a $SRC/zlib/build/libz.a
+
+
 find $SRC/libspng/tests -name "*.png" | \
      xargs zip $OUT/seed_corpus.zip
 
