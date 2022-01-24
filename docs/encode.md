@@ -85,9 +85,9 @@ the internal buffer is freed by [spng_ctx_free()](context.md#spng_ctx_free).
 The alpha channel is always [straight alpha](https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied),
 premultiplied alpha is not supported.
 
-!!! note
-    Encoder options are optimized based on PNG format and compression level,
-    the compression strategy and filtering options set with [`spng_set_option()`]([context.md#spng_set_option]) may get overriden.
+Compression level and other options can be customized with [`spng_set_option()`]([context.md#spng_set_option]).
+Note that encoder options are optimized based on PNG format and compression level,
+overriding other options such as filtering may disable some of these optimizations.
 
 
 ## Progressive image encoding
