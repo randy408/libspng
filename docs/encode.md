@@ -118,7 +118,7 @@ for(i = 0; i < ihdr.height; i++)
 if(error == SPNG_EOI) /* success */
 ```
 
-But for interlaced images (`spng_ihdr.interlaced_method` set to `1`))
+But for interlaced images (`spng_ihdr.interlaced_method` set to `1`)
 rows are accessed multiple times and non-sequentially,
 use [spng_get_row_info()](context.md#spng_get_row_info) to get the current row number:
 
