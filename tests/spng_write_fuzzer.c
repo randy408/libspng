@@ -47,7 +47,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     data += sizeof(params);
 
     //int flags = params[0];
-    int fmt = params[2] | (data[1] << 8);
+    int fmt = params[2] | (params[1] << 8);
     int stream = params[3] & 1;
     int progressive = params[3] & 2;
     //int file_stream = params[3] & 4;
