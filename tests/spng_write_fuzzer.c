@@ -90,6 +90,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     struct spng_time time;
 
     copy_val(ihdr);
+    copy_val(plte);
     copy_val(trns);
     copy_val(chrm);
     copy_val(chrm_int);
