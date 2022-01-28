@@ -18,6 +18,13 @@ read_fuzzer = executable('fuzz_repro',
     link_with : spng_lib
 )
 
+write_fuzzer_exe = executable('fuzz_write_repro',
+    'fuzz_main.c',
+    'spng_write_fuzzer.c',
+    c_args : fuzzer_args,
+    link_with : spng_lib
+)
+
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
 test_deps = [ spng_dep, png_dep ]
