@@ -4605,7 +4605,7 @@ static int encode_row(spng_ctx *ctx, const void *row, size_t len)
         const unsigned char *row_uc = row;
         uint8_t sample;
 
-        memset(scanline, 0, len);
+        memset(scanline, ctx->subimage[pass].scanline_width, len);
 
         for(k=0; k < ctx->subimage[pass].width; k++)
         {
