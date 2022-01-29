@@ -3921,6 +3921,11 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     {
         size_t ioffset = ri->row_num * ctx->out_width;
 
+        if(flags & SPNG_DECODE_FLIP_Y)
+        {
+            ioffset = len - ctx->out_width - ioffset;
+        }
+
         ret = spng_decode_row(ctx, (unsigned char*)out + ioffset, ctx->out_width);
     }while(!ret);
 

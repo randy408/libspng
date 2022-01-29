@@ -25,6 +25,7 @@ enum spng_decode_flags
 
     SPNG_DECODE_TRNS = 1, /* Apply transparency */
     SPNG_DECODE_GAMMA = 2, /* Apply gamma correction */
+    SPNG_DECODE_FLIP_Y = 16, /* Flip the image vertically */
     SPNG_DECODE_PROGRESSIVE = 256 /* Initialize for progressive reads */
 };
 ```
