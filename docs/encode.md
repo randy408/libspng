@@ -56,6 +56,8 @@ Encodes the image from `img` in the source format `fmt` to the specified PNG for
 
 The width, height, color type, bit depth and interlace method must be set with [spng_set_ihdr()](chunk.md#spng_set_ihdr).
 
+If the color type is set to `SPNG_COLOR_TYPE_INDEXED` a palette must be set with [spng_set_plte()](chunk.md#spng_set_plte).
+
 `img` must point to a buffer of length `len`, `len` must be equal to the expected image
 size for the given format `fmt`.
 
