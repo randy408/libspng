@@ -71,8 +71,6 @@ const char *color_type_str(enum spng_color_type color_type)
         case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA: return "truecolor with alpha";
         default: return "(invalid)";
     }
-
-    return "(invalid)";
 }
 
 int main(int argc, char **argv)
