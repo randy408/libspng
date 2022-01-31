@@ -3,12 +3,82 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+int encode_image(void *image, size_t length, uint32_t width, uint32_t height, int color_type, int bit_depth)
+{
+    int fmt;
+    int ret = 0;
+    spng_ctx *ctx = NULL;
+    struct spng_ihdr ihdr = {0}; /* zero-initialize to set valid defaults */
+
+    /* Creating an encoder context requires a flag */
+    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
+
+    /* Encode to internal buffer managed by the library */
+    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
+
+    /* Alternatively you can set an output FILE* or stream with spng_set_png_file() or spng_set_png_stream() */
+
+    /* Set image properties, this determines the destination image format */
+    ihdr.width = width;
+    ihdr.height = height;
+    ihdr.color_type = color_type;
+    ihdr.bit_depth = bit_depth;
+
+    spng_set_ihdr(ctx, &ihdr);
+
+    /* When encoding fmt is the source format */
+    /* SPNG_FMT_PNG is a special value that matches the format in ihdr */
+    fmt = SPNG_FMT_PNG;
+
+    /* SPNG_ENCODE_FINALIZE will finalize the PNG with the end-of-file marker */
+    ret = spng_encode_image(ctx, image, length, fmt, SPNG_ENCODE_FINALIZE);
+
+    if(ret)
+    {
+        printf("spng_encode_image() error: %s\n", spng_strerror(ret));
+        goto encode_error;
+    }
+
+    size_t png_size;
+    void *png_buf = NULL;
+
+    /* Get the internal buffer of the finished PNG */
+    png_buf = spng_get_png_buffer(ctx, &png_size, &ret);
+
+    if(png_buf == NULL)
+    {
+        printf("spng_get_png_buffer() error: %s\n", spng_strerror(ret));
+    }
+
+    /* User owns the buffer after a successful call */
+    free(png_buf);
+
+encode_error:
+
+    spng_ctx_free(ctx);
+
+    return ret;
+}
+
+const char *color_type_str(enum spng_color_type color_type)
+{
+    switch(color_type)
+    {
+        case SPNG_COLOR_TYPE_GRAYSCALE: return "grayscale";
+        case SPNG_COLOR_TYPE_TRUECOLOR: return "truecolor";
+        case SPNG_COLOR_TYPE_INDEXED: return "indexed color";
+        case SPNG_COLOR_TYPE_GRAYSCALE_ALPHA: return "grayscale with alpha";
+        case SPNG_COLOR_TYPE_TRUECOLOR_ALPHA: return "truecolor with alpha";
+        default: return "(invalid)";
+    }
+}
+
 int main(int argc, char **argv)
 {
     FILE *png;
     int ret = 0;
     spng_ctx *ctx = NULL;
-    unsigned char *out = NULL;
+    unsigned char *image = NULL;
 
     if(argc < 2)
     {
@@ -52,28 +122,18 @@ int main(int argc, char **argv)
         goto error;
     }
 
-    char *clr_type_str;
+    const char *color_name = color_type_str(ihdr.color_type);
 
-    if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE)
-        clr_type_str = "grayscale";
-    else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR)
-        clr_type_str = "truecolor";
-    else if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED)
-        clr_type_str = "indexed color";
-    else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA)
-        clr_type_str = "grayscale with alpha";
-    else
-        clr_type_str = "truecolor with alpha";
+    printf("width: %u\n"
+           "height: %u\n"
+           "bit depth: %u\n"
+           "color type: %u - %s\n",
+           ihdr.width, ihdr.height, ihdr.bit_depth, ihdr.color_type, color_name);
 
-
-    printf("width: %" PRIu32 "\nheight: %" PRIu32 "\n"
-           "bit depth: %" PRIu8 "\ncolor type: %" PRIu8 " - %s\n",
-           ihdr.width, ihdr.height,
-           ihdr.bit_depth, ihdr.color_type, clr_type_str);
-    printf("compression method: %" PRIu8 "\nfilter method: %" PRIu8 "\n"
-           "interlace method: %" PRIu8 "\n",
-           ihdr.compression_method, ihdr.filter_method,
-           ihdr.interlace_method);
+    printf("compression method: %u\n"
+           "filter method: %u\n"
+           "interlace method: %u\n",
+           ihdr.compression_method, ihdr.filter_method, ihdr.interlace_method);
 
     struct spng_plte plte = {0};
     ret = spng_get_plte(ctx, &plte);
@@ -84,10 +144,10 @@ int main(int argc, char **argv)
         goto error;
     }
 
-    if(!ret) printf("palette entries: %" PRIu32 "\n", plte.n_entries);
+    if(!ret) printf("palette entries: %u\n", plte.n_entries);
 
 
-    size_t out_size, out_width;
+    size_t image_size, image_width;
 
     /* Output format, does not depend on source PNG format except for
        SPNG_FMT_PNG, which is the PNG's format in host-endian or
@@ -99,14 +159,25 @@ int main(int argc, char **argv)
        pick another format to expand them. */
     if(ihdr.color_type == SPNG_COLOR_TYPE_INDEXED) fmt = SPNG_FMT_RGB8;
 
-    ret = spng_decoded_image_size(ctx, fmt, &out_size);
+    ret = spng_decoded_image_size(ctx, fmt, &image_size);
 
     if(ret) goto error;
 
-    out = malloc(out_size);
-    if(out == NULL) goto error;
+    image = malloc(image_size);
 
-    /* This is required to initialize for progressive decoding */
+    if(image == NULL) goto error;
+
+    /* Decode the image in one go */
+    /* ret = spng_decode_image(ctx, image, image_size, SPNG_FMT_RGBA8, 0);
+
+    if(ret)
+    {
+        printf("spng_decode_image() error: %s\n", spng_strerror(ret));
+        goto error;
+    }*/
+
+    /* Alternatively you can decode the image progressively,
+       this requires an initialization step. */
     ret = spng_decode_image(ctx, NULL, 0, fmt, SPNG_DECODE_PROGRESSIVE);
 
     if(ret)
@@ -116,7 +187,7 @@ int main(int argc, char **argv)
     }
 
     /* ihdr.height will always be non-zero if spng_get_ihdr() succeeds */
-    out_width = out_size / ihdr.height;
+    image_width = image_size / ihdr.height;
 
     struct spng_row_info row_info = {0};
 
@@ -125,7 +196,7 @@ int main(int argc, char **argv)
         ret = spng_get_row_info(ctx, &row_info);
         if(ret) break;
 
-        ret = spng_decode_row(ctx, out + row_info.row_num * out_width, out_width);
+        ret = spng_decode_row(ctx, image + row_info.row_num * image_width, image_width);
     }
     while(!ret);
 
@@ -134,30 +205,20 @@ int main(int argc, char **argv)
         printf("progressive decode error: %s\n", spng_strerror(ret));
 
         if(ihdr.interlace_method)
-            printf("last pass: %d, scanline: %" PRIu32 "\n", row_info.pass, row_info.scanline_idx);
+            printf("last pass: %d, scanline: %u\n", row_info.pass, row_info.scanline_idx);
         else
-            printf("last row: %" PRIu32 "\n", row_info.row_num);
+            printf("last row: %u\n", row_info.row_num);
     }
 
-    /* Alternatively you can decode the image in one go,
-       this doesn't require a separate initialization step. */
-    /* ret = spng_decode_image(ctx, out, out_size, SPNG_FMT_RGBA8, 0);
-
-    if(ret)
-    {
-        printf("spng_decode_image() error: %s\n", spng_strerror(ret));
-        goto error;
-    } */
-
+    uint32_t n_text = 0;
     struct spng_text *text = NULL;
-    uint32_t n_text;
 
     ret = spng_get_text(ctx, NULL, &n_text);
 
-    if(ret == SPNG_ECHUNKAVAIL)
+    if(ret == SPNG_ECHUNKAVAIL) /* No text chunks in file */
     {
         ret = 0;
-        goto no_text; /* no text chunks found in file */
+        goto no_text;
     }
 
     if(ret)
@@ -202,60 +263,16 @@ int main(int argc, char **argv)
 no_text:
     free(text);
 
-    /* The encoder supports all PNG formats but format conversion support is limited */
-    if(fmt != SPNG_FMT_PNG) goto skip_encode;
-
-    /* This example reencodes the decoded image */
-
-    /* Creating an encoder context requires a flag */
-    spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
-
-    /* Encode to internal buffer managed by the library */
-    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
-
-    /* Alternatively you can set an output FILE* or stream with spng_set_png_file() or spng_set_png_stream() */
-
-    /* In this case we're reencoding to the same PNG format */
-    spng_set_ihdr(enc, &ihdr);
-
-    /* Copy the palette from the source file */
-    if(plte.n_entries > 0) spng_set_plte(enc, &plte);
-
-    /* SPNG_FMT_PNG is a special value that matches the format in ihdr */
-    fmt = SPNG_FMT_PNG;
-
-    /* SPNG_ENCODE_FINALIZE will finalize the PNG with the end-of-file marker */
-    ret = spng_encode_image(enc, out, out_size, fmt, SPNG_ENCODE_FINALIZE);
-
-    if(ret)
+    /* This example assumes a non-paletted image */
+    if(fmt == SPNG_FMT_PNG)
     {
-        printf("spng_encode_image() error: %s\n", spng_strerror(ret));
-        goto encode_error;
+        ret = encode_image(image, image_size, ihdr.width, ihdr.height, ihdr.color_type, ihdr.bit_depth);
     }
 
-    size_t png_size;
-    void *png_buf = NULL;
-
-    /* Get the internal buffer of the finished PNG */
-    png_buf = spng_get_png_buffer(enc, &png_size, &ret);
-
-    if(png_buf == NULL)
-    {
-        printf("spng_get_png_buffer() error: %s\n", spng_strerror(ret));
-    }
-
-    /* User owns the buffer after a successful call */
-    free(png_buf);
-
-encode_error:
-
-    spng_ctx_free(enc);
-
-skip_encode:
 error:
 
     spng_ctx_free(ctx);
-    free(out);
+    free(image);
 
     return ret;
 }
