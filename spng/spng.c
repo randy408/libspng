@@ -3614,7 +3614,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     if(ret) return decode_err(ctx, ret);
 
     if(ctx->image_width > SIZE_MAX / ihdr->height) ctx->image_size = 0; /* overflow */
-    ctx->image_size = ctx->image_width * ihdr->height;
+    else ctx->image_size = ctx->image_width * ihdr->height;
 
     if( !(flags & SPNG_DECODE_PROGRESSIVE) )
     {
@@ -4744,7 +4744,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     if(ret) return encode_err(ctx, ret);
 
     if(ctx->image_width > SIZE_MAX / ihdr->height) ctx->image_size = 0; /* overflow */
-    ctx->image_size = ctx->image_width * ihdr->height;
+    else ctx->image_size = ctx->image_width * ihdr->height;
 
     if( !(flags & SPNG_ENCODE_PROGRESSIVE) )
     {
