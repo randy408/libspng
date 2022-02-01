@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-int encode_image(void *image, size_t length, uint32_t width, uint32_t height, int color_type, int bit_depth)
+int encode_image(void *image, size_t length, uint32_t width, uint32_t height, enum spng_color_type color_type, int bit_depth)
 {
     int fmt;
     int ret = 0;
@@ -23,6 +23,7 @@ int encode_image(void *image, size_t length, uint32_t width, uint32_t height, in
     ihdr.height = height;
     ihdr.color_type = color_type;
     ihdr.bit_depth = bit_depth;
+    /* Valid color type, bit depth combinations: https://www.w3.org/TR/2003/REC-PNG-20031110/#table111 */
 
     spng_set_ihdr(ctx, &ihdr);
 
