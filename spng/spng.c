@@ -3623,10 +3623,31 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
         if(len < ctx->image_size) return SPNG_EBUFSIZ;
     }
 
+    uint32_t bytes_read = 0;
+
+    ret = read_idat_bytes(ctx, &bytes_read);
+    if(ret) return decode_err(ctx, ret);
+
+    if(bytes_read > 1)
+    {
+        int valid = read_u16(ctx->data) % 31 ? 0 : 1;
+
+        unsigned flg = ctx->data[1];
+        unsigned flevel = flg >> 6;
+        int compression_level = 6;
+
+        if(flevel == 0) compression_level = 0; /* fastest */
+        else if(flevel == 1) compression_level = 1; /* fast */
+        else if(flevel == 2) compression_level = 6; /* default */
+        else if(flevel == 3) compression_level = 9; /* slowest, max compression */
+
+        if(valid) ctx->image_options.compression_level = compression_level;
+    }
+
     ret = spng__inflate_init(ctx, ctx->image_options.window_bits);
     if(ret) return decode_err(ctx, ret);
 
-    ctx->zstream.avail_in = 0;
+    ctx->zstream.avail_in = bytes_read;
     ctx->zstream.next_in = ctx->data;
 
     size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width;
