@@ -107,6 +107,8 @@ enum spng_option
     SPNG_TEXT_COMPRESSION_STRATEGY,
 
     SPNG_FILTER_CHOICE,
+    SPNG_CHUNK_COUNT_LIMIT,
+    SPNG_ENCODE_TO_BUFFER,
 };
 ```
 
@@ -221,9 +223,13 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
 
 Set `option` to the specified `value`.
 
+For details see [Decode options](decode.md#decode-options) and [Encode options](encode.md#encode-options).
+
 # spng_get_option()
 ```c
 int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
 ```
 
 Get the value for the specified `option`.
+
+For details see [Decode options](decode.md#decode-options) and [Encode options](encode.md#encode-options).

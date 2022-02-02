@@ -300,3 +300,15 @@ For the last row and subsequent calls the return value is `SPNG_EOI`.
 If the image is not interlaced this function's behavior is identical to
 `spng_decode_scanline()`.
 
+# Decode options
+
+| Option                       | Default value | Description                                              |
+|------------------------------|---------------|----------------------------------------------------------|
+| `SPNG_KEEP_UNKNOWN_CHUNKS`   | `0`           | Set to keep or discard unknown chunks                    |
+| `SPNG_IMG_COMPRESSION_LEVEL` | `-1`          | May expose an estimate (0-9) after `spng_decode_image()` |
+| `SPNG_IMG_WINDOW_BITS`       | `15`*         | Set zlib window bits used for image decompression        |
+| `SPNG_CHUNK_COUNT_LIMIT`     | `1000`        | Limit shared by both known and unknown chunks            |
+
+\* Option may be optimized if not set explicitly.
+
+Options not listed here have no effect on decoders.

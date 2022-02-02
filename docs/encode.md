@@ -87,7 +87,8 @@ the internal buffer is freed by [spng_ctx_free()](context.md#spng_ctx_free).
 The alpha channel is always [straight alpha](https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied),
 premultiplied alpha is not supported.
 
-Compression level and other options can be customized with [`spng_set_option()`]([context.md#spng_set_option]).
+Compression level and other options can be customized with [`spng_set_option()`](context.md#spng_set_option),
+see [Encode options](encode.md#encode-options) for all options.
 Note that encoder options are optimized based on PNG format and compression level,
 overriding other options such as filtering may disable some of these optimizations.
 
@@ -182,3 +183,22 @@ If `SPNG_ENCODE_TO_BUFFER` is enabled via [spng_set_option()](context.md#spng_se
 it must be called after [spng_encode_image()](encode.md#spng_encode_image) and the PNG must be finalized.
 
 On success the buffer must be freed by the user.
+
+# Encode options
+
+| Option                           | Default value             | Description                       |
+|----------------------------------|---------------------------|-----------------------------------|
+| `SPNG_IMG_COMPRESSION_LEVEL`     | `Z_DEFAULT_COMPRESSION`   | Set image compression level (0-9) |
+| `SPNG_IMG_WINDOW_BITS`           | `15`*                     | Set image zlib window bits (9-15) |
+| `SPNG_IMG_MEM_LEVEL`             | `8`                       | Set zlib `memLevel` for images    |
+| `SPNG_IMG_COMPRESSION_STRATEGY`  | `Z_FILTERED`*             | Set image compression strategy    |
+| `SPNG_TEXT_COMPRESSION_LEVEL`    | `Z_DEFAULT_COMPRESSION`   | Set text compression level (0-9)  |
+| `SPNG_TEXT_WINDOW_BITS`          | `15`                      | Set text zlib window bits (9-15)  |
+| `SPNG_TEXT_MEM_LEVEL`            | `8`                       | Set zlib `memLevel` for text      |
+| `SPNG_TEXT_COMPRESSION_STRATEGY` | `Z_DEFAULT_STRATEGY`      | Set text compression strategy     |
+| `SPNG_FILTER_CHOICE`             | `SPNG_FILTER_CHOICE_ALL`* | Configure or disable filtering    |
+| `SPNG_ENCODE_TO_BUFFER`          | `0`                       | Encode to internal buffer         |
+
+\* Option may be optimized if not set explicitly.
+
+Options not listed here have no effect on encoders.
