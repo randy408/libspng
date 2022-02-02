@@ -1161,6 +1161,19 @@ static int discard_chunk_bytes(spng_ctx *ctx, uint32_t bytes)
     return 0;
 }
 
+static int minimum_window_bits(size_t size)
+{
+    if(size > 16384) return 15;
+    else if(size > 8192) return 14;
+    else if(size > 4096) return 13;
+    else if(size > 2048) return 12;
+    else if(size > 1024) return 11;
+    else if(size > 512) return 10;
+    else if(size > 256) return 9;
+
+    return 8;
+}
+
 static int spng__inflate_init(spng_ctx *ctx, int window_bits)
 {
     if(ctx->zstream.state) inflateEnd(&ctx->zstream);
@@ -4786,6 +4799,16 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     if(!encode_flags->filter_choice && spng__optimize(SPNG_IMG_COMPRESSION_STRATEGY))
     {
         ctx->image_options.strategy = Z_DEFAULT_STRATEGY;
+    }
+
+    if(ctx->image_size && spng__optimize(SPNG_IMG_WINDOW_BITS))
+    {
+        int window_bits = minimum_window_bits(ctx->image_size);
+
+        /* Avoid degrading compression factor (https://zlib.net/zlib_tech.html). */
+        if(window_bits < 15) window_bits++;
+
+        ctx->image_options.window_bits = window_bits;
     }
 
     ret = spng__deflate_init(ctx, &ctx->image_options);
