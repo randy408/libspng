@@ -4801,6 +4801,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
         ctx->image_options.strategy = Z_DEFAULT_STRATEGY;
     }
 
+#ifndef SPNG_USE_MINIZ
     if(ctx->image_size && spng__optimize(SPNG_IMG_WINDOW_BITS))
     {
         int window_bits = minimum_window_bits(ctx->image_size);
@@ -4810,6 +4811,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
         ctx->image_options.window_bits = window_bits;
     }
+#endif
 
     ret = spng__deflate_init(ctx, &ctx->image_options);
     if(ret) return encode_err(ctx, ret);
