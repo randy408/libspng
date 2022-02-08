@@ -3634,7 +3634,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
         unsigned flg = ctx->data[1];
         unsigned flevel = flg >> 6;
-        int compression_level = 6;
+        int compression_level = Z_DEFAULT_COMPRESSION;
 
         if(flevel == 0) compression_level = 0; /* fastest */
         else if(flevel == 1) compression_level = 1; /* fast */
