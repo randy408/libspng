@@ -1422,8 +1422,9 @@ static int extended_tests(FILE *file, int fmt)
     struct spng_plte plte = {0};
     static unsigned char chunk_data[9000];
 
-    int compression_level = 9;
-    int expected_compression_level = compression_level;
+    /* NOTE: This value is compressed to 4 bits by zlib, it's not a 1:1 mapping */
+    int compression_level = 0;
+    int expected_compression_level = 0;
 
     spng_set_png_file(dec, file);
 
@@ -1493,12 +1494,14 @@ static int extended_tests(FILE *file, int fmt)
 
     if(ret || (compression_level != expected_compression_level) )
     {
-        if(ret)
-            printf("error getting image compression level: %s\n", spng_strerror(ret));
+        if(ret) printf("error getting image compression level: %s\n", spng_strerror(ret));
         else
+        {
             printf("unexpected compression level (expected %d, got %d)\n",
                     expected_compression_level,
                     compression_level);
+            ret = 1;
+        }
 
         goto cleanup;
     }
