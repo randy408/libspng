@@ -1479,6 +1479,7 @@ static int extended_tests(FILE *file, int fmt)
     }
 
     spng_ctx_free(enc);
+    enc = NULL;
 
     /* Verify the image's zlib FLEVEL */
     spng_ctx_free(dec);
