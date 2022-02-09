@@ -1422,7 +1422,7 @@ static int extended_tests(FILE *file, int fmt)
     struct spng_plte plte = {0};
     static unsigned char chunk_data[9000];
 
-    /* NOTE: This value is compressed to 4 bits by zlib, it's not a 1:1 mapping */
+    /* NOTE: This value is compressed to 2 bits by zlib, it's not a 1:1 mapping */
     int compression_level = 0;
     int expected_compression_level = 0;
 
