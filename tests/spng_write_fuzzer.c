@@ -71,6 +71,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     state.data = NULL;
     state.bytes_left = SIZE_MAX;
 
+    spng_set_option(ctx, SPNG_IMG_COMPRESSION_LEVEL, 0);
+
     if(stream) ret = spng_set_png_stream(ctx, stream_write_fn, &state);
     else ret = spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
 
