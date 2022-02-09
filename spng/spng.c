@@ -86,8 +86,8 @@ enum spng_state
 {
     SPNG_STATE_INVALID = 0,
     SPNG_STATE_INIT = 1, /* No PNG buffer/stream is set */
-    SPNG_STATE_INPUT, /* Input PNG was set */
-    SPNG_STATE_OUTPUT = SPNG_STATE_INPUT,
+    SPNG_STATE_INPUT, /* Decoder input PNG was set */
+    SPNG_STATE_OUTPUT = SPNG_STATE_INPUT, /* Encoder output was set */
     SPNG_STATE_IHDR, /* IHDR was read/written */
     SPNG_STATE_FIRST_IDAT,  /* Encoded up to / reached first IDAT */
     SPNG_STATE_DECODE_INIT, /* Decoder is ready for progressive reads */
@@ -4699,12 +4699,16 @@ int spng_encode_row(spng_ctx *ctx, const void *row, size_t len)
 int spng_encode_chunks(spng_ctx *ctx)
 {
     if(ctx == NULL) return 1;
+    if(!ctx->state) return SPNG_EBADSTATE;
+    if(ctx->state < SPNG_STATE_OUTPUT) return SPNG_ENODST;
     if(!ctx->encode_only) return SPNG_ECTXTYPE;
 
     int ret = 0;
 
     if(ctx->state < SPNG_STATE_FIRST_IDAT)
     {
+        if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
+
         ret = write_chunks_before_idat(ctx);
         if(ret) return encode_err(ctx, ret);
 
@@ -4716,7 +4720,7 @@ int spng_encode_chunks(spng_ctx *ctx)
     }
     else if(ctx->state == SPNG_STATE_EOI)
     {
-        int ret = write_chunks_after_idat(ctx);
+        ret = write_chunks_after_idat(ctx);
         if(ret) return encode_err(ctx, ret);
 
         ctx->state = SPNG_STATE_IEND;
