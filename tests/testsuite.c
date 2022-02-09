@@ -1422,6 +1422,10 @@ static int extended_tests(FILE *file, int fmt)
     struct spng_plte plte = {0};
     static unsigned char chunk_data[9000];
 
+    /* NOTE: This value is compressed to 2 bits by zlib, it's not a 1:1 mapping */
+    int compression_level = 0;
+    int expected_compression_level = 0;
+
     spng_set_png_file(dec, file);
 
     spng_get_ihdr(dec, &ihdr);
@@ -1435,6 +1439,7 @@ static int extended_tests(FILE *file, int fmt)
     enc = spng_ctx_new(SPNG_CTX_ENCODER);
 
     spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+    spng_set_option(enc, SPNG_IMG_COMPRESSION_LEVEL, compression_level);
 
     spng_set_ihdr(enc, &ihdr);
 
@@ -1475,6 +1480,31 @@ static int extended_tests(FILE *file, int fmt)
     }
 
     spng_ctx_free(enc);
+    enc = NULL;
+
+    /* Verify the image's zlib FLEVEL */
+    spng_ctx_free(dec);
+    dec = spng_ctx_new(0);
+
+    spng_set_png_buffer(dec, encoded, bytes_encoded);
+
+    spng_decode_image(dec, NULL, 0, SPNG_FMT_PNG, SPNG_DECODE_PROGRESSIVE);
+
+    ret = spng_get_option(dec, SPNG_IMG_COMPRESSION_LEVEL, &compression_level);
+
+    if(ret || (compression_level != expected_compression_level) )
+    {
+        if(ret) printf("error getting image compression level: %s\n", spng_strerror(ret));
+        else
+        {
+            printf("unexpected compression level (expected %d, got %d)\n",
+                    expected_compression_level,
+                    compression_level);
+            ret = 1;
+        }
+
+        goto cleanup;
+    }
 
     /* Reencode the same image but to a stream this time */
     enc = spng_ctx_new(SPNG_CTX_ENCODER);
@@ -1482,6 +1512,8 @@ static int extended_tests(FILE *file, int fmt)
     struct buf_state state = { .data = encoded, .bytes_left = bytes_encoded };
 
     spng_set_png_stream(enc, stream_write_checked, &state);
+
+    spng_set_option(enc, SPNG_IMG_COMPRESSION_LEVEL, compression_level);
 
     spng_set_ihdr(enc, &ihdr);
 
