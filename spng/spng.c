@@ -1382,7 +1382,7 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 
     while(zstream->avail_out != 0)
     {
-        ret = inflate(&ctx->zstream, 0);
+        ret = inflate(zstream, Z_NO_FLUSH);
 
         if(ret == Z_OK) continue;
 
