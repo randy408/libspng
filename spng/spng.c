@@ -998,6 +998,24 @@ static int write_iend(spng_ctx *ctx)
     return write_data(ctx, iend_chunk, 12);
 }
 
+static int write_unknown_chunks(spng_ctx *ctx, enum spng_location location)
+{
+    if(!ctx->stored.unknown) return 0;
+
+    const struct spng_unknown_chunk *chunk = ctx->chunk_list;
+
+    uint32_t i;
+    for(i=0; i < ctx->n_chunks; i++, chunk++)
+    {
+        if(chunk->location != location) continue;
+
+        int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
+        if(ret) return ret;
+    }
+
+    return 0;
+}
+
 /* Read and check the current chunk's crc,
    returns -SPNG_CRC_DISCARD if the chunk should be discarded */
 static inline int read_and_check_crc(spng_ctx *ctx)
@@ -4145,20 +4163,8 @@ static int write_chunks_before_idat(spng_ctx *ctx)
         if(ret) return ret;
     }
 
-    if(ctx->stored.unknown)
-    {
-        uint32_t i;
-        for(i=0; i < ctx->n_chunks; i++)
-        {
-            struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
-
-            if(chunk->location == SPNG_AFTER_IHDR)
-            {
-                int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
-                if(ret) return ret;
-            }
-        }
-    }
+    ret = write_unknown_chunks(ctx, SPNG_AFTER_IHDR);
+    if(ret) return ret;
 
     if(ctx->stored.plte)
     {
@@ -4460,20 +4466,8 @@ static int write_chunks_before_idat(spng_ctx *ctx)
         if(ret) return ret;
     }
 
-    if(ctx->stored.unknown)
-    {
-        uint32_t i;
-        for(i=0; i < ctx->n_chunks; i++)
-        {
-            struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
-
-            if(chunk->location == SPNG_AFTER_PLTE)
-            {
-                int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
-                if(ret) return ret;
-            }
-        }
-    }
+    ret = write_unknown_chunks(ctx, SPNG_AFTER_PLTE);
+    if(ret) return ret;
 
     return 0;
 }
@@ -4482,20 +4476,8 @@ static int write_chunks_after_idat(spng_ctx *ctx)
 {
     if(ctx == NULL) return SPNG_EINTERNAL;
 
-    if(ctx->stored.unknown)
-    {
-        uint32_t i;
-        for(i=0; i < ctx->n_chunks; i++)
-        {
-            struct spng_unknown_chunk *chunk = &ctx->chunk_list[i];
-
-            if(chunk->location == SPNG_AFTER_IDAT)
-            {
-                int ret = write_chunk(ctx, chunk->type, chunk->data, chunk->length);
-                if(ret) return ret;
-            }
-        }
-    }
+    int ret = write_unknown_chunks(ctx, SPNG_AFTER_IDAT);
+    if(ret) return ret;
 
     return write_iend(ctx);
 }
