@@ -2847,7 +2847,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                     translated_keyword_offset = term - data + 1;
 
-                    const unsigned char *zlib_stream = memchr(data + translated_keyword_offset, 0, peek_bytes - translated_keyword_offset);
+                    zlib_stream = memchr(data + translated_keyword_offset, 0, peek_bytes - translated_keyword_offset);
                     if(zlib_stream == NULL) return SPNG_EITXT;
                     if(zlib_stream == peek_end) return SPNG_EITXT;
 
