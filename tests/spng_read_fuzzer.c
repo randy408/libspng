@@ -92,6 +92,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     spng_set_crc_action(ctx, SPNG_CRC_USE, discard ? SPNG_CRC_DISCARD : SPNG_CRC_USE);
 
+    spng_set_option(ctx, SPNG_KEEP_UNKNOWN_CHUNKS, 1);
+
     size_t out_size;
     if(spng_decoded_image_size(ctx, fmt, &out_size)) goto err;
 
