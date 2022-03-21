@@ -4863,7 +4863,11 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
     do
     {
-        size_t ioffset = ri->row_num * ctx->image_width;
+        size_t ioffset;
+        if ( flags & SPNG_ENCODE_FLIP_Y )
+            ioffset = ( ihdr->height - ri->row_num - 1 ) * ctx->image_width;
+        else
+            ioffset = ri->row_num * ctx->image_width;
 
         ret = encode_row(ctx, (unsigned char*)img + ioffset, ctx->image_width);
 
