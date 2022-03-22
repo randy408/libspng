@@ -77,8 +77,8 @@ spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
 /* Specify image dimensions, PNG format */
 struct spng_ihdr ihdr =
 {
-    .height = height,
     .width = width,
+    .height = height,
     .bit_depth = 8,
     .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
 };
