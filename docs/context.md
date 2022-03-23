@@ -55,8 +55,8 @@ enum spng_format
     SPNG_FMT_G8 = 64,
 
     /* No conversion or scaling */
-    SPNG_FMT_PNG = 256, /* host-endian */
-    SPNG_FMT_RAW = 512  /* big-endian */
+    SPNG_FMT_PNG = 256,
+    SPNG_FMT_RAW = 512  /* big-endian (everything else is host-endian) */
 };
 ```
 !!! note
