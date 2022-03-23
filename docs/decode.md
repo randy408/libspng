@@ -124,12 +124,26 @@ Moreover the size calculated by `spng_decoded_image_size()` can be checked
 against a hard limit before allocating memory for the output image.
 
 Chunks of arbitrary length (e.g. text, color profiles) take up additional memory,
-`spng_set_chunk_limits()` is used to set hard limits on chunk length- and cache limits,
-note that reaching either limit is handled as a fatal error.
+`spng_set_chunk_limits()` is used to set hard limits on chunk length and overall memory usage.
 
 Since v0.7.0 the `SPNG_CHUNK_COUNT_LIMIT` option controls how many chunks can be stored,
 the default is `1000` and is configurable through [`spng_set_option()`](context.md#spng_set_option),
 this limit is independent of the chunk cache limit.
+
+Note that exceeding any of the chunk limits is handled as an out-of-memory error.
+
+## Decoding untrusted files
+
+To decode untrusted files safely it is required to at least:
+
+* Set an upper limit on image dimensions with `spng_set_image_limits()`.
+
+* Use `spng_decoded_image_size()` to calculate the output image size
+ and check it against a constant limit.
+
+* Set a chunk size and chunk cache limit with `spng_set_chunks_limits()`
+  to control memory usage and avoid DoS from decompression bombs.
+
 
 # API
 

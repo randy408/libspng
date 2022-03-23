@@ -26,19 +26,5 @@ spng_ctx_free(ctx);
 
 ```
 
-For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.7.3/examples/example.c).
-
-
-## Decoding untrusted files
-
-To decode untrusted files safely it is required to at least:
-
-* Set an upper image width and height limit with `spng_set_image_limits()`.
-
-* Use `spng_decoded_image_size()` to calculate the output image size
- and check it against a constant limit.
-
-* Set a chunk size and chunk cache limit with `spng_set_chunks_limits()`
-  to avoid running out of memory. Note that exceeding either limit is
-  handled as an out-of-memory error since v0.6.0.
-
+For a complete example see [example.c](https://github.com/randy408/libspng/blob/v0.7.3/examples/example.c)
+and [Decoding untrusted files](decode.md#decoding-untrusted-files)
