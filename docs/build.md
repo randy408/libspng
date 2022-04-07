@@ -39,7 +39,7 @@ any configuration, SSE2 intrinsics are enabled by default on x86.
 
 | Meson       | CMake      | Compiler option             | Default | Description                                        |
 |-------------|------------|-----------------------------|---------|----------------------------------------------------|
-| (auto)      | (auto)     | `SPNG_STATIC`               |         | Controls symbol visibility on Windows              |
+| (auto)      | (auto)     | `SPNG_STATIC`               |         | Controls symbol exports on Windows              |
 | enable_opt  | ENABLE_OPT | `SPNG_DISABLE_OPT`          | ON      | Compile with optimizations                         |
 |             |            | `SPNG_SSE=<1-4>`            | 1       | SSE version target for x86 (ignored on non-x86)    |
 |             |            | `SPNG_ARM`                  | (auto)  | Enable ARM NEON optimizations (ARM64 only)         |
