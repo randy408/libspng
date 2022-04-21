@@ -14,6 +14,11 @@ option(BUILD_EXAMPLES "Build examples" ON)
 
 include(GNUInstallDirs)
 
+# Allow the usage of [PackageName]_ROOT variables for FindPackage
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
+    cmake_policy(SET CMP0074 NEW)
+endif()
+
 find_package(ZLIB REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIRS})
 
