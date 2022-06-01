@@ -1277,7 +1277,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
     while(ret != Z_STREAM_END)
     {
-        ret = inflate(stream, 0);
+        ret = inflate(stream, Z_NO_FLUSH);
 
         if(ret == Z_STREAM_END) break;
 
