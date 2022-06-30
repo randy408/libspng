@@ -135,7 +135,7 @@ Get image histogram
 int spng_get_phys(spng_ctx *ctx, struct spng_phys *phys)
 ```
 
-Get phyiscal pixel dimensions
+Get physical pixel dimensions
 
 # spng_get_splt()
 ```c
@@ -319,7 +319,7 @@ Set image histogram
 int spng_set_phys(spng_ctx *ctx, struct spng_phys *phys)
 ```
 
-Set phyiscal pixel dimensions
+Set physical pixel dimensions
 
 # spng_set_splt()
 ```c

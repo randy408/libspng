@@ -13,7 +13,7 @@ Contexts are decoders by default, to create an encoder use `SPNG_CTX_ENCODER` as
 # Error handling
 
 All functions return zero on success and non-zero on error,
-decoding or encoding errors will invalidate the context and most subequent function calls will return
+decoding or encoding errors will invalidate the context and most subsequent function calls will return
 `SPNG_EBADSTATE` to signal this.
 
 See also: [Decoder error handling](decode.md#error-handling)
@@ -178,7 +178,7 @@ ret = spng_decode_image(ctx, out, len, SPNG_FMT_RGBA8, SPNG_DECODE_TRNS);
 Note that using `SPNG_DECODE_TRNS` does not result in an error if the image does not have a tRNS chunk or
 is not applicable for the PNG format/output format combination, in those cases the flag is ignored.
 
-The `png_set_tRNS_to_alpha()` function applies a tranforms which
+The `png_set_tRNS_to_alpha()` function applies a transforms which
 adds an alpha channel of the same bit depth if a tRNS chunk is present.
 It also implicitly converts indexed color images to 8-bit RGB,
 1/2/4-bit grayscale images to 8-bit grayscale and also adds an alpha channel
