@@ -255,8 +255,8 @@ See also: [Progressive image decoding](decode.md#progressive-image-decoding)
 
 | libpng              | spng                                                   | Notes                               |
 |---------------------|--------------------------------------------------------|-------------------------------------|
-| `png_read_row()`    | [`spng_decode_row()`](encode.md#spng_decode_row)       |                                     |
-| `png_write_image()` | [`spng_encode_image()`](encode.md#spng_decode_image)   |                                     |
+| `png_read_row()`    | [`spng_decode_row()`](decode.md#spng_decode_row)       |                                     |
+| `png_read_image()`  | [`spng_decode_image()`](decode.md#spng_decode_image)   |                                     |
 | `png_read_info()`   | [`spng_decode_chunks()`](decode.md#spng_decode_chunks) | Optional, chunks are read on-demand |
 | `png_read_end()`    | [`spng_decode_chunks()`](decode.md#spng_decode_chunks) | Optional, chunks are read on-demand |
 
