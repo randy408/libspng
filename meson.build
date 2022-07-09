@@ -12,11 +12,13 @@ if get_option('default_library') == 'static'
     static_subproject = meson.is_subproject()
 endif
 
+cc = meson.get_compiler('c')
+
 if get_option('enable_opt') == false
     add_project_arguments('-DSPNG_DISABLE_OPT', language : 'c')
+elif cc.get_argument_syntax() == 'gcc' and host_machine.system() == 'x86'
+    add_project_arguments('-msse2', language : 'c')
 endif
-
-cc = meson.get_compiler('c')
 
 # Check for GNU target_clones attribute
 if cc.compiles(files('tests/target_clones.c'), args : '-Werror', name : 'have target_clones')
