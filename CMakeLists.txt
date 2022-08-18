@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.0)
 
 project(libspng C)
 
+set(CMAKE_C_STANDARD 99)
+
 set(SPNG_MAJOR 0)
 set(SPNG_MINOR 7)
 set(SPNG_REVISION 3)
