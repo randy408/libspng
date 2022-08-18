@@ -203,7 +203,7 @@ If the `SPNG_DECODE_PROGRESSIVE` flag is set the decoder will be
 initialized with `fmt` and `flags` for progressive decoding,
 the values of `out`, `len` are ignored.
 
-The `SPNG_DECODE_TNRS` flag is silently ignored if the PNG does not
+The `SPNG_DECODE_TRNS` flag is silently ignored if the PNG does not
 contain a tRNS chunk or is not applicable for the color type.
 
 This function can only be called once per context.
