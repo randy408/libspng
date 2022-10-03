@@ -5743,7 +5743,8 @@ int spng_set_iccp(spng_ctx *ctx, struct spng_iccp *iccp)
     SPNG_SET_CHUNK_BOILERPLATE(iccp);
 
     if(check_png_keyword(iccp->profile_name)) return SPNG_EICCP_NAME;
-    if(!iccp->profile_len || iccp->profile_len > UINT_MAX) return 1;
+    if(!iccp->profile_len) return SPNG_ECHUNK_SIZE;
+    if(iccp->profile_len > spng_u32max) return SPNG_ECHUNK_STDLEN;
 
     if(ctx->iccp.profile && !ctx->user.iccp) spng__free(ctx, ctx->iccp.profile);
 
