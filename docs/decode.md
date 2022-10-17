@@ -141,7 +141,7 @@ To decode untrusted files safely it is required to at least:
 * Use `spng_decoded_image_size()` to calculate the output image size
  and check it against a constant limit.
 
-* Set a chunk size and chunk cache limit with `spng_set_chunks_limits()`
+* Set a chunk size and chunk cache limit with `spng_set_chunk_limits()`
   to control memory usage and avoid DoS from decompression bombs.
 
 
