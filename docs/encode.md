@@ -202,3 +202,25 @@ On success the buffer must be freed by the user.
 \* Option may be optimized if not set explicitly.
 
 Options not listed here have no effect on encoders.
+
+# Performance
+
+The default encoder settings match the [reference implementation](http://libpng.org/pub/png/libpng.html)
+and will produce files of the exact same size, but there are settings that offer
+better performance for a small increase in file size. Reducing compression level (set `SPNG_IMG_COMPRESSION_LEVEL` to a value lower than `6`) will reduce encoding time for all image types.
+
+* Truecolor and truecolor-alpha images - Reduce compression level (between `1` and `5`) and leave everything else on defaults,
+    file size should not increase by more than 10% but encode up to three times faster.
+
+* Indexed-color - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up to two times faster.
+
+* Grayscale - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up two times faster.
+
+* Grayscale-alpha images - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up to four times faster.
+
+* Disabling filtering may further improve performance but will significantly increase file size.
+
+!!! note
+    See [encode experiments](https://github.com/libspng/spngt/blob/master/results/README.md#encode-experiments) for more details.
+
+    Recommendations are based on benchmarks with zlib, performance with other implementations (miniz, zlib-ng) was not measured.
