@@ -209,7 +209,7 @@ The default encoder settings match the [reference implementation](http://libpng.
 and will produce files of the exact same size, but there are settings that offer
 better performance for a small increase in file size. Reducing compression level (set `SPNG_IMG_COMPRESSION_LEVEL` to a value lower than `6`) will reduce encoding time for all image types.
 
-* Truecolor and truecolor-alpha images - Reduce compression level (between `1` and `5`) and leave everything else on defaults,
+* Truecolor images - Reduce compression level (between `1` and `5`) and leave everything else on defaults,
     file size should not increase by more than 10% but encode up to three times faster.
 
 * Indexed-color - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up to two times faster.
