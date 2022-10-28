@@ -214,7 +214,7 @@ better performance for a small increase in file size. Reducing compression level
 
 * Indexed-color - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up to two times faster.
 
-* Grayscale - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up two times faster.
+* Grayscale - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up to two times faster.
 
 * Grayscale-alpha images - Choose a reduced compression level (`1`-`5`), file size should stay within 5% but encode up to four times faster.
 
