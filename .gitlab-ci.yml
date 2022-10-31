@@ -1,4 +1,4 @@
-image: debian:buster-slim
+image: debian:bullseye-slim
 
 stages:
   - test
@@ -6,12 +6,12 @@ stages:
 
 before_script:
   - apt update
-  - apt install -y build-essential meson git git-lfs unzip clang-tools clang-tidy libfuzzer-7-dev libubsan1 zlib1g-dev libpng-dev pkg-config gcovr wget tar curl
+  - apt install -y build-essential meson git git-lfs unzip clang-tools clang-tidy libfuzzer-11-dev libubsan1 zlib1g-dev libpng-dev pkg-config gcovr wget tar curl
 
 test:
   stage: test
   script:
-    - CC=clang-7 CXX=clang++-7 meson -Ddev_build=true -Duse_miniz=true -Db_sanitize=address,undefined -Db_lundef=false --wrap-mode=forcefallback -Doptimization=1 -Doss_fuzz=true clang_build
+    - CC=clang-11 CXX=clang++-11 meson -Ddev_build=true -Duse_miniz=true -Db_sanitize=address,undefined -Db_lundef=false --wrap-mode=forcefallback -Doptimization=1 -Doss_fuzz=true clang_build
     - cd clang_build
     - ninja scan-build # this uses gcc due to a bug: https://github.com/mesonbuild/meson/issues/5716
     - ninja test
