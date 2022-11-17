@@ -4999,11 +4999,11 @@ void spng_ctx_free(spng_ctx *ctx)
     spng__free(ctx, ctx->prev_scanline_buf);
     spng__free(ctx, ctx->filtered_scanline_buf);
 
-    spng_free_fn *free_func = ctx->alloc.free_fn;
+    spng_free_fn *free_fn = ctx->alloc.free_fn;
 
     memset(ctx, 0, sizeof(spng_ctx));
 
-    free_func(ctx);
+    free_fn(ctx);
 }
 
 static int buffer_read_fn(spng_ctx *ctx, void *user, void *data, size_t n)
