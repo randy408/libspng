@@ -38,6 +38,7 @@ endif()
 
 if(SPNG_SHARED)
     add_library(spng SHARED ${spng_SOURCES})
+    target_include_directories(spng PUBLIC ${PROJECT_SOURCE_DIR}/spng)
     target_link_libraries(spng ${spng_LIBS})
     install(TARGETS spng DESTINATION lib)
 
@@ -50,6 +51,7 @@ endif()
 
 if(SPNG_STATIC)
     add_library(spng_static STATIC ${spng_SOURCES})
+    target_include_directories(spng PUBLIC ${PROJECT_SOURCE_DIR}/spng)
     target_compile_definitions(spng_static PUBLIC SPNG_STATIC)
     install(TARGETS spng_static DESTINATION lib)
 endif()
