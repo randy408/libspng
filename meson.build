@@ -83,6 +83,5 @@ pkg = import('pkgconfig')
 
 pkg.generate(spng_lib,
     extra_cflags : spng_args,
-    libraries_private : [ '-lm', '-lz' ],
     description : 'PNG decoding and encoding library'
 )
