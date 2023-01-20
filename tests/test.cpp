@@ -1,6 +1,6 @@
 #include <spng.h>
 #include <iostream>
-
+using namespace std;
 int main(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 
     struct spng_plte plte;
     int e = spng_get_plte(ctx, &plte);
-    std::cout << spng_strerror(e);
+    cout << spng_strerror(e);
 
     spng_ctx_free(ctx);
 
