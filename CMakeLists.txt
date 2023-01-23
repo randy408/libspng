@@ -51,7 +51,7 @@ endif()
 
 if(SPNG_STATIC)
     add_library(spng_static STATIC ${spng_SOURCES})
-    target_include_directories(spng PUBLIC ${PROJECT_SOURCE_DIR}/spng)
+    target_include_directories(spng_static PUBLIC ${PROJECT_SOURCE_DIR}/spng)
     target_compile_definitions(spng_static PUBLIC SPNG_STATIC)
     install(TARGETS spng_static DESTINATION lib)
 endif()
