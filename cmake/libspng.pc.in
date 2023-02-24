@@ -3,10 +3,10 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@/
 
-Name: libspng
+Name: lib@libname@
 Description: PNG decoding and encoding library
 Version: @SPNG_VERSION@
 Requires: zlib
-Libs: -L${libdir} -lspng
+Libs: -L${libdir} -l@libname@
 Libs.private: @LIBS@
 Cflags: -I${includedir}
