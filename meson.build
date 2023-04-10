@@ -21,7 +21,7 @@ elif cc.get_argument_syntax() == 'gcc' and host_machine.system() == 'x86'
 endif
 
 # Check for GNU target_clones attribute
-if cc.compiles(files('tests/target_clones.c'), args : '-Werror', name : 'have target_clones')
+if cc.links(files('tests/target_clones.c'), args : '-Werror', name : 'have target_clones')
     add_project_arguments('-DSPNG_ENABLE_TARGET_CLONES', language : 'c')
 endif
 
