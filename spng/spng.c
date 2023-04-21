@@ -2691,6 +2691,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             if(!memcmp(chunk.type, type_exif, 4))
             {
                 if(ctx->file.exif) return SPNG_EDUP_EXIF;
+                if(!chunk.length) return SPNG_EEXIF;
 
                 ctx->file.exif = 1;
 
