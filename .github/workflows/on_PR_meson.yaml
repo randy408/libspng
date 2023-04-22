@@ -1,0 +1,147 @@
+name: On PRs - meson
+
+on: pull_request
+
+concurrency:
+  group: ${{github.workflow}}-${{github.head_ref}}
+  cancel-in-progress: true
+
+jobs:
+  Ubuntu:
+    runs-on: ubuntu-20.04
+    name: Linux-GCC${{matrix.cxx}}
+    strategy:
+      matrix:
+        cxx: ['7', '10']
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install packages
+        run: |
+          sudo apt install -y gcc-${{matrix.cxx}} g++-${{matrix.cxx}}
+          python3 -m pip install meson ninja
+
+      - name: Compile and Test
+        env:
+          CC: gcc-${{matrix.cxx}}
+          CXX: g++-${{matrix.cxx}}
+        run: |
+          meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Ddev_build=true
+          meson compile -C "${{github.workspace}}/build" --verbose
+          meson test -C "${{github.workspace}}/build" --verbose
+  Ubuntu-clang:
+    runs-on: ubuntu-20.04
+    name: Linux-Clang${{matrix.cxx}}
+    strategy:
+      matrix:
+        cxx: ['7', '12']
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install packages
+        run: |
+          sudo apt install -y clang-${{matrix.cxx}} libc++abi-${{matrix.cxx}}-dev libc++-${{matrix.cxx}}-dev lld-${{matrix.cxx}}
+          python3 -m pip install meson ninja
+
+      - name: Compile and Test
+        env:
+          CC: clang-${{matrix.cxx}}
+          CXX: clang++-${{matrix.cxx}}
+          CXXFLAGS: -stdlib=libc++
+          CC_LD: lld-${{matrix.cxx}}
+          CXX_LD: lld-${{matrix.cxx}}
+        run: |
+          meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Dcpp_std=c++20 -Ddev_build=true
+          meson compile -C "${{github.workspace}}/build" --verbose
+          meson test -C "${{github.workspace}}/build" --verbose
+  VisualStudio:
+    runs-on: windows-latest
+    name: MSVC-${{matrix.cxx}}
+    strategy:
+      matrix:
+        cxx: ['cl', 'clang-cl']
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install packages
+        run: |
+          python -m pip install meson ninja
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compile and Test
+        env:
+          CC: ${{matrix.cxx}}
+          CXX: ${{matrix.cxx}}
+        run: |
+          meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Dcpp_std=c++latest -Ddev_build=true
+          meson compile -C "${{github.workspace}}/build" --verbose
+          meson test -C "${{github.workspace}}/build" --verbose
+  MSYS2:
+    runs-on: windows-latest
+    name: MSYS2-${{matrix.platform}}
+    strategy:
+      matrix:
+        platform: ['MINGW32', 'MINGW64', 'UCRT64', 'CLANG32', 'CLANG64']
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{matrix.platform}}
+          pacboy: >-
+            cc:p
+            libpng:p
+            meson:p
+            ninja:p
+            pkgconf:p
+
+      - name: Compile and Test
+        shell: msys2 {0}
+        run: |
+          meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Dcpp_std=c++20 -Ddev_build=true
+          meson compile -C "${{github.workspace}}/build" --verbose
+          meson test -C "${{github.workspace}}/build" --verbose
+  MacOS:
+    runs-on: macos-latest
+    name: macOS
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install packages
+        run: |
+          python3 -m pip install meson ninja
+
+      - name: Compile and Test
+        run: |
+          meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Dcpp_std=c++20 -Ddev_build=true
+          meson compile -C "${{github.workspace}}/build" --verbose
+          meson test -C "${{github.workspace}}/build" --verbose
+  FreeBSD:
+    runs-on: macos-latest
+    name: FreeBSD
+    steps:
+      - uses: actions/checkout@v3
+      - name: FreeBSD
+        uses: vmactions/freebsd-vm@v0
+        with:
+          prepare: |
+            pkg install -y ninja meson pkgconf
+          run: |
+            meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Dcpp_std=c++20 -Ddev_build=true
+            meson compile -C "${{github.workspace}}/build" --verbose
+            meson test -C "${{github.workspace}}/build" --verbose
+  OpenBSD:
+    runs-on: macos-latest
+    name: OpenBSD
+    steps:
+      - uses: actions/checkout@v3
+      - name: OpenBSD
+        uses: vmactions/openbsd-vm@v0
+        with:
+          prepare: |
+            pkg_add libpng ninja meson pkgconf
+          run: |
+            meson setup "${{github.workspace}}/build" -Dwarning_level=3 -Dcpp_std=c++20 -Ddev_build=true
+            meson compile -C "${{github.workspace}}/build" --verbose
+            meson test -C "${{github.workspace}}/build" --verbose
