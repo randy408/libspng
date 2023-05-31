@@ -27,6 +27,10 @@ write_fuzzer_exe = executable('fuzz_write_repro',
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
+if not cc.has_function('png_get_acTL', prefix : '#include <png.h>', dependencies : png_dep)
+    error('Tests require libpng with Animated PNG (APNG) support')
+endif
+
 test_deps = [ spng_dep, png_dep ]
 
 test_exe = executable('testsuite', 'testsuite.c', dependencies : test_deps)
