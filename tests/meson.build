@@ -27,7 +27,7 @@ write_fuzzer_exe = executable('fuzz_write_repro',
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
-can_apply_patch = meson.version().version_compare('< 0.63.0') # Older versions cannot apply the APNG patch
+can_apply_patch = meson.version().version_compare('>= 0.63.0') # Older versions cannot apply the APNG patch
 apng_note = 'Tests require libpng with Animated PNG (APNG) support, see build documentation'
 meson_too_old_msg = 'Meson version is too old to use libpng fallback'
 
