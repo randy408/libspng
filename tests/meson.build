@@ -27,8 +27,14 @@ write_fuzzer_exe = executable('fuzz_write_repro',
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
-if not cc.has_function('png_get_acTL', prefix : '#include <png.h>', dependencies : png_dep)
-    error('Tests require libpng with Animated PNG (APNG) support')
+if png_dep.type_name() != 'internal' # compiler.has_function() does not work with wraps
+    if not cc.has_function('png_get_acTL', prefix : '#include <png.h>', dependencies : png_dep)
+        error('Tests require libpng with Animated PNG (APNG) support, see build documentation')
+    endif
+else
+    if meson.version().version_compare('< 0.63.0') # Older versions cannot apply the APNG patch
+        warning('Meson version is too old to use libpng fallback')
+    endif
 endif
 
 test_deps = [ spng_dep, png_dep ]
