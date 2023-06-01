@@ -40,7 +40,7 @@ if png_dep.type_name() != 'internal' # compiler.has_function() does not work wit
             error(meson_too_old_msg)
         else
             warning('Local version of libpng does not support APNG, attempting to use fallback option...')
-            png_dep = subproject('libpng') # May fail depending on wrap_mode, hence the warning above
+            png_dep = subproject('libpng').get_variable('png_dep') # May fail depending on wrap_mode, hence the warning above
         endif
     endif
 else # Using fallback
