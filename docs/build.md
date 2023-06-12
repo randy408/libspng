@@ -30,6 +30,22 @@ ninja
 ninja install
 ```
 
+## Testing
+
+Tests require [libpng](http://libpng.org/pub/png/libpng.html) with Animated PNG (APNG) support,
+as of v1.6.39 the APNG feature is an out-of-tree patch.
+Some platforms (e.g. Debian) ship `libpng` with APNG support, for other platforms a fallback option is provided.
+The fallback option requires Meson 0.63.0 or newer and involves downloading libpng source code and the corresponding Meson build file, the APNG patch included under `subprojects/packagefiles/apng` is applied automatically.
+The fallback option is used by default if `libpng` does not include APNG support or can't be found on the system.
+
+The vast majority of tests require `libpng` and is enabled through the `dev_build` option:
+
+```bash
+meson build -Ddev_build=true
+cd build
+meson test
+```
+
 ## Embedding the source code
 
 The source files `spng.c`/`spng.h` can be embedded in a project without
