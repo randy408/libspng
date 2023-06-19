@@ -24,7 +24,7 @@ make install
 ## Meson
 
 ```bash
-meson build --buildtype=release # Default is debug
+meson setup build --buildtype=release # Default is debug
 cd build
 ninja
 ninja install
@@ -41,7 +41,7 @@ The fallback option is used by default if `libpng` does not include APNG support
 The vast majority of tests require `libpng` and is enabled through the `dev_build` option:
 
 ```bash
-meson build -Ddev_build=true
+meson setup build -Ddev_build=true
 cd build
 meson test
 ```
