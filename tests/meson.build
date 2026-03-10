@@ -27,11 +27,33 @@ write_fuzzer_exe = executable('fuzz_write_repro',
 
 png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
 
+can_apply_patch = meson.version().version_compare('>= 0.63.0')
+apng_note = 'Tests require libpng with Animated PNG (APNG) support, see build documentation'
+meson_too_old_msg = 'Meson version is too old to use libpng fallback'
+
+if png_dep.type_name() != 'internal'
+    if not cc.has_function('png_get_acTL', prefix : '#include <png.h>', dependencies : png_dep)
+        warning(apng_note)
+
+        if not can_apply_patch
+            error(meson_too_old_msg)
+        endif
+
+        warning('Local version of libpng does not support APNG, attempting to use fallback option...')
+        png_dep = subproject('libpng').get_variable('png_dep')
+    endif
+else
+    if not can_apply_patch
+        warning(meson_too_old_msg)
+    endif
+endif
+
 test_deps = [ spng_dep, png_dep ]
 
 test_exe = executable('testsuite', 'testsuite.c', dependencies : test_deps)
 
 test('info', test_exe, args : 'info')
+test('apng', test_exe, args : 'apng')
 
 cpp_exe = executable('cpp_exe', 'test.cpp', dependencies : spng_dep)
 test('cpp_test', cpp_exe)
