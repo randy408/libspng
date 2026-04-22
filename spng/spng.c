@@ -1208,7 +1208,7 @@ static int spng__inflate_init(spng_ctx *ctx, int window_bits)
 
     if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB_INIT;
 
-#else if !defined(SPNG_USE_MINIZ) /* This requires zlib >= 1.2.11 */
+#elif !defined(SPNG_USE_MINIZ) /* This requires zlib >= 1.2.11 */
     #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
 #endif
 
