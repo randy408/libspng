@@ -17,7 +17,7 @@ option(BUILD_EXAMPLES "Build examples" ON)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-find_library(MATH_LIBRARY_PATH m)
+find_library(MATH_LIBRARY_PATH NAMES m PATHS ${CMAKE_C_IMPLICIT_LINK_DIRECTORIES})
 if(MATH_LIBRARY_PATH)
     set(MATH_LIBRARY "m")
     set(LIBS "-lm")
