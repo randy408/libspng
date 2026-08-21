@@ -96,15 +96,13 @@ install(
   DESTINATION ${config_install_dir}
 )
 
-if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
-    set(prefix      ${CMAKE_INSTALL_PREFIX})
-    set(exec_prefix ${CMAKE_INSTALL_PREFIX})
-    set(libdir      ${CMAKE_INSTALL_FULL_LIBDIR})
-    set(includedir  ${CMAKE_INSTALL_FULL_INCLUDEDIR})
+set(prefix      ${CMAKE_INSTALL_PREFIX})
+set(exec_prefix ${CMAKE_INSTALL_PREFIX})
+set(libdir      ${CMAKE_INSTALL_FULL_LIBDIR})
+set(includedir  ${CMAKE_INSTALL_FULL_INCLUDEDIR})
 
-    foreach(libname ${spng_TARGETS})
-        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/spng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/cmake/${libname}.pc @ONLY)
+foreach(libname ${spng_TARGETS})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/spng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/cmake/${libname}.pc @ONLY)
 
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/${libname}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-    endforeach()
-endif()
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/${libname}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+endforeach()
