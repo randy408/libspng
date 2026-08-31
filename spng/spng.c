@@ -4761,6 +4761,13 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
         if(len != ctx->image_size) return SPNG_EBUFSIZ;
     }
 
+    ssize_t row_stride = (ssize_t) ctx->image_width;
+    if(flags & SPNG_ENCODE_INVERT_ROWS)
+    {
+        img = (char const*) img + (ctx->ihdr.height - 1) * ctx->image_width;
+        row_stride = -row_stride;
+    }
+
     ret = spng_encode_chunks(ctx);
     if(ret) return encode_err(ctx, ret);
 
@@ -4864,7 +4871,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
     do
     {
-        size_t ioffset = ri->row_num * ctx->image_width;
+        ssize_t ioffset = ri->row_num * row_stride;
 
         ret = encode_row(ctx, (unsigned char*)img + ioffset, ctx->image_width);
 
