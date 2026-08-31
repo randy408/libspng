@@ -216,6 +216,7 @@ enum spng_encode_flags
 {
     SPNG_ENCODE_PROGRESSIVE = 1, /* Initialize for progressive writes */
     SPNG_ENCODE_FINALIZE = 2, /* Finalize PNG after encoding image */
+    SPNG_ENCODE_FLIP_Y = 4, /* Flip image vertically */
 };
 
 struct spng_ihdr
