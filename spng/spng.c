@@ -3749,13 +3749,15 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
         f.apply_trns = 0;
     }
-    else if(fmt == SPNG_FMT_GA8 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth <= 8)
+    else if(fmt == SPNG_FMT_GA8 && (ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
+                                    ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) && ihdr->bit_depth <= 8)
     {
         if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA &&
            ihdr->bit_depth == depth_target) f.same_layout = 1;
         else if(ihdr->bit_depth <= 8) f.unpack = 1;
     }
-    else if(fmt == SPNG_FMT_GA16 && ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE && ihdr->bit_depth == 16)
+    else if(fmt == SPNG_FMT_GA16 && (ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE ||
+                                     ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) && ihdr->bit_depth == 16)
     {
         if(ihdr->color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA &&
            ihdr->bit_depth == depth_target) f.same_layout = 1;
