@@ -120,6 +120,24 @@ enum spng_errno
     SPNG_ENODST,
     SPNG_EOPSTATE,
     SPNG_ENOTFINAL,
+
+    SPNG_EACTL,         /* invalid acTL */
+    SPNG_EFCTL,         /* invalid fcTL */
+    SPNG_EDUP_ACTL,     /* duplicate acTL */
+    SPNG_EAPNG,         /* generic APNG error (bad seq num, etc.) */
+};
+
+enum spng_dispose_op
+{
+    SPNG_DISPOSE_OP_NONE = 0,
+    SPNG_DISPOSE_OP_BACKGROUND = 1,
+    SPNG_DISPOSE_OP_PREVIOUS = 2
+};
+
+enum spng_blend_op
+{
+    SPNG_BLEND_OP_SOURCE = 0,
+    SPNG_BLEND_OP_OVER = 1
 };
 
 enum spng_text_type
@@ -369,6 +387,24 @@ struct spng_exif
     char *data;
 };
 
+struct spng_actl
+{
+    uint32_t num_frames;
+    uint32_t num_plays;    /* 0 = infinite */
+};
+
+struct spng_fctl
+{
+    uint32_t width;
+    uint32_t height;
+    uint32_t x_offset;
+    uint32_t y_offset;
+    uint16_t delay_num;
+    uint16_t delay_den;    /* 0 treated as 100 */
+    uint8_t dispose_op;
+    uint8_t blend_op;
+};
+
 struct spng_chunk
 {
     size_t offset;
@@ -503,6 +539,15 @@ SPNG_API int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *c
 SPNG_API int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif);
 
+/* APNG */
+SPNG_API int spng_get_actl(spng_ctx *ctx, struct spng_actl *actl);
+SPNG_API int spng_get_frame_fctl(spng_ctx *ctx, struct spng_fctl *fctl);
+
+SPNG_API int spng_decode_frame(spng_ctx *ctx, void *out, size_t len,
+                               int fmt, int flags, struct spng_fctl *fctl);
+
+SPNG_API int spng_encode_frame(spng_ctx *ctx, const void *img, size_t len,
+                               int fmt, int flags, struct spng_fctl *fctl);
 
 SPNG_API int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
 SPNG_API int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte);
@@ -525,6 +570,9 @@ SPNG_API int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *c
 /* Official extensions */
 SPNG_API int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs);
 SPNG_API int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif);
+
+/* APNG */
+SPNG_API int spng_set_actl(spng_ctx *ctx, struct spng_actl *actl);
 
 
 SPNG_API const char *spng_strerror(int err);

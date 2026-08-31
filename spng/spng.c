@@ -95,6 +95,7 @@ enum spng_state
     SPNG_STATE_EOI, /* Reached the last scanline/row */
     SPNG_STATE_LAST_IDAT, /* Reached last IDAT, set at end of decode_image() */
     SPNG_STATE_AFTER_IDAT, /*  */
+    SPNG_STATE_FRAME_IDLE, /* Between APNG frames */
     SPNG_STATE_IEND, /* Reached IEND */
 };
 
@@ -194,6 +195,8 @@ struct spng_chunk_bitfield
     unsigned offs: 1;
     unsigned exif: 1;
     unsigned unknown: 1;
+    unsigned actl: 1;
+    unsigned fctl: 1;
 };
 
 /* Packed sample iterator */
@@ -361,6 +364,13 @@ struct spng_ctx
     struct spng_row_info row_info;
 
     struct encode_flags encode_flags;
+
+    /* APNG state */
+    struct spng_actl actl;
+    struct spng_fctl fctl;       /* current frame's fctl */
+    uint32_t next_seq_num;       /* APNG sequence number counter */
+    uint32_t num_frames_encoded; /* frames encoded so far */
+    unsigned fdat_stream: 1;     /* current frame's image data is fdAT, not IDAT */
 };
 
 static const uint32_t spng_u32max = INT32_MAX;
@@ -394,6 +404,10 @@ static const uint8_t type_time[4] = { 116, 73, 77, 69 };
 
 static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
 static const uint8_t type_exif[4] = { 101, 88, 73, 102 };
+
+static const uint8_t type_actl[4] = { 97, 99, 84, 76 };    /* acTL */
+static const uint8_t type_fctl[4] = { 102, 99, 84, 76 };   /* fcTL */
+static const uint8_t type_fdat[4] = { 102, 100, 65, 84 };   /* fdAT */
 
 static inline void *spng__malloc(spng_ctx *ctx,  size_t size)
 {
@@ -1386,6 +1400,47 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
     return ret;
 }
 
+/* Read at least one byte from the fdAT stream, skipping the 4-byte sequence number */
+static int read_fdat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
+{
+    if(ctx == NULL || bytes_read == NULL) return SPNG_EINTERNAL;
+    if(memcmp(ctx->current_chunk.type, type_fdat, 4)) return SPNG_EIDAT_TOO_SHORT;
+
+    int ret;
+    uint32_t len;
+
+    while(!ctx->cur_chunk_bytes_left)
+    {
+        ret = read_header(ctx);
+        if(ret) return ret;
+
+        if(memcmp(ctx->current_chunk.type, type_fdat, 4)) return SPNG_EIDAT_TOO_SHORT;
+
+        /* Skip the 4-byte sequence number at the start of each fdAT chunk */
+        if(ctx->cur_chunk_bytes_left < 4) return SPNG_EAPNG;
+
+        ret = read_chunk_bytes(ctx, 4);
+        if(ret) return ret;
+
+        uint32_t seq = read_u32(ctx->data);
+        if(seq != ctx->next_seq_num) return SPNG_EAPNG;
+        ctx->next_seq_num++;
+    }
+
+    if(ctx->streaming)
+    {
+        len = SPNG_READ_SIZE;
+        if(len > ctx->cur_chunk_bytes_left) len = ctx->cur_chunk_bytes_left;
+    }
+    else len = ctx->cur_chunk_bytes_left;
+
+    ret = read_chunk_bytes(ctx, len);
+
+    *bytes_read = len;
+
+    return ret;
+}
+
 static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
 {
     if(ctx == NULL || dest == NULL) return SPNG_EINTERNAL;
@@ -1408,9 +1463,10 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
         {
             if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
         }
-        else if(ret == Z_BUF_ERROR) /* Read more IDAT bytes */
+        else if(ret == Z_BUF_ERROR) /* Read more IDAT/fdAT bytes */
         {
-            ret = read_idat_bytes(ctx, &bytes_read);
+            if(ctx->fdat_stream) ret = read_fdat_bytes(ctx, &bytes_read);
+            else ret = read_idat_bytes(ctx, &bytes_read);
             if(ret) return ret;
 
             zstream->avail_in = bytes_read;
@@ -2202,6 +2258,42 @@ static int check_exif(const struct spng_exif *exif)
     return 0;
 }
 
+static int check_fctl(const struct spng_fctl *fctl, const struct spng_ihdr *ihdr, int first_frame)
+{
+    if(!fctl->width || !fctl->height) return SPNG_EFCTL;
+
+    if(fctl->width > spng_u32max || fctl->height > spng_u32max) return SPNG_EFCTL;
+    if(fctl->x_offset > spng_u32max || fctl->y_offset > spng_u32max) return SPNG_EFCTL;
+
+    /* The additions cannot overflow, all values are limited to INT32_MAX */
+    if(fctl->x_offset + fctl->width > ihdr->width) return SPNG_EFCTL;
+    if(fctl->y_offset + fctl->height > ihdr->height) return SPNG_EFCTL;
+
+    if(fctl->dispose_op > SPNG_DISPOSE_OP_PREVIOUS) return SPNG_EFCTL;
+    if(fctl->blend_op > SPNG_BLEND_OP_OVER) return SPNG_EFCTL;
+
+    if(first_frame)
+    {/* The first frame doubles as the static image, it must cover the canvas */
+        if(fctl->width != ihdr->width || fctl->height != ihdr->height) return SPNG_EFCTL;
+        if(fctl->x_offset || fctl->y_offset) return SPNG_EFCTL;
+    }
+
+    return 0;
+}
+
+/* Parse an fcTL chunk's fields following the 4-byte sequence number */
+static void parse_fctl(struct spng_fctl *fctl, const unsigned char *data)
+{
+    fctl->width = read_u32(data + 4);
+    fctl->height = read_u32(data + 8);
+    fctl->x_offset = read_u32(data + 12);
+    fctl->y_offset = read_u32(data + 16);
+    fctl->delay_num = read_u16(data + 20);
+    fctl->delay_den = read_u16(data + 22);
+    fctl->dispose_op = data[24];
+    fctl->blend_op = data[25];
+}
+
 /* Validate PNG keyword */
 static int check_png_keyword(const char *str)
 {
@@ -2259,6 +2351,8 @@ static int is_small_chunk(uint8_t type[4])
     else if(!memcmp(type, type_phys, 4)) return 1;
     else if(!memcmp(type, type_time, 4)) return 1;
     else if(!memcmp(type, type_offs, 4)) return 1;
+    else if(!memcmp(type, type_actl, 4)) return 1;
+    else if(!memcmp(type, type_fctl, 4)) return 1;
     else return 0;
 }
 
@@ -2439,7 +2533,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             }
             else if(!memcmp(chunk.type, type_iend, 4))
             {
-                if(ctx->state == SPNG_STATE_AFTER_IDAT)
+                if(ctx->state == SPNG_STATE_AFTER_IDAT || ctx->state == SPNG_STATE_FRAME_IDLE)
                 {
                     if(chunk.length) return SPNG_ECHUNK_SIZE;
 
@@ -3039,6 +3133,55 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ctx->stored.splt = 1;
             }
+            else if(!memcmp(chunk.type, type_actl, 4))
+            {
+                if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
+                if(ctx->file.actl) return SPNG_EDUP_ACTL;
+
+                if(chunk.length != 8) return SPNG_ECHUNK_SIZE;
+
+                ctx->actl.num_frames = read_u32(data);
+                ctx->actl.num_plays = read_u32(data + 4);
+
+                if(!ctx->actl.num_frames) return SPNG_EACTL;
+                if(ctx->actl.num_frames > spng_u32max) return SPNG_EACTL;
+                if(ctx->actl.num_plays > spng_u32max) return SPNG_EACTL;
+
+                ctx->file.actl = 1;
+                ctx->stored.actl = 1;
+            }
+            else if(!memcmp(chunk.type, type_fctl, 4))
+            {
+                /* fcTL is only handled before IDAT here (frame 0).
+                   Post-IDAT fcTL is handled by spng_decode_frame(). */
+                if(ctx->state >= SPNG_STATE_AFTER_IDAT) goto discard;
+
+                if(!ctx->file.actl) return SPNG_ECHUNK_POS; /* fcTL without acTL */
+                if(ctx->file.fctl) return SPNG_ECHUNK_POS; /* only one fcTL may precede IDAT */
+
+                if(chunk.length != 26) return SPNG_ECHUNK_SIZE;
+
+                uint32_t seq = read_u32(data);
+                if(seq != ctx->next_seq_num) return SPNG_EAPNG;
+
+                struct spng_fctl fctl;
+                parse_fctl(&fctl, data);
+
+                ret = check_fctl(&fctl, &ctx->ihdr, 1);
+                if(ret) return ret;
+
+                ctx->next_seq_num++;
+
+                ctx->fctl = fctl;
+                ctx->file.fctl = 1;
+                ctx->stored.fctl = 1;
+            }
+            else if(!memcmp(chunk.type, type_fdat, 4))
+            {
+                /* fdAT before IDAT is invalid; post-IDAT is handled by spng_decode_frame() */
+                if(ctx->state < SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
+                goto discard;
+            }
             else /* Unknown chunk */
             {
                 ctx->file.unknown = 1;
@@ -3126,9 +3269,15 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
 
     if(ctx->state == SPNG_STATE_EOI)
     {
+        /* For APNG, don't read post-IDAT chunks here;
+           spng_decode_frame() handles fcTL/fdAT sequentially */
+        if(ctx->file.actl) return 0;
+
         ctx->state = SPNG_STATE_AFTER_IDAT;
         ctx->prev_was_idat = 1;
     }
+
+    if(ctx->state == SPNG_STATE_FRAME_IDLE) return 0;
 
     while(ctx->state < SPNG_STATE_FIRST_IDAT || ctx->state == SPNG_STATE_AFTER_IDAT)
     {
@@ -3158,6 +3307,10 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
                 case SPNG_EDUP_TIME:
                 case SPNG_EDUP_OFFS:
                 case SPNG_EDUP_EXIF:
+                case SPNG_EDUP_ACTL:
+                case SPNG_EACTL:
+                case SPNG_EFCTL:
+                case SPNG_EAPNG:
                 case SPNG_ECHRM:
                 case SPNG_ETRNS_COLOR_TYPE:
                 case SPNG_ETRNS_NO_PLTE:
@@ -4006,6 +4159,215 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     return 0;
 }
 
+/* Set up the subimage for an APNG frame, frames are never interlaced */
+static int calculate_frame_subimages(spng_ctx *ctx, uint32_t frame_width, uint32_t frame_height)
+{
+    struct spng_subimage *sub = ctx->subimage;
+    int i;
+
+    for(i = 0; i < 7; i++) memset(&sub[i], 0, sizeof(struct spng_subimage));
+
+    ctx->widest_pass = 0;
+    ctx->last_pass = 0;
+
+    sub[0].width = frame_width;
+    sub[0].height = frame_height;
+
+    return calculate_scanline_width(&ctx->ihdr, frame_width, &sub[0].scanline_width);
+}
+
+int spng_decode_frame(spng_ctx *ctx, void *out, size_t len, int fmt, int flags, struct spng_fctl *fctl)
+{
+    if(ctx == NULL || fctl == NULL) return 1;
+    if(ctx->encode_only) return SPNG_ECTXTYPE;
+
+    /* Must have decoded the default image first */
+    if(ctx->state < SPNG_STATE_EOI) return SPNG_EBADSTATE;
+    if(!ctx->file.actl) return SPNG_ECHUNKAVAIL;
+
+    /* Frames are decoded with the same format as the default image */
+    if(fmt != ctx->fmt) return SPNG_EFMT;
+
+    int ret;
+
+    /* Transition from EOI/LAST_IDAT to FRAME_IDLE */
+    if(ctx->state == SPNG_STATE_EOI || ctx->state == SPNG_STATE_LAST_IDAT ||
+       ctx->state == SPNG_STATE_AFTER_IDAT)
+    {
+        ctx->fdat_stream = 0;
+        ctx->state = SPNG_STATE_FRAME_IDLE;
+    }
+
+    if(ctx->state == SPNG_STATE_IEND) return SPNG_EOI;
+    if(ctx->state != SPNG_STATE_FRAME_IDLE) return SPNG_EBADSTATE;
+
+    /* Read chunks until we find fcTL or IEND */
+    struct spng_chunk chunk;
+
+    for(;;)
+    {
+        ret = read_header(ctx);
+        if(ret) return decode_err(ctx, ret);
+
+        chunk = ctx->current_chunk;
+
+        if(!memcmp(chunk.type, type_iend, 4))
+        {
+            ctx->state = SPNG_STATE_IEND;
+            return SPNG_EOI;
+        }
+
+        if(!memcmp(chunk.type, type_fctl, 4))
+        {
+            if(chunk.length != 26) return decode_err(ctx, SPNG_ECHUNK_SIZE);
+
+            ret = read_chunk_bytes(ctx, chunk.length);
+            if(ret) return decode_err(ctx, ret);
+
+            const unsigned char *data = ctx->data;
+
+            uint32_t seq = read_u32(data);
+            if(seq != ctx->next_seq_num) return decode_err(ctx, SPNG_EAPNG);
+            ctx->next_seq_num++;
+
+            parse_fctl(&ctx->fctl, data);
+
+            ret = check_fctl(&ctx->fctl, &ctx->ihdr, 0);
+            if(ret) return decode_err(ctx, ret);
+
+            ctx->stored.fctl = 1;
+            break;
+        }
+
+        /* Skip other chunks (ancillary post-IDAT chunks, extra IDATs) */
+        ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
+        if(ret) return decode_err(ctx, ret);
+    }
+
+    *fctl = ctx->fctl;
+
+    /* Calculate the frame's dimensions and output size */
+    ret = calculate_frame_subimages(ctx, ctx->fctl.width, ctx->fctl.height);
+    if(ret) return decode_err(ctx, ret);
+
+    size_t frame_pixel_size = 4; /* SPNG_FMT_RGBA8 */
+    if(fmt == SPNG_FMT_RGBA16) frame_pixel_size = 8;
+    else if(fmt == SPNG_FMT_RGB8) frame_pixel_size = 3;
+    else if(fmt == SPNG_FMT_G8) frame_pixel_size = 1;
+    else if(fmt == SPNG_FMT_GA8) frame_pixel_size = 2;
+    else if(fmt == SPNG_FMT_GA16) frame_pixel_size = 4;
+
+    struct spng_subimage *sub = ctx->subimage;
+
+    if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW)) ctx->image_width = sub[0].scanline_width - 1;
+    else ctx->image_width = (size_t)ctx->fctl.width * frame_pixel_size;
+
+    sub[0].out_width = ctx->image_width;
+
+    if(ctx->image_width > SIZE_MAX / ctx->fctl.height) return decode_err(ctx, SPNG_EOVERFLOW);
+
+    size_t frame_size = ctx->image_width * ctx->fctl.height;
+
+    if( !(flags & SPNG_DECODE_PROGRESSIVE) )
+    {
+        if(out == NULL) return 1;
+        if(len < frame_size) return SPNG_EBUFSIZ;
+    }
+
+    /* Now read the first fdAT chunk */
+    ret = read_header(ctx);
+    if(ret) return decode_err(ctx, ret);
+
+    if(memcmp(ctx->current_chunk.type, type_fdat, 4)) return decode_err(ctx, SPNG_EAPNG);
+
+    /* Skip sequence number in first fdAT */
+    if(ctx->cur_chunk_bytes_left < 4) return decode_err(ctx, SPNG_EAPNG);
+
+    ret = read_chunk_bytes(ctx, 4);
+    if(ret) return decode_err(ctx, ret);
+
+    uint32_t seq = read_u32(ctx->data);
+    if(seq != ctx->next_seq_num) return decode_err(ctx, SPNG_EAPNG);
+    ctx->next_seq_num++;
+
+    ctx->fdat_stream = 1;
+
+    /* Read remaining fdAT data as initial inflate input */
+    uint32_t bytes_read;
+    if(ctx->cur_chunk_bytes_left)
+    {
+        if(ctx->streaming)
+        {
+            bytes_read = SPNG_READ_SIZE;
+            if(bytes_read > ctx->cur_chunk_bytes_left) bytes_read = ctx->cur_chunk_bytes_left;
+        }
+        else bytes_read = ctx->cur_chunk_bytes_left;
+
+        ret = read_chunk_bytes(ctx, bytes_read);
+        if(ret) return decode_err(ctx, ret);
+    }
+    else
+    {
+        /* Need to read the next chunk for data */
+        ret = read_fdat_bytes(ctx, &bytes_read);
+        if(ret) return decode_err(ctx, ret);
+    }
+
+    /* Reset zlib for new frame */
+    ret = spng__inflate_init(ctx, ctx->image_options.window_bits);
+    if(ret) return decode_err(ctx, ret);
+
+    ctx->zstream.avail_in = bytes_read;
+    ctx->zstream.next_in = ctx->data;
+
+    /* Reallocate scanline buffers for the new frame width */
+    size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width + 32;
+    if(scanline_buf_size < 32) return decode_err(ctx, SPNG_EOVERFLOW);
+
+    spng__free(ctx, ctx->scanline_buf);
+    spng__free(ctx, ctx->prev_scanline_buf);
+    spng__free(ctx, ctx->row_buf);
+
+    ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
+    ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
+
+    ctx->scanline = ctx->scanline_buf;
+    ctx->prev_scanline = ctx->prev_scanline_buf;
+    ctx->row_buf = NULL;
+    ctx->row = NULL;
+
+    if(ctx->scanline == NULL || ctx->prev_scanline == NULL)
+        return decode_err(ctx, SPNG_EMEM);
+
+    /* Reset row info for new frame */
+    memset(&ctx->row_info, 0, sizeof(struct spng_row_info));
+
+    ctx->state = SPNG_STATE_DECODE_INIT;
+
+    /* Read first filter byte */
+    ret = read_scanline_bytes(ctx, &ctx->row_info.filter, 1);
+    if(ret) return decode_err(ctx, ret);
+
+    if(ctx->row_info.filter > 4) return decode_err(ctx, SPNG_EFILTER);
+
+    if(flags & SPNG_DECODE_PROGRESSIVE) return 0;
+
+    /* One-shot frame decode */
+    do
+    {
+        size_t ioffset = ctx->row_info.row_num * ctx->image_width;
+
+        ret = spng_decode_row(ctx, (unsigned char*)out + ioffset, ctx->image_width);
+    }while(!ret);
+
+    if(ret != SPNG_EOI) return decode_err(ctx, ret);
+
+    ctx->state = SPNG_STATE_FRAME_IDLE;
+    ctx->fdat_stream = 0;
+
+    return 0;
+}
+
 int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
 {
     if(ctx == NULL || row_info == NULL || ctx->state < SPNG_STATE_DECODE_INIT) return 1;
@@ -4042,6 +4404,15 @@ static int write_chunks_before_idat(spng_ctx *ctx)
 
     ret = write_chunk(ctx, type_ihdr, data, 13);
     if(ret) return ret;
+
+    if(ctx->stored.actl)
+    {
+        write_u32(data, ctx->actl.num_frames);
+        write_u32(data + 4, ctx->actl.num_plays);
+
+        ret = write_chunk(ctx, type_actl, data, 8);
+        if(ret) return ret;
+    }
 
     if(ctx->stored.chrm)
     {
@@ -4559,6 +4930,32 @@ static int finish_idat(spng_ctx *ctx)
     return finish_chunk(ctx);
 }
 
+static int write_fdat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int flush);
+static int finish_fdat(spng_ctx *ctx);
+
+/* Write an fcTL chunk with the next sequence number */
+static int write_fctl(spng_ctx *ctx, const struct spng_fctl *fctl)
+{
+    unsigned char data[26];
+
+    write_u32(data, ctx->next_seq_num);
+    write_u32(data + 4, fctl->width);
+    write_u32(data + 8, fctl->height);
+    write_u32(data + 12, fctl->x_offset);
+    write_u32(data + 16, fctl->y_offset);
+    write_u16(data + 20, fctl->delay_num);
+    write_u16(data + 22, fctl->delay_den);
+    data[24] = fctl->dispose_op;
+    data[25] = fctl->blend_op;
+
+    int ret = write_chunk(ctx, type_fctl, data, 26);
+    if(ret) return ret;
+
+    ctx->next_seq_num++;
+
+    return 0;
+}
+
 static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
 {
     if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
@@ -4598,7 +4995,10 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
         if(ret) return encode_err(ctx, ret);
     }
 
-    ret = write_idat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
+    if(ctx->fdat_stream)
+        ret = write_fdat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
+    else
+        ret = write_idat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
     if(ret) return encode_err(ctx, ret);
 
     /* The previous scanline is always unfiltered */
@@ -4610,7 +5010,9 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
 
     if(ret == SPNG_EOI)
     {
-        int error = finish_idat(ctx);
+        int error;
+        if(ctx->fdat_stream) error = finish_fdat(ctx);
+        else error = finish_idat(ctx);
         if(error) encode_err(ctx, error);
 
         if(f.finalize)
@@ -4722,7 +5124,7 @@ int spng_encode_chunks(spng_ctx *ctx)
     {
         return 0;
     }
-    else if(ctx->state == SPNG_STATE_EOI)
+    else if(ctx->state == SPNG_STATE_EOI || ctx->state == SPNG_STATE_FRAME_IDLE)
     {
         ret = write_chunks_after_idat(ctx);
         if(ret) return encode_err(ctx, ret);
@@ -4830,6 +5232,13 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     z_stream *zstream = &ctx->zstream;
     zstream->avail_out = SPNG_WRITE_SIZE;
 
+    /* Write fcTL for frame 0 (before IDAT) if this is an APNG */
+    if(ctx->stored.fctl)
+    {
+        ret = write_fctl(ctx, &ctx->fctl);
+        if(ret) return encode_err(ctx, ret);
+    }
+
     ret = write_header(ctx, type_idat, zstream->avail_out, &zstream->next_out);
     if(ret) return encode_err(ctx, ret);
 
@@ -4871,6 +5280,252 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     }while(!ret);
 
     if(ret != SPNG_EOI) return encode_err(ctx, ret);
+
+    return 0;
+}
+
+/* Compress and write scanline to fdAT stream */
+static int write_fdat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int flush)
+{
+    if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
+    if(len > UINT_MAX) return SPNG_EINTERNAL;
+
+    int ret = 0;
+    unsigned char *data = NULL;
+    z_stream *zstream = &ctx->zstream;
+    uint32_t fdat_length = SPNG_WRITE_SIZE;
+
+    zstream->next_in = scanline;
+    zstream->avail_in = (uInt)len;
+
+    do
+    {
+        ret = deflate(zstream, flush);
+
+        if(zstream->avail_out == 0)
+        {
+            ret = finish_chunk(ctx);
+            if(ret) return encode_err(ctx, ret);
+
+            ret = write_header(ctx, type_fdat, fdat_length + 4, &data);
+            if(ret) return encode_err(ctx, ret);
+
+            /* Write sequence number at the start of each fdAT chunk */
+            write_u32(data, ctx->next_seq_num++);
+
+            zstream->next_out = data + 4;
+            zstream->avail_out = fdat_length;
+        }
+
+    }while(zstream->avail_in);
+
+    if(ret != Z_OK) return SPNG_EZLIB;
+
+    return 0;
+}
+
+static int finish_fdat(spng_ctx *ctx)
+{
+    int ret = 0;
+    unsigned char *data = NULL;
+    z_stream *zstream = &ctx->zstream;
+    uint32_t fdat_length = SPNG_WRITE_SIZE;
+
+    while(ret != Z_STREAM_END)
+    {
+        ret = deflate(zstream, Z_FINISH);
+
+        if(ret)
+        {
+            if(ret == Z_STREAM_END) break;
+
+            if(ret != Z_BUF_ERROR) return SPNG_EZLIB;
+        }
+
+        if(zstream->avail_out == 0)
+        {
+            ret = finish_chunk(ctx);
+            if(ret) return encode_err(ctx, ret);
+
+            ret = write_header(ctx, type_fdat, fdat_length + 4, &data);
+            if(ret) return encode_err(ctx, ret);
+
+            write_u32(data, ctx->next_seq_num++);
+
+            zstream->next_out = data + 4;
+            zstream->avail_out = fdat_length;
+        }
+    }
+
+    uint32_t trimmed_length = fdat_length - zstream->avail_out + 4; /* +4 for seq num */
+
+    ret = trim_chunk(ctx, trimmed_length);
+    if(ret) return ret;
+
+    return finish_chunk(ctx);
+}
+
+int spng_encode_frame(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags, struct spng_fctl *fctl)
+{
+    if(ctx == NULL || fctl == NULL) return 1;
+    if(!ctx->state) return SPNG_EBADSTATE;
+    if(!ctx->encode_only) return SPNG_ECTXTYPE;
+    if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
+    if(!ctx->stored.actl) return SPNG_EACTL;
+    if( !(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW) ) return SPNG_EFMT;
+
+    if(ctx->num_frames_encoded >= ctx->actl.num_frames) return SPNG_EOPSTATE;
+
+    int ret = check_fctl(fctl, &ctx->ihdr, ctx->num_frames_encoded == 0);
+    if(ret) return ret;
+
+    if(ctx->num_frames_encoded == 0)
+    {
+        /* First frame: store fctl and use spng_encode_image to write IDAT */
+        ctx->fctl = *fctl;
+        ctx->stored.fctl = 1;
+
+        /* Don't finalize — we need to write more frames */
+        ret = spng_encode_image(ctx, img, len, fmt, flags & ~SPNG_ENCODE_FINALIZE);
+        if(ret) return ret;
+
+        ctx->num_frames_encoded++;
+
+        if(flags & SPNG_ENCODE_PROGRESSIVE)
+        {
+            /* Progressive: leave state as-is so caller can write scanlines.
+               State transitions to FRAME_IDLE after SPNG_EOI from encode_row(). */
+            return 0;
+        }
+
+        ctx->state = SPNG_STATE_FRAME_IDLE;
+
+        if(flags & SPNG_ENCODE_FINALIZE)
+        {
+            ret = write_chunks_after_idat(ctx);
+            if(ret) return encode_err(ctx, ret);
+            ctx->state = SPNG_STATE_IEND;
+        }
+
+        return 0;
+    }
+
+    /* Subsequent frames: write fcTL + fdAT */
+    if(ctx->state != SPNG_STATE_FRAME_IDLE && ctx->state != SPNG_STATE_EOI)
+        return SPNG_EOPSTATE;
+
+    /* Frames are encoded with the same format as the first frame */
+    if(fmt != ctx->fmt) return SPNG_EFMT;
+
+    if(ctx->state == SPNG_STATE_EOI)
+        ctx->state = SPNG_STATE_FRAME_IDLE;
+
+    ret = write_fctl(ctx, fctl);
+    if(ret) return encode_err(ctx, ret);
+
+    ctx->fctl = *fctl;
+
+    ret = calculate_frame_subimages(ctx, fctl->width, fctl->height);
+    if(ret) return encode_err(ctx, ret);
+
+    struct spng_subimage *sub = ctx->subimage;
+
+    /* fmt is SPNG_FMT_PNG or SPNG_FMT_RAW */
+    ctx->image_width = sub[0].scanline_width - 1;
+
+    if(ctx->image_width > SIZE_MAX / fctl->height) ctx->image_size = 0;
+    else ctx->image_size = ctx->image_width * fctl->height;
+
+    if(!(flags & SPNG_ENCODE_PROGRESSIVE))
+    {
+        if(img == NULL) return 1;
+        if(!ctx->image_size) return SPNG_EOVERFLOW;
+        if(len != ctx->image_size) return SPNG_EBUFSIZ;
+    }
+
+    /* Reset zlib deflate */
+    ret = spng__deflate_init(ctx, &ctx->image_options);
+    if(ret) return encode_err(ctx, ret);
+
+    /* Reallocate scanline buffers */
+    size_t scanline_buf_size = sub[0].scanline_width + 32;
+    if(scanline_buf_size < 32) return SPNG_EOVERFLOW;
+
+    spng__free(ctx, ctx->scanline_buf);
+    spng__free(ctx, ctx->prev_scanline_buf);
+    spng__free(ctx, ctx->filtered_scanline_buf);
+
+    ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
+    ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
+
+    if(ctx->scanline_buf == NULL || ctx->prev_scanline_buf == NULL) return encode_err(ctx, SPNG_EMEM);
+
+    ctx->scanline = ctx->scanline_buf + 16;
+    ctx->prev_scanline = ctx->prev_scanline_buf + 16;
+
+    struct encode_flags *encode_flags = &ctx->encode_flags;
+
+    if(encode_flags->filter_choice)
+    {
+        ctx->filtered_scanline_buf = spng__malloc(ctx, scanline_buf_size);
+        if(ctx->filtered_scanline_buf == NULL) return encode_err(ctx, SPNG_EMEM);
+        ctx->filtered_scanline = ctx->filtered_scanline_buf + 16;
+    }
+    else
+    {
+        ctx->filtered_scanline_buf = NULL;
+    }
+
+    /* Write first fdAT header with sequence number */
+    z_stream *zstream = &ctx->zstream;
+    uint32_t fdat_chunk_length = SPNG_WRITE_SIZE + 4; /* +4 for seq num */
+    unsigned char *chunk_data;
+
+    ret = write_header(ctx, type_fdat, fdat_chunk_length, &chunk_data);
+    if(ret) return encode_err(ctx, ret);
+
+    write_u32(chunk_data, ctx->next_seq_num++);
+
+    zstream->avail_out = SPNG_WRITE_SIZE;
+    zstream->next_out = chunk_data + 4;
+
+    memset(&ctx->row_info, 0, sizeof(struct spng_row_info));
+
+    if(flags & SPNG_ENCODE_FINALIZE) encode_flags->finalize = 1;
+    else encode_flags->finalize = 0;
+
+    ctx->fdat_stream = 1; /* Tells encode_scanline to use fdAT */
+    ctx->state = SPNG_STATE_ENCODE_INIT;
+
+    if(flags & SPNG_ENCODE_PROGRESSIVE)
+    {
+        encode_flags->progressive = 1;
+        ctx->num_frames_encoded++;
+        return 0;
+    }
+
+    /* One-shot encode */
+    struct spng_row_info *ri = &ctx->row_info;
+
+    do
+    {
+        size_t ioffset = ri->row_num * ctx->image_width;
+
+        ret = encode_scanline(ctx, (unsigned char*)img + ioffset, ctx->image_width);
+
+    }while(!ret);
+
+    if(ret != SPNG_EOI) return encode_err(ctx, ret);
+
+    ctx->num_frames_encoded++;
+    ctx->state = SPNG_STATE_FRAME_IDLE;
+
+    if(flags & SPNG_ENCODE_FINALIZE)
+    {
+        ret = write_chunks_after_idat(ctx);
+        if(ret) return encode_err(ctx, ret);
+        ctx->state = SPNG_STATE_IEND;
+    }
 
     return 0;
 }
@@ -6038,6 +6693,40 @@ int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
     return 0;
 }
 
+int spng_get_actl(spng_ctx *ctx, struct spng_actl *actl)
+{
+    SPNG_GET_CHUNK_BOILERPLATE(actl);
+
+    *actl = ctx->actl;
+
+    return 0;
+}
+
+int spng_set_actl(spng_ctx *ctx, struct spng_actl *actl)
+{
+    SPNG_SET_CHUNK_BOILERPLATE(actl);
+
+    if(ctx->stored.actl) return SPNG_EDUP_ACTL;
+
+    if(!actl->num_frames) return SPNG_EACTL;
+
+    ctx->actl = *actl;
+
+    ctx->stored.actl = 1;
+    ctx->user.actl = 1;
+
+    return 0;
+}
+
+int spng_get_frame_fctl(spng_ctx *ctx, struct spng_fctl *fctl)
+{
+    SPNG_GET_CHUNK_BOILERPLATE(fctl);
+
+    *fctl = ctx->fctl;
+
+    return 0;
+}
+
 const char *spng_strerror(int err)
 {
     switch(err)
@@ -6130,6 +6819,10 @@ const char *spng_strerror(int err)
         case SPNG_ENODST: return "PNG output not set";
         case SPNG_EOPSTATE: return "invalid operation for state";
         case SPNG_ENOTFINAL: return "PNG not finalized";
+        case SPNG_EACTL: return "invalid acTL";
+        case SPNG_EFCTL: return "invalid fcTL";
+        case SPNG_EDUP_ACTL: return "duplicate acTL";
+        case SPNG_EAPNG: return "APNG error";
         default: return "unknown error";
     }
 }

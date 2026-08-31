@@ -1271,6 +1271,1202 @@ static int get_image_info(FILE *f, struct spng_ihdr *ihdr)
     return ret;
 }
 
+static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t len);
+
+static int apng_tests(void)
+{
+    int ret = 0;
+    spng_ctx *enc = NULL;
+    spng_ctx *dec = NULL;
+    unsigned char *encoded = NULL;
+    unsigned char *frame0 = NULL;
+    unsigned char *frame1 = NULL;
+    unsigned char *frame2 = NULL;
+    unsigned char *dec_buf = NULL;
+    unsigned char *frame_buf = NULL;
+
+    const uint32_t w = 8, h = 8;
+    const int num_frames = 3;
+    const size_t frame_size = w * h * 4; /* RGBA8 = 4 bytes/pixel */
+
+    /* Generate known pixel data for 3 frames */
+    frame0 = malloc(frame_size);
+    frame1 = malloc(frame_size);
+    frame2 = malloc(frame_size);
+    if(!frame0 || !frame1 || !frame2) { ret = 1; goto cleanup; }
+
+    /* Frame 0: solid red */
+    uint32_t i;
+    for(i = 0; i < w * h; i++)
+    {
+        frame0[i*4+0] = 255; frame0[i*4+1] = 0;   frame0[i*4+2] = 0;   frame0[i*4+3] = 255;
+    }
+    /* Frame 1: solid green */
+    for(i = 0; i < w * h; i++)
+    {
+        frame1[i*4+0] = 0;   frame1[i*4+1] = 255; frame1[i*4+2] = 0;   frame1[i*4+3] = 255;
+    }
+    /* Frame 2: solid blue */
+    for(i = 0; i < w * h; i++)
+    {
+        frame2[i*4+0] = 0;   frame2[i*4+1] = 0;   frame2[i*4+2] = 255; frame2[i*4+3] = 255;
+    }
+
+    /* === ENCODE === */
+    printf("  APNG encode: 3-frame %ux%u RGBA8...\n", w, h);
+
+    enc = spng_ctx_new(SPNG_CTX_ENCODER);
+    if(!enc) { printf("    spng_ctx_new(ENCODER) failed\n"); ret = 1; goto cleanup; }
+
+    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+
+    struct spng_ihdr ihdr = {
+        .width = w,
+        .height = h,
+        .bit_depth = 8,
+        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+    };
+    ret = spng_set_ihdr(enc, &ihdr);
+    if(ret) { printf("    spng_set_ihdr: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    struct spng_actl actl = { .num_frames = num_frames, .num_plays = 0 };
+    ret = spng_set_actl(enc, &actl);
+    if(ret) { printf("    spng_set_actl: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    /* Encode frame 0 (writes fcTL + IDAT) */
+    struct spng_fctl fctl0 = {
+        .width = w, .height = h,
+        .delay_num = 100, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(enc, frame0, frame_size, SPNG_FMT_PNG, 0, &fctl0);
+    if(ret) { printf("    encode frame 0: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    /* Encode frame 1 (writes fcTL + fdAT) */
+    struct spng_fctl fctl1 = {
+        .width = w, .height = h,
+        .delay_num = 200, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(enc, frame1, frame_size, SPNG_FMT_PNG, 0, &fctl1);
+    if(ret) { printf("    encode frame 1: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    /* Encode frame 2 (last frame, finalize) */
+    struct spng_fctl fctl2 = {
+        .width = w, .height = h,
+        .delay_num = 300, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(enc, frame2, frame_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &fctl2);
+    if(ret) { printf("    encode frame 2: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    size_t encoded_len;
+    encoded = spng_get_png_buffer(enc, &encoded_len, &ret);
+    if(!encoded) { printf("    get_png_buffer: %s\n", spng_strerror(ret)); ret = 1; goto cleanup; }
+
+    printf("    encoded %zu bytes\n", encoded_len);
+
+    spng_ctx_free(enc);
+    enc = NULL;
+
+    /* === DECODE === */
+    printf("  APNG decode...\n");
+
+    dec = spng_ctx_new(0);
+    if(!dec) { ret = 1; goto cleanup; }
+
+    ret = spng_set_png_buffer(dec, encoded, encoded_len);
+    if(ret) { printf("    set_png_buffer: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    /* Decode default image (IDAT = frame 0) */
+    struct spng_ihdr dec_ihdr;
+    ret = spng_get_ihdr(dec, &dec_ihdr);
+    if(ret) { printf("    get_ihdr: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    if(dec_ihdr.width != w || dec_ihdr.height != h)
+    {
+        printf("    IHDR mismatch: %ux%u\n", dec_ihdr.width, dec_ihdr.height);
+        ret = 1; goto cleanup;
+    }
+
+    /* Check acTL */
+    struct spng_actl dec_actl;
+    ret = spng_get_actl(dec, &dec_actl);
+    if(ret) { printf("    get_actl: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    if(dec_actl.num_frames != (uint32_t)num_frames)
+    {
+        printf("    acTL num_frames mismatch: %u (expected %d)\n", dec_actl.num_frames, num_frames);
+        ret = 1; goto cleanup;
+    }
+    printf("    acTL: num_frames=%u, num_plays=%u\n", dec_actl.num_frames, dec_actl.num_plays);
+
+    /* Check frame 0 fcTL */
+    struct spng_fctl dec_fctl;
+    ret = spng_get_frame_fctl(dec, &dec_fctl);
+    if(ret) { printf("    get_frame_fctl (frame 0): %s\n", spng_strerror(ret)); goto cleanup; }
+
+    if(dec_fctl.width != w || dec_fctl.height != h || dec_fctl.delay_num != 100 || dec_fctl.delay_den != 1000)
+    {
+        printf("    frame 0 fctl mismatch: %ux%u delay=%u/%u\n",
+               dec_fctl.width, dec_fctl.height, dec_fctl.delay_num, dec_fctl.delay_den);
+        ret = 1; goto cleanup;
+    }
+
+    /* Decode default image */
+    size_t image_size;
+    ret = spng_decoded_image_size(dec, SPNG_FMT_RGBA8, &image_size);
+    if(ret) { printf("    decoded_image_size: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    dec_buf = malloc(image_size);
+    if(!dec_buf) { ret = 1; goto cleanup; }
+
+    ret = spng_decode_image(dec, dec_buf, image_size, SPNG_FMT_RGBA8, 0);
+    if(ret) { printf("    decode_image: %s\n", spng_strerror(ret)); goto cleanup; }
+
+    /* Verify frame 0 pixels */
+    if(memcmp(dec_buf, frame0, frame_size))
+    {
+        printf("    FAIL: frame 0 pixels do not match\n");
+        ret = 1; goto cleanup;
+    }
+    printf("    frame 0: pixels match\n");
+
+    /* Decode subsequent frames */
+    frame_buf = malloc(image_size);
+    if(!frame_buf) { ret = 1; goto cleanup; }
+
+    /* Frame 1 */
+    struct spng_fctl frame_fctl;
+    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &frame_fctl);
+    if(ret) { printf("    decode_frame (frame 1): %s\n", spng_strerror(ret)); goto cleanup; }
+
+    if(frame_fctl.delay_num != 200 || frame_fctl.delay_den != 1000)
+    {
+        printf("    frame 1 fctl mismatch: delay=%u/%u\n", frame_fctl.delay_num, frame_fctl.delay_den);
+        ret = 1; goto cleanup;
+    }
+
+    if(memcmp(frame_buf, frame1, frame_size))
+    {
+        printf("    FAIL: frame 1 pixels do not match\n");
+        /* Print first differing pixel */
+        for(i = 0; i < w * h; i++)
+        {
+            if(memcmp(frame_buf + i*4, frame1 + i*4, 4))
+            {
+                printf("    pixel %u: got (%u,%u,%u,%u) expected (%u,%u,%u,%u)\n", i,
+                       frame_buf[i*4], frame_buf[i*4+1], frame_buf[i*4+2], frame_buf[i*4+3],
+                       frame1[i*4], frame1[i*4+1], frame1[i*4+2], frame1[i*4+3]);
+                break;
+            }
+        }
+        ret = 1; goto cleanup;
+    }
+    printf("    frame 1: pixels match\n");
+
+    /* Frame 2 */
+    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &frame_fctl);
+    if(ret) { printf("    decode_frame (frame 2): %s\n", spng_strerror(ret)); goto cleanup; }
+
+    if(frame_fctl.delay_num != 300 || frame_fctl.delay_den != 1000)
+    {
+        printf("    frame 2 fctl mismatch: delay=%u/%u\n", frame_fctl.delay_num, frame_fctl.delay_den);
+        ret = 1; goto cleanup;
+    }
+
+    if(memcmp(frame_buf, frame2, frame_size))
+    {
+        printf("    FAIL: frame 2 pixels do not match\n");
+        for(i = 0; i < w * h; i++)
+        {
+            if(memcmp(frame_buf + i*4, frame2 + i*4, 4))
+            {
+                printf("    pixel %u: got (%u,%u,%u,%u) expected (%u,%u,%u,%u)\n", i,
+                       frame_buf[i*4], frame_buf[i*4+1], frame_buf[i*4+2], frame_buf[i*4+3],
+                       frame2[i*4], frame2[i*4+1], frame2[i*4+2], frame2[i*4+3]);
+                break;
+            }
+        }
+        ret = 1; goto cleanup;
+    }
+    printf("    frame 2: pixels match\n");
+
+    /* No more frames */
+    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &frame_fctl);
+    if(ret != SPNG_EOI)
+    {
+        printf("    expected EOI after last frame, got: %s\n", spng_strerror(ret));
+        ret = 1; goto cleanup;
+    }
+    printf("    EOI after last frame: OK\n");
+
+    /* === STATIC PNG BACKWARD COMPAT === */
+    printf("  static PNG backward compatibility...\n");
+    {
+        spng_ctx *static_ctx = spng_ctx_new(0);
+        /* Re-decode the same buffer — spng_get_actl should work, frame decode should too */
+        spng_set_png_buffer(static_ctx, encoded, encoded_len);
+
+        struct spng_actl tmp_actl;
+        int r = spng_get_actl(static_ctx, &tmp_actl);
+        if(r) { printf("    get_actl on APNG failed: %s\n", spng_strerror(r)); ret = 1; }
+        else printf("    get_actl on APNG: OK\n");
+
+        spng_ctx_free(static_ctx);
+    }
+
+    ret = 0;
+    printf("  APNG roundtrip: PASS\n");
+
+cleanup:
+    free(frame0);
+    free(frame1);
+    free(frame2);
+    free(dec_buf);
+    free(frame_buf);
+    /* encoded is owned by enc context, don't free if enc still alive */
+    spng_ctx_free(enc);
+    spng_ctx_free(dec);
+
+    return ret;
+}
+
+static int apng_subframe_tests(void)
+{
+    int ret = 0;
+    spng_ctx *enc = NULL;
+    spng_ctx *dec = NULL;
+    unsigned char *encoded = NULL;
+    unsigned char *canvas_pixels = NULL;
+    unsigned char *sub_pixels = NULL;
+    unsigned char *dec_buf = NULL;
+    unsigned char *frame_buf = NULL;
+
+    const uint32_t cw = 16, ch = 16; /* canvas */
+    const uint32_t sw = 8, sh = 8;   /* sub-frame */
+    const uint32_t sx = 4, sy = 4;   /* sub-frame offset */
+    const size_t canvas_size = cw * ch * 4;
+    const size_t sub_size = sw * sh * 4;
+
+    canvas_pixels = malloc(canvas_size);
+    sub_pixels = malloc(sub_size);
+    if(!canvas_pixels || !sub_pixels) { ret = 1; goto sub_cleanup; }
+
+    /* Frame 0: full canvas, solid white */
+    uint32_t i;
+    for(i = 0; i < cw * ch; i++)
+    {
+        canvas_pixels[i*4+0] = 255; canvas_pixels[i*4+1] = 255;
+        canvas_pixels[i*4+2] = 255; canvas_pixels[i*4+3] = 255;
+    }
+
+    /* Frame 1: 8x8 sub-region at (4,4), solid magenta */
+    for(i = 0; i < sw * sh; i++)
+    {
+        sub_pixels[i*4+0] = 255; sub_pixels[i*4+1] = 0;
+        sub_pixels[i*4+2] = 255; sub_pixels[i*4+3] = 255;
+    }
+
+    /* === ENCODE === */
+    enc = spng_ctx_new(SPNG_CTX_ENCODER);
+    if(!enc) { ret = 1; goto sub_cleanup; }
+
+    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+
+    struct spng_ihdr ihdr = {
+        .width = cw, .height = ch,
+        .bit_depth = 8,
+        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+    };
+    ret = spng_set_ihdr(enc, &ihdr);
+    if(ret) { printf("    set_ihdr: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    struct spng_actl actl = { .num_frames = 2, .num_plays = 0 };
+    ret = spng_set_actl(enc, &actl);
+    if(ret) { printf("    set_actl: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    /* Frame 0: full canvas */
+    struct spng_fctl fctl0 = {
+        .width = cw, .height = ch,
+        .delay_num = 100, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(enc, canvas_pixels, canvas_size, SPNG_FMT_PNG, 0, &fctl0);
+    if(ret) { printf("    encode frame 0: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    /* Frame 1: sub-region */
+    struct spng_fctl fctl1 = {
+        .width = sw, .height = sh,
+        .x_offset = sx, .y_offset = sy,
+        .delay_num = 200, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(enc, sub_pixels, sub_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &fctl1);
+    if(ret) { printf("    encode frame 1: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    size_t encoded_len;
+    encoded = spng_get_png_buffer(enc, &encoded_len, &ret);
+    if(!encoded) { printf("    get_png_buffer: %s\n", spng_strerror(ret)); ret = 1; goto sub_cleanup; }
+
+    spng_ctx_free(enc);
+    enc = NULL;
+
+    /* === DECODE === */
+    dec = spng_ctx_new(0);
+    if(!dec) { ret = 1; goto sub_cleanup; }
+
+    ret = spng_set_png_buffer(dec, encoded, encoded_len);
+    if(ret) { printf("    set_png_buffer: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    size_t image_size;
+    ret = spng_decoded_image_size(dec, SPNG_FMT_RGBA8, &image_size);
+    if(ret) { printf("    decoded_image_size: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    dec_buf = malloc(image_size);
+    if(!dec_buf) { ret = 1; goto sub_cleanup; }
+
+    ret = spng_decode_image(dec, dec_buf, image_size, SPNG_FMT_RGBA8, 0);
+    if(ret) { printf("    decode_image: %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    /* Verify frame 0 (full canvas white) */
+    if(memcmp(dec_buf, canvas_pixels, canvas_size))
+    {
+        printf("    FAIL: frame 0 pixels do not match\n");
+        ret = 1; goto sub_cleanup;
+    }
+    printf("    frame 0 (full canvas): pixels match\n");
+
+    /* Decode frame 1 (sub-region) */
+    frame_buf = malloc(image_size); /* over-allocate, that's fine */
+    if(!frame_buf) { ret = 1; goto sub_cleanup; }
+
+    struct spng_fctl dec_fctl;
+    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &dec_fctl);
+    if(ret) { printf("    decode_frame (frame 1): %s\n", spng_strerror(ret)); goto sub_cleanup; }
+
+    /* Verify fctl dimensions and offsets */
+    if(dec_fctl.width != sw || dec_fctl.height != sh ||
+       dec_fctl.x_offset != sx || dec_fctl.y_offset != sy)
+    {
+        printf("    FAIL: fctl mismatch: %ux%u+%u+%u (expected %ux%u+%u+%u)\n",
+               dec_fctl.width, dec_fctl.height, dec_fctl.x_offset, dec_fctl.y_offset,
+               sw, sh, sx, sy);
+        ret = 1; goto sub_cleanup;
+    }
+    printf("    frame 1 fctl: %ux%u+%u+%u OK\n", dec_fctl.width, dec_fctl.height,
+           dec_fctl.x_offset, dec_fctl.y_offset);
+
+    /* Verify frame 1 pixel data (only sw*sh pixels) */
+    if(memcmp(frame_buf, sub_pixels, sub_size))
+    {
+        printf("    FAIL: frame 1 pixels do not match\n");
+        ret = 1; goto sub_cleanup;
+    }
+    printf("    frame 1 (sub-region): pixels match\n");
+
+    /* No more frames */
+    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &dec_fctl);
+    if(ret != SPNG_EOI)
+    {
+        printf("    expected EOI, got: %s\n", spng_strerror(ret));
+        ret = 1; goto sub_cleanup;
+    }
+    printf("    EOI: OK\n");
+
+    ret = 0;
+    printf("  APNG sub-frame: PASS\n");
+
+sub_cleanup:
+    free(canvas_pixels);
+    free(sub_pixels);
+    free(dec_buf);
+    free(frame_buf);
+    spng_ctx_free(enc);
+    spng_ctx_free(dec);
+
+    return ret;
+}
+
+static int apng_error_tests(void)
+{
+    int ret;
+    spng_ctx *ctx = NULL;
+
+    /* Test: acTL with num_frames=0 */
+    printf("  error: acTL num_frames=0...\n");
+    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
+    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
+    struct spng_ihdr ihdr = {
+        .width = 4, .height = 4, .bit_depth = 8,
+        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+    };
+    spng_set_ihdr(ctx, &ihdr);
+    struct spng_actl bad_actl = { .num_frames = 0 };
+    ret = spng_set_actl(ctx, &bad_actl);
+    if(ret != SPNG_EACTL)
+    {
+        printf("    FAIL: expected SPNG_EACTL, got %s\n", spng_strerror(ret));
+        spng_ctx_free(ctx);
+        return 1;
+    }
+    printf("    OK (%s)\n", spng_strerror(ret));
+    spng_ctx_free(ctx);
+
+    /* Test: fcTL with out-of-bounds region */
+    printf("  error: fcTL out-of-bounds...\n");
+    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
+    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
+    spng_set_ihdr(ctx, &ihdr);
+    struct spng_actl actl = { .num_frames = 1 };
+    spng_set_actl(ctx, &actl);
+
+    unsigned char pixels[4 * 4 * 4];
+    memset(pixels, 128, sizeof(pixels));
+
+    struct spng_fctl bad_fctl = {
+        .width = 4, .height = 4,
+        .x_offset = 2, .y_offset = 0, /* 2+4=6 > 4 canvas width */
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &bad_fctl);
+    if(ret != SPNG_EFCTL)
+    {
+        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
+        spng_ctx_free(ctx);
+        return 1;
+    }
+    printf("    OK (%s)\n", spng_strerror(ret));
+    spng_ctx_free(ctx);
+
+    /* Test: fcTL with invalid dispose_op */
+    printf("  error: fcTL bad dispose_op...\n");
+    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
+    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
+    spng_set_ihdr(ctx, &ihdr);
+    spng_set_actl(ctx, &actl);
+
+    struct spng_fctl bad_dispose = {
+        .width = 4, .height = 4,
+        .dispose_op = 5, /* invalid */
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &bad_dispose);
+    if(ret != SPNG_EFCTL)
+    {
+        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
+        spng_ctx_free(ctx);
+        return 1;
+    }
+    printf("    OK (%s)\n", spng_strerror(ret));
+    spng_ctx_free(ctx);
+
+    /* Test: fcTL with invalid blend_op */
+    printf("  error: fcTL bad blend_op...\n");
+    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
+    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
+    spng_set_ihdr(ctx, &ihdr);
+    spng_set_actl(ctx, &actl);
+
+    struct spng_fctl bad_blend = {
+        .width = 4, .height = 4,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = 3 /* invalid */
+    };
+    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &bad_blend);
+    if(ret != SPNG_EFCTL)
+    {
+        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
+        spng_ctx_free(ctx);
+        return 1;
+    }
+    printf("    OK (%s)\n", spng_strerror(ret));
+    spng_ctx_free(ctx);
+
+    /* Test: fcTL with zero dimensions */
+    printf("  error: fcTL zero width...\n");
+    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
+    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
+    spng_set_ihdr(ctx, &ihdr);
+    spng_set_actl(ctx, &actl);
+
+    struct spng_fctl zero_dim = {
+        .width = 0, .height = 4,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &zero_dim);
+    if(ret != SPNG_EFCTL)
+    {
+        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
+        spng_ctx_free(ctx);
+        return 1;
+    }
+    printf("    OK (%s)\n", spng_strerror(ret));
+    spng_ctx_free(ctx);
+
+    /* Test: decode_frame on non-APNG */
+    printf("  error: decode_frame on non-APNG...\n");
+    {
+        /* Encode a normal static PNG */
+        spng_ctx *senc = spng_ctx_new(SPNG_CTX_ENCODER);
+        spng_set_option(senc, SPNG_ENCODE_TO_BUFFER, 1);
+        spng_set_ihdr(senc, &ihdr);
+        spng_encode_image(senc, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+
+        size_t slen;
+        unsigned char *sbuf = spng_get_png_buffer(senc, &slen, &ret);
+
+        spng_ctx *sdec = spng_ctx_new(0);
+        spng_set_png_buffer(sdec, sbuf, slen);
+
+        unsigned char dimg[4 * 4 * 4];
+        spng_decode_image(sdec, dimg, sizeof(dimg), SPNG_FMT_RGBA8, 0);
+
+        struct spng_fctl fctl;
+        ret = spng_decode_frame(sdec, dimg, sizeof(dimg), SPNG_FMT_RGBA8, 0, &fctl);
+        if(ret == 0)
+        {
+            printf("    FAIL: decode_frame should fail on non-APNG\n");
+            spng_ctx_free(senc);
+            spng_ctx_free(sdec);
+            return 1;
+        }
+        printf("    OK (%s)\n", spng_strerror(ret));
+
+        spng_ctx_free(senc);
+        spng_ctx_free(sdec);
+    }
+
+    printf("  APNG error cases: PASS\n");
+    return 0;
+}
+
+/* Helper: encode a 3-frame 8x8 RGBA8 APNG to buffer.
+   frames[0..2] must each be w*h*4 bytes. Caller frees *out_enc context. */
+static int encode_test_apng(unsigned char *frames[3], uint32_t w, uint32_t h,
+                            unsigned char **out_buf, size_t *out_len, spng_ctx **out_enc)
+{
+    int ret;
+    size_t frame_size = w * h * 4;
+
+    spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
+    if(!enc) return 1;
+
+    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+
+    struct spng_ihdr ihdr = {
+        .width = w, .height = h, .bit_depth = 8,
+        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+    };
+    ret = spng_set_ihdr(enc, &ihdr);
+    if(ret) goto fail;
+
+    struct spng_actl actl = { .num_frames = 3, .num_plays = 0 };
+    ret = spng_set_actl(enc, &actl);
+    if(ret) goto fail;
+
+    struct spng_fctl fctl = {
+        .width = w, .height = h,
+        .delay_num = 100, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+
+    int i;
+    for(i = 0; i < 3; i++)
+    {
+        fctl.delay_num = (i + 1) * 100;
+        int flags = (i == 2) ? SPNG_ENCODE_FINALIZE : 0;
+        ret = spng_encode_frame(enc, frames[i], frame_size, SPNG_FMT_PNG, flags, &fctl);
+        if(ret) goto fail;
+    }
+
+    *out_buf = spng_get_png_buffer(enc, out_len, &ret);
+    if(!*out_buf) goto fail;
+
+    *out_enc = enc;
+    return 0;
+
+fail:
+    spng_ctx_free(enc);
+    return ret;
+}
+
+static void fill_solid(unsigned char *buf, uint32_t w, uint32_t h,
+                       uint8_t r, uint8_t g, uint8_t b)
+{
+    uint32_t i;
+    for(i = 0; i < w * h; i++)
+    {
+        buf[i*4+0] = r; buf[i*4+1] = g;
+        buf[i*4+2] = b; buf[i*4+3] = 255;
+    }
+}
+
+static int apng_progressive_decode_test(void)
+{
+    int ret = 0;
+    spng_ctx *enc = NULL;
+    spng_ctx *dec1 = NULL;
+    spng_ctx *dec2 = NULL;
+    unsigned char *encoded = NULL;
+    unsigned char *frame_data[3] = {NULL, NULL, NULL};
+    unsigned char *oneshot_buf = NULL;
+    unsigned char *prog_buf = NULL;
+
+    const uint32_t w = 8, h = 8;
+    const size_t frame_size = w * h * 4;
+
+    int i;
+    for(i = 0; i < 3; i++)
+    {
+        frame_data[i] = malloc(frame_size);
+        if(!frame_data[i]) { ret = 1; goto prog_dec_cleanup; }
+    }
+    fill_solid(frame_data[0], w, h, 255, 0, 0);
+    fill_solid(frame_data[1], w, h, 0, 255, 0);
+    fill_solid(frame_data[2], w, h, 0, 0, 255);
+
+    size_t encoded_len;
+    ret = encode_test_apng(frame_data, w, h, &encoded, &encoded_len, &enc);
+    if(ret) { printf("    encode failed: %s\n", spng_strerror(ret)); goto prog_dec_cleanup; }
+    spng_ctx_free(enc); enc = NULL;
+
+    /* One-shot decode for reference */
+    dec1 = spng_ctx_new(0);
+    spng_set_png_buffer(dec1, encoded, encoded_len);
+
+    size_t image_size;
+    spng_decoded_image_size(dec1, SPNG_FMT_RGBA8, &image_size);
+
+    oneshot_buf = malloc(image_size);
+    prog_buf = malloc(image_size);
+    if(!oneshot_buf || !prog_buf) { ret = 1; goto prog_dec_cleanup; }
+
+    spng_decode_image(dec1, oneshot_buf, image_size, SPNG_FMT_RGBA8, 0);
+
+    /* Progressive decode for comparison */
+    dec2 = spng_ctx_new(0);
+    spng_set_png_buffer(dec2, encoded, encoded_len);
+
+    ret = spng_decode_image(dec2, NULL, 0, SPNG_FMT_RGBA8, SPNG_DECODE_PROGRESSIVE);
+    if(ret) { printf("    progressive init failed: %s\n", spng_strerror(ret)); goto prog_dec_cleanup; }
+
+    struct spng_row_info ri;
+    size_t out_width = image_size / h;
+
+    do
+    {
+        ret = spng_get_row_info(dec2, &ri);
+        if(ret) break;
+        ret = spng_decode_row(dec2, prog_buf + ri.row_num * out_width, out_width);
+    }while(!ret);
+
+    if(ret != SPNG_EOI) { printf("    progressive IDAT decode error: %s\n", spng_strerror(ret)); goto prog_dec_cleanup; }
+
+    if(memcmp(oneshot_buf, prog_buf, image_size))
+    {
+        printf("    FAIL: progressive IDAT differs from one-shot\n");
+        ret = 1; goto prog_dec_cleanup;
+    }
+    printf("    frame 0 (progressive vs one-shot): match\n");
+
+    /* Now decode subsequent frames progressively */
+    unsigned char *oneshot_frame = malloc(image_size);
+    unsigned char *prog_frame = malloc(image_size);
+    if(!oneshot_frame || !prog_frame) { free(oneshot_frame); free(prog_frame); ret = 1; goto prog_dec_cleanup; }
+
+    for(i = 1; i < 3; i++)
+    {
+        struct spng_fctl fctl1, fctl2;
+
+        /* One-shot */
+        ret = spng_decode_frame(dec1, oneshot_frame, image_size, SPNG_FMT_RGBA8, 0, &fctl1);
+        if(ret) { printf("    one-shot frame %d: %s\n", i, spng_strerror(ret)); free(oneshot_frame); free(prog_frame); goto prog_dec_cleanup; }
+
+        /* Progressive */
+        ret = spng_decode_frame(dec2, NULL, 0, SPNG_FMT_RGBA8, SPNG_DECODE_PROGRESSIVE, &fctl2);
+        if(ret) { printf("    progressive frame %d init: %s\n", i, spng_strerror(ret)); free(oneshot_frame); free(prog_frame); goto prog_dec_cleanup; }
+
+        size_t frame_out_width = fctl2.width * 4;
+        size_t frame_total = frame_out_width * fctl2.height;
+
+        do
+        {
+            ret = spng_get_row_info(dec2, &ri);
+            if(ret) break;
+            ret = spng_decode_row(dec2, prog_frame + ri.row_num * frame_out_width, frame_out_width);
+        }while(!ret);
+
+        if(ret != SPNG_EOI) { printf("    progressive frame %d decode: %s\n", i, spng_strerror(ret)); free(oneshot_frame); free(prog_frame); goto prog_dec_cleanup; }
+
+        if(memcmp(oneshot_frame, prog_frame, frame_total))
+        {
+            printf("    FAIL: frame %d progressive differs from one-shot\n", i);
+            free(oneshot_frame); free(prog_frame);
+            ret = 1; goto prog_dec_cleanup;
+        }
+        printf("    frame %d (progressive vs one-shot): match\n", i);
+    }
+
+    free(oneshot_frame);
+    free(prog_frame);
+    ret = 0;
+    printf("  APNG progressive decode: PASS\n");
+
+prog_dec_cleanup:
+    for(i = 0; i < 3; i++) free(frame_data[i]);
+    free(oneshot_buf);
+    free(prog_buf);
+    spng_ctx_free(enc);
+    spng_ctx_free(dec1);
+    spng_ctx_free(dec2);
+    return ret;
+}
+
+static int apng_progressive_encode_test(void)
+{
+    int ret = 0;
+    spng_ctx *enc = NULL;
+    spng_ctx *dec = NULL;
+    unsigned char *encoded = NULL;
+    unsigned char *frame_data[3] = {NULL, NULL, NULL};
+    unsigned char *dec_buf = NULL;
+    unsigned char *frame_buf = NULL;
+
+    const uint32_t w = 8, h = 8;
+    const size_t frame_size = w * h * 4;
+
+    int i;
+    for(i = 0; i < 3; i++)
+    {
+        frame_data[i] = malloc(frame_size);
+        if(!frame_data[i]) { ret = 1; goto prog_enc_cleanup; }
+    }
+    fill_solid(frame_data[0], w, h, 255, 0, 0);
+    fill_solid(frame_data[1], w, h, 0, 255, 0);
+    fill_solid(frame_data[2], w, h, 0, 0, 255);
+
+    /* Encode progressively */
+    enc = spng_ctx_new(SPNG_CTX_ENCODER);
+    if(!enc) { ret = 1; goto prog_enc_cleanup; }
+
+    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
+
+    struct spng_ihdr ihdr = {
+        .width = w, .height = h, .bit_depth = 8,
+        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+    };
+    ret = spng_set_ihdr(enc, &ihdr);
+    if(ret) { printf("    set_ihdr: %s\n", spng_strerror(ret)); goto prog_enc_cleanup; }
+
+    struct spng_actl actl = { .num_frames = 3, .num_plays = 0 };
+    ret = spng_set_actl(enc, &actl);
+    if(ret) { printf("    set_actl: %s\n", spng_strerror(ret)); goto prog_enc_cleanup; }
+
+    struct spng_fctl fctl = {
+        .width = w, .height = h,
+        .delay_num = 100, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+
+    for(i = 0; i < 3; i++)
+    {
+        fctl.delay_num = (i + 1) * 100;
+        int flags = SPNG_ENCODE_PROGRESSIVE;
+        if(i == 2) flags |= SPNG_ENCODE_FINALIZE;
+
+        ret = spng_encode_frame(enc, NULL, 0, SPNG_FMT_PNG, flags, &fctl);
+        if(ret) { printf("    encode_frame %d init: %s\n", i, spng_strerror(ret)); goto prog_enc_cleanup; }
+
+        /* Write scanlines */
+        struct spng_row_info ri;
+
+        /* For FMT_PNG with RGBA8, image_width = width * channels * (bit_depth/8) */
+        size_t img_width = (size_t)w * 4;
+
+        do
+        {
+            ret = spng_get_row_info(enc, &ri);
+            if(ret) break;
+            ret = spng_encode_row(enc, frame_data[i] + ri.row_num * img_width, img_width);
+        }while(!ret);
+
+        if(ret != SPNG_EOI) { printf("    encode_row frame %d: %s\n", i, spng_strerror(ret)); goto prog_enc_cleanup; }
+    }
+
+    size_t encoded_len;
+    encoded = spng_get_png_buffer(enc, &encoded_len, &ret);
+    if(!encoded) { printf("    get_png_buffer: %s\n", spng_strerror(ret)); ret = 1; goto prog_enc_cleanup; }
+
+    spng_ctx_free(enc); enc = NULL;
+
+    /* Decode and verify */
+    dec = spng_ctx_new(0);
+    spng_set_png_buffer(dec, encoded, encoded_len);
+
+    size_t image_size;
+    spng_decoded_image_size(dec, SPNG_FMT_RGBA8, &image_size);
+
+    dec_buf = malloc(image_size);
+    if(!dec_buf) { ret = 1; goto prog_enc_cleanup; }
+
+    ret = spng_decode_image(dec, dec_buf, image_size, SPNG_FMT_RGBA8, 0);
+    if(ret) { printf("    decode_image: %s\n", spng_strerror(ret)); goto prog_enc_cleanup; }
+
+    if(memcmp(dec_buf, frame_data[0], frame_size))
+    {
+        printf("    FAIL: frame 0 pixels mismatch\n");
+        ret = 1; goto prog_enc_cleanup;
+    }
+    printf("    frame 0: pixels match\n");
+
+    frame_buf = malloc(image_size);
+    if(!frame_buf) { ret = 1; goto prog_enc_cleanup; }
+
+    for(i = 1; i < 3; i++)
+    {
+        struct spng_fctl dec_fctl;
+        ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &dec_fctl);
+        if(ret) { printf("    decode_frame %d: %s\n", i, spng_strerror(ret)); goto prog_enc_cleanup; }
+
+        if(memcmp(frame_buf, frame_data[i], frame_size))
+        {
+            printf("    FAIL: frame %d pixels mismatch\n", i);
+            ret = 1; goto prog_enc_cleanup;
+        }
+        printf("    frame %d: pixels match\n", i);
+    }
+
+    ret = 0;
+    printf("  APNG progressive encode: PASS\n");
+
+prog_enc_cleanup:
+    for(i = 0; i < 3; i++) free(frame_data[i]);
+    free(dec_buf);
+    free(frame_buf);
+    spng_ctx_free(enc);
+    spng_ctx_free(dec);
+    return ret;
+}
+
+static int apng_buffer_stream_test(void)
+{
+    int ret = 0;
+    spng_ctx *enc_buf = NULL;
+    spng_ctx *enc_stream = NULL;
+    unsigned char *buf_encoded = NULL;
+    unsigned char *frame_data[3] = {NULL, NULL, NULL};
+
+    const uint32_t w = 8, h = 8;
+    const size_t frame_size = w * h * 4;
+
+    int i;
+    for(i = 0; i < 3; i++)
+    {
+        frame_data[i] = malloc(frame_size);
+        if(!frame_data[i]) { ret = 1; goto bs_cleanup; }
+    }
+    fill_solid(frame_data[0], w, h, 255, 0, 0);
+    fill_solid(frame_data[1], w, h, 0, 255, 0);
+    fill_solid(frame_data[2], w, h, 0, 0, 255);
+
+    /* Encode to buffer */
+    size_t buf_len;
+    ret = encode_test_apng(frame_data, w, h, &buf_encoded, &buf_len, &enc_buf);
+    if(ret) { printf("    buffer encode failed: %s\n", spng_strerror(ret)); goto bs_cleanup; }
+    spng_ctx_free(enc_buf); enc_buf = NULL;
+
+    /* Encode to stream, comparing against buffer output */
+    enc_stream = spng_ctx_new(SPNG_CTX_ENCODER);
+    if(!enc_stream) { ret = 1; goto bs_cleanup; }
+
+    struct buf_state state = { .data = buf_encoded, .bytes_left = buf_len };
+    spng_set_png_stream(enc_stream, stream_write_checked, &state);
+
+    struct spng_ihdr ihdr = {
+        .width = w, .height = h, .bit_depth = 8,
+        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
+    };
+    spng_set_ihdr(enc_stream, &ihdr);
+
+    struct spng_actl actl = { .num_frames = 3, .num_plays = 0 };
+    spng_set_actl(enc_stream, &actl);
+
+    struct spng_fctl fctl = {
+        .width = w, .height = h,
+        .delay_num = 100, .delay_den = 1000,
+        .dispose_op = SPNG_DISPOSE_OP_NONE,
+        .blend_op = SPNG_BLEND_OP_SOURCE
+    };
+
+    for(i = 0; i < 3; i++)
+    {
+        fctl.delay_num = (i + 1) * 100;
+        int flags = (i == 2) ? SPNG_ENCODE_FINALIZE : 0;
+        ret = spng_encode_frame(enc_stream, frame_data[i], frame_size, SPNG_FMT_PNG, flags, &fctl);
+        if(ret) { printf("    stream encode frame %d: %s\n", i, spng_strerror(ret)); goto bs_cleanup; }
+    }
+
+    if(state.bytes_left)
+    {
+        printf("    FAIL: stream shorter by %zu bytes\n", state.bytes_left);
+        ret = 1; goto bs_cleanup;
+    }
+
+    ret = 0;
+    printf("  APNG buffer vs stream: PASS\n");
+
+bs_cleanup:
+    for(i = 0; i < 3; i++) free(frame_data[i]);
+    spng_ctx_free(enc_buf);
+    spng_ctx_free(enc_stream);
+    return ret;
+}
+
+static int apng_malformed_decode_tests(void)
+{
+    int ret;
+
+    /* All tests craft raw PNG byte sequences and feed to decoder */
+
+    /* PNG signature */
+    const unsigned char sig[8] = {137, 80, 78, 71, 13, 10, 26, 10};
+
+    /* Helper: write a chunk into buf. Returns bytes written. */
+    #define WRITE_CHUNK(buf, pos, type4, data, datalen) do { \
+        uint32_t _len = (datalen); \
+        (buf)[(pos)+0] = (_len >> 24) & 0xff; \
+        (buf)[(pos)+1] = (_len >> 16) & 0xff; \
+        (buf)[(pos)+2] = (_len >> 8) & 0xff; \
+        (buf)[(pos)+3] = (_len) & 0xff; \
+        memcpy((buf)+(pos)+4, (type4), 4); \
+        if(_len) memcpy((buf)+(pos)+8, (data), _len); \
+        /* CRC: just zero it, we'll use SPNG_CTX_IGNORE_ADLER32 and CRC_USE */ \
+        uint32_t _crc = 0; \
+        memcpy((buf)+(pos)+8+_len, &_crc, 4); \
+        (pos) += 12 + _len; \
+    } while(0)
+
+    /* Test: duplicate acTL, the duplicate is discarded and the first acTL kept */
+    printf("  malformed: duplicate acTL...\n");
+    {
+        unsigned char png[512];
+        int pos = 0;
+
+        memcpy(png, sig, 8); pos = 8;
+
+        /* IHDR: 4x4 RGBA8 */
+        unsigned char ihdr[13] = {0,0,0,4, 0,0,0,4, 8, 6, 0, 0, 0};
+        WRITE_CHUNK(png, pos, "IHDR", ihdr, 13);
+
+        /* acTL: num_frames=1, num_plays=0 */
+        unsigned char actl[8] = {0,0,0,1, 0,0,0,0};
+        WRITE_CHUNK(png, pos, "acTL", actl, 8);
+
+        /* Duplicate acTL with different values */
+        unsigned char actl2[8] = {0,0,0,9, 0,0,0,9};
+        WRITE_CHUNK(png, pos, "acTL", actl2, 8);
+
+        /* IDAT (contents never read, parsing stops at the first IDAT) */
+        unsigned char idat[4] = {0};
+        WRITE_CHUNK(png, pos, "IDAT", idat, 4);
+
+        WRITE_CHUNK(png, pos, "IEND", NULL, 0);
+
+        spng_ctx *ctx = spng_ctx_new(0);
+        spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+        spng_set_png_buffer(ctx, png, pos);
+
+        struct spng_actl dec_actl;
+        ret = spng_get_actl(ctx, &dec_actl);
+
+        if(ret || dec_actl.num_frames != 1)
+        {
+            printf("    FAIL: expected first acTL to be kept, got %s (num_frames=%u)\n",
+                   spng_strerror(ret), ret ? 0 : dec_actl.num_frames);
+            spng_ctx_free(ctx);
+            return 1;
+        }
+        printf("    OK (first acTL kept, duplicate discarded)\n");
+
+        spng_ctx_free(ctx);
+    }
+
+    /* Test: acTL after IDAT is rejected */
+    printf("  malformed: acTL after IDAT...\n");
+    {
+        /* Encode a valid static PNG, then insert an acTL chunk before IEND */
+        spng_ctx *senc = spng_ctx_new(SPNG_CTX_ENCODER);
+        spng_set_option(senc, SPNG_ENCODE_TO_BUFFER, 1);
+        struct spng_ihdr ihdr = { .width = 4, .height = 4, .bit_depth = 8,
+                                  .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA };
+        spng_set_ihdr(senc, &ihdr);
+        unsigned char pixels[4*4*4];
+        memset(pixels, 128, sizeof(pixels));
+        spng_encode_image(senc, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
+
+        size_t slen;
+        unsigned char *sbuf = spng_get_png_buffer(senc, &slen, &ret);
+        if(!sbuf) { spng_ctx_free(senc); return 1; }
+
+        /* IEND is the last 12 bytes, insert acTL before it */
+        unsigned char *mod = malloc(slen + 20);
+        if(!mod) { spng_ctx_free(senc); return 1; }
+
+        int mpos = (int)(slen - 12);
+        memcpy(mod, sbuf, mpos);
+
+        unsigned char actl[8] = {0,0,0,1, 0,0,0,0};
+        WRITE_CHUNK(mod, mpos, "acTL", actl, 8);
+
+        memcpy(mod + mpos, sbuf + slen - 12, 12);
+        mpos += 12;
+
+        spng_ctx *sdec = spng_ctx_new(0);
+        spng_set_crc_action(sdec, SPNG_CRC_USE, SPNG_CRC_USE);
+        spng_set_png_buffer(sdec, mod, mpos);
+
+        unsigned char dimg[4*4*4];
+        ret = spng_decode_image(sdec, dimg, sizeof(dimg), SPNG_FMT_RGBA8, 0);
+        if(ret)
+        {
+            printf("    FAIL: decode_image: %s\n", spng_strerror(ret));
+            free(mod); spng_ctx_free(senc); spng_ctx_free(sdec);
+            return 1;
+        }
+
+        /* Reading post-IDAT chunks must not accept the late acTL */
+        struct spng_actl dec_actl;
+        ret = spng_get_actl(sdec, &dec_actl);
+        if(ret != SPNG_ECHUNKAVAIL)
+        {
+            printf("    FAIL: expected SPNG_ECHUNKAVAIL, got %s\n", spng_strerror(ret));
+            free(mod); spng_ctx_free(senc); spng_ctx_free(sdec);
+            return 1;
+        }
+        printf("    OK (late acTL rejected)\n");
+
+        free(mod);
+        spng_ctx_free(senc);
+        spng_ctx_free(sdec);
+    }
+
+    /* Test: out-of-order sequence number in fcTL */
+    printf("  malformed: bad sequence number...\n");
+    {
+        unsigned char *frames[3] = {NULL, NULL, NULL};
+        const uint32_t w = 8, h = 8;
+        const size_t frame_size = w * h * 4;
+        int i;
+        int failed = 0;
+
+        for(i = 0; i < 3; i++) frames[i] = malloc(frame_size);
+
+        if(!frames[0] || !frames[1] || !frames[2])
+        {
+            for(i = 0; i < 3; i++) free(frames[i]);
+            return 1;
+        }
+
+        fill_solid(frames[0], w, h, 255, 0, 0);
+        fill_solid(frames[1], w, h, 0, 255, 0);
+        fill_solid(frames[2], w, h, 0, 0, 255);
+
+        unsigned char *encoded;
+        size_t encoded_len;
+        spng_ctx *enc = NULL;
+
+        ret = encode_test_apng(frames, w, h, &encoded, &encoded_len, &enc);
+        if(ret)
+        {
+            printf("    encode failed: %s\n", spng_strerror(ret));
+            for(i = 0; i < 3; i++) free(frames[i]);
+            return 1;
+        }
+
+        /* Corrupt the second fcTL's sequence number,
+           the first fcTL precedes IDAT and belongs to frame 0.
+           Chunk layout: length(4), type(4), seq(4), ... */
+        unsigned char *fctl_chunk = NULL;
+        int fctl_count = 0;
+
+        for(i = 0; i + 4 <= (int)encoded_len; i++)
+        {
+            if(!memcmp(encoded + i, "fcTL", 4))
+            {
+                fctl_count++;
+                if(fctl_count == 2)
+                {
+                    fctl_chunk = encoded + i;
+                    break;
+                }
+            }
+        }
+
+        if(fctl_chunk == NULL)
+        {
+            printf("    FAIL: second fcTL not found in encoded APNG\n");
+            failed = 1;
+        }
+        else
+        {
+            fctl_chunk[7] = 0xff; /* seq LSB, breaks the sequence */
+
+            spng_ctx *dec = spng_ctx_new(0);
+            /* The seq edit invalidates the chunk's CRC */
+            spng_set_crc_action(dec, SPNG_CRC_USE, SPNG_CRC_USE);
+            spng_set_png_buffer(dec, encoded, encoded_len);
+
+            unsigned char *dec_buf = malloc(frame_size);
+            if(!dec_buf) failed = 1;
+
+            if(!failed)
+            {
+                ret = spng_decode_image(dec, dec_buf, frame_size, SPNG_FMT_RGBA8, 0);
+                if(ret)
+                {
+                    printf("    FAIL: decode_image: %s\n", spng_strerror(ret));
+                    failed = 1;
+                }
+            }
+
+            if(!failed)
+            {
+                struct spng_fctl fctl;
+                ret = spng_decode_frame(dec, dec_buf, frame_size, SPNG_FMT_RGBA8, 0, &fctl);
+                if(ret != SPNG_EAPNG)
+                {
+                    printf("    FAIL: expected SPNG_EAPNG, got %s\n", spng_strerror(ret));
+                    failed = 1;
+                }
+                else printf("    OK (SPNG_EAPNG on bad sequence)\n");
+            }
+
+            free(dec_buf);
+            spng_ctx_free(dec);
+        }
+
+        for(i = 0; i < 3; i++) free(frames[i]);
+        spng_ctx_free(enc);
+
+        if(failed) return 1;
+    }
+
+    #undef WRITE_CHUNK
+
+    printf("  APNG malformed decode: PASS\n");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if(argc < 2)
@@ -1280,6 +2476,31 @@ int main(int argc, char **argv)
     }
 
     char *filename = argv[1];
+
+    if(!strcmp(filename, "apng"))
+    {
+        printf("Running APNG tests\n");
+        int r = apng_tests();
+        if(r) return r;
+        printf("\n");
+        r = apng_subframe_tests();
+        if(r) return r;
+        printf("\n");
+        r = apng_error_tests();
+        if(r) return r;
+        printf("\n");
+        r = apng_progressive_decode_test();
+        if(r) return r;
+        printf("\n");
+        r = apng_progressive_encode_test();
+        if(r) return r;
+        printf("\n");
+        r = apng_buffer_stream_test();
+        if(r) return r;
+        printf("\n");
+        r = apng_malformed_decode_tests();
+        return r;
+    }
 
     if(!strcmp(filename, "info"))
     {
