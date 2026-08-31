@@ -263,6 +263,7 @@ struct spng_ctx
 
     unsigned streaming: 1;
     unsigned internal_buffer: 1; /* encoding to internal buffer */
+    unsigned check_indices: 1;
 
     unsigned inflate: 1;
     unsigned deflate: 1;
@@ -1780,6 +1781,33 @@ static inline void gamma_correct_row(unsigned char *row, uint32_t pixels, int fm
             px[2] = gamma_lut[px[2]];
         }
     }
+}
+
+static int check_indices(unsigned char *scanline, uint32_t width, unsigned bit_depth, uint32_t n_entries)
+{
+    int i;
+    unsigned int max = n_entries - 1;
+
+    if(bit_depth < 8)
+    {
+        struct spng__iter iter = spng__iter_init(bit_depth, scanline);
+
+        for(i=0; i < width; i++)
+        {
+            uint8_t sample = get_sample(&iter);
+
+            if(sample > max) return SPNG_EPLTE_IDX;
+        }
+    }
+    else
+    {
+        for(i=0; i < width; i++)
+        {
+            if(scanline[i] > max) return SPNG_EPLTE_IDX;
+        }
+    }
+
+    return 0;
 }
 
 /* Apply transparency to output row */
@@ -3333,6 +3361,13 @@ int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 
     scanline = ctx->scanline;
 
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED && ctx->check_indices)
+    {
+        ret = check_indices(scanline, scanline_width, ihdr->bit_depth, ctx->plte.n_entries);
+
+        if(ret) return decode_err(ctx, ret);
+    }
+
     for(k=0; k < width; k++)
     {
         pixel = (unsigned char*)out + pixel_offset;
@@ -4576,6 +4611,13 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
     /* encode_row() interlaces directly to ctx->scanline */
     if(scanline != ctx->scanline) memcpy(ctx->scanline, scanline, scanline_width - 1);
 
+    if(ctx->ihdr.color_type == SPNG_COLOR_TYPE_INDEXED && ctx->check_indices)
+    {
+        ret = check_indices(ctx->scanline, scanline_width, ctx->ihdr.bit_depth, ctx->plte.n_entries);
+
+        if(ret) return encode_err(ctx, ret);
+    }
+
     if(f.to_bigendian) u16_row_to_bigendian(ctx->scanline, scanline_width - 1);
     const int requires_previous = f.filter_choice & (SPNG_FILTER_CHOICE_UP | SPNG_FILTER_CHOICE_AVG | SPNG_FILTER_CHOICE_PAETH);
 
@@ -5273,6 +5315,15 @@ int spng_set_option(spng_ctx *ctx, enum spng_option option, int value)
 
             break;
         }
+        case SPNG_CHECK_PALETTE_INDEX:
+        {
+            if(value < 0) return 1;
+
+            if(!value) ctx->check_indices = 0;
+            else ctx->check_indices = 1;
+
+            break;
+        }
         default: return 1;
     }
 
@@ -5347,6 +5398,13 @@ int spng_get_option(spng_ctx *ctx, enum spng_option option, int *value)
         case SPNG_ENCODE_TO_BUFFER:
         {
             if(ctx->internal_buffer) *value = 1;
+            else *value = 0;
+
+            break;
+        }
+        case SPNG_CHECK_PALETTE_INDEX:
+        {
+            if(ctx->check_indices) *value = 1;
             else *value = 0;
 
             break;

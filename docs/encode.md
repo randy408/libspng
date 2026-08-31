@@ -186,18 +186,19 @@ On success the buffer must be freed by the user.
 
 # Encode options
 
-| Option                           | Default value             | Description                       |
-|----------------------------------|---------------------------|-----------------------------------|
-| `SPNG_IMG_COMPRESSION_LEVEL`     | `Z_DEFAULT_COMPRESSION`   | Set image compression level (0-9) |
-| `SPNG_IMG_WINDOW_BITS`           | `15`*                     | Set image zlib window bits (9-15) |
-| `SPNG_IMG_MEM_LEVEL`             | `8`                       | Set zlib `memLevel` for images    |
-| `SPNG_IMG_COMPRESSION_STRATEGY`  | `Z_FILTERED`*             | Set image compression strategy    |
-| `SPNG_TEXT_COMPRESSION_LEVEL`    | `Z_DEFAULT_COMPRESSION`   | Set text compression level (0-9)  |
-| `SPNG_TEXT_WINDOW_BITS`          | `15`                      | Set text zlib window bits (9-15)  |
-| `SPNG_TEXT_MEM_LEVEL`            | `8`                       | Set zlib `memLevel` for text      |
-| `SPNG_TEXT_COMPRESSION_STRATEGY` | `Z_DEFAULT_STRATEGY`      | Set text compression strategy     |
-| `SPNG_FILTER_CHOICE`             | `SPNG_FILTER_CHOICE_ALL`* | Configure or disable filtering    |
-| `SPNG_ENCODE_TO_BUFFER`          | `0`                       | Encode to internal buffer         |
+| Option                           | Default value             | Description                             |
+|----------------------------------|---------------------------|-----------------------------------------|
+| `SPNG_IMG_COMPRESSION_LEVEL`     | `Z_DEFAULT_COMPRESSION`   | Set image compression level (0-9)       |
+| `SPNG_IMG_WINDOW_BITS`           | `15`*                     | Set image zlib window bits (9-15)       |
+| `SPNG_IMG_MEM_LEVEL`             | `8`                       | Set zlib `memLevel` for images          |
+| `SPNG_IMG_COMPRESSION_STRATEGY`  | `Z_FILTERED`*             | Set image compression strategy          |
+| `SPNG_TEXT_COMPRESSION_LEVEL`    | `Z_DEFAULT_COMPRESSION`   | Set text compression level (0-9)        |
+| `SPNG_TEXT_WINDOW_BITS`          | `15`                      | Set text zlib window bits (9-15)        |
+| `SPNG_TEXT_MEM_LEVEL`            | `8`                       | Set zlib `memLevel` for text            |
+| `SPNG_TEXT_COMPRESSION_STRATEGY` | `Z_DEFAULT_STRATEGY`      | Set text compression strategy           |
+| `SPNG_FILTER_CHOICE`             | `SPNG_FILTER_CHOICE_ALL`* | Configure or disable filtering          |
+| `SPNG_ENCODE_TO_BUFFER`          | `0`                       | Encode to internal buffer               |
+| `SPNG_CHECK_PALETTE_INDEX`       | `1`                       | Check image for invalid palette indices |
 
 \* Option may be optimized if not set explicitly.
 

@@ -322,6 +322,7 @@ If the image is not interlaced this function's behavior is identical to
 | `SPNG_IMG_COMPRESSION_LEVEL` | `-1`          | May expose an estimate (0-9) after `spng_decode_image()` |
 | `SPNG_IMG_WINDOW_BITS`       | `15`*         | Set zlib window bits used for image decompression        |
 | `SPNG_CHUNK_COUNT_LIMIT`     | `1000`        | Limit shared by both known and unknown chunks            |
+| `SPNG_CHECK_PALETTE_INDEX`   | `0`           | Check image for invalid palette indices                  |
 
 \* Option may be optimized if not set explicitly.
 
