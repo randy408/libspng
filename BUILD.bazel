@@ -1,0 +1,17 @@
+# This rule produces lib${name}.so and lib${name}.a
+cc_library(
+    name = "spng",
+    srcs = ["spng/spng.c"],
+    hdrs = ["spng/spng.h"],
+    includes = ["spng"],
+    visibility = ["//visibility:public"],
+    deps = ["@zlib"],
+)
+
+# This alias allows one to simply use "@libspng" as dependency,
+# instead of "@libsnpg//:spng".
+alias(
+    name = "libspng",
+    actual = ":spng",
+    visibility = ["//visibility:public"],
+)
