@@ -47,7 +47,10 @@ if(SPNG_STATIC)
     list(APPEND spng_TARGETS spng_static)
 endif()
 
-find_package(ZLIB REQUIRED)
+if(NOT TARGET ZLIB::ZLIB)
+    find_package(ZLIB REQUIRED)
+endif()
+
 foreach(spng_TARGET ${spng_TARGETS})
     target_include_directories(${spng_TARGET} PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/spng>
@@ -71,38 +74,42 @@ write_basic_package_version_file(${project_version_config}
   COMPATIBILITY SameMajorVersion
 )
 
-install(
-  TARGETS ${spng_TARGETS}
-  EXPORT ${targets_export_name}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL)
+    install(FILES spng/spng.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
 
-install(FILES spng/spng.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+if (NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
+    install(
+      TARGETS ${spng_TARGETS}
+      EXPORT ${targets_export_name}
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-install(
-  FILES ${project_config} ${project_version_config}
-  DESTINATION ${config_install_dir}
-)
+    install(
+      FILES ${project_config} ${project_version_config}
+      DESTINATION ${config_install_dir}
+    )
 
-install(
-  EXPORT ${targets_export_name}
-  NAMESPACE "spng::"
-  DESTINATION ${config_install_dir}
-)
+    install(
+      EXPORT ${targets_export_name}
+      NAMESPACE "spng::"
+      DESTINATION ${config_install_dir}
+    )
 
-if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
-    set(prefix      ${CMAKE_INSTALL_PREFIX})
-    set(exec_prefix ${CMAKE_INSTALL_PREFIX})
-    set(libdir      ${CMAKE_INSTALL_FULL_LIBDIR})
-    set(includedir  ${CMAKE_INSTALL_FULL_INCLUDEDIR})
-    set(LIBS        "-lm")
+    if(NOT CMAKE_HOST_WIN32 OR CYGWIN OR MINGW)
+        set(prefix      ${CMAKE_INSTALL_PREFIX})
+        set(exec_prefix ${CMAKE_INSTALL_PREFIX})
+        set(libdir      ${CMAKE_INSTALL_FULL_LIBDIR})
+        set(includedir  ${CMAKE_INSTALL_FULL_INCLUDEDIR})
+        set(LIBS        "-lm")
 
-    foreach(libname ${spng_TARGETS})
-        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/libspng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/cmake/lib${libname}.pc @ONLY)
+        foreach(libname ${spng_TARGETS})
+            configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/libspng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/cmake/lib${libname}.pc @ONLY)
 
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/lib${libname}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-    endforeach()
+            install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/lib${libname}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+        endforeach()
+    endif()
 endif()
