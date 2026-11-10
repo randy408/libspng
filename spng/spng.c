@@ -3620,6 +3620,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     if(ctx == NULL) return 1;
     if(ctx->encode_only) return SPNG_ECTXTYPE;
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(ctx->state == SPNG_STATE_ENCODE_INIT) return SPNG_EOPSTATE;
 
     const struct spng_ihdr *ihdr = &ctx->ihdr;
 
