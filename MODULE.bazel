@@ -1,0 +1,11 @@
+"""
+PNG decoding and encoding library
+"""
+
+module(
+    name = "libspng",
+    version = "0.7.4",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "zlib", version = "1.3.1")
