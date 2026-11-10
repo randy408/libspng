@@ -190,6 +190,17 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
     else if(spng_decode_image(ctx, out, out_size, fmt, flags)) goto err;
 
+    /* Exercise APNG frame decode path */
+    struct spng_actl actl;
+    if(!spng_get_actl(ctx, &actl))
+    {
+        struct spng_fctl fctl;
+        while(!spng_decode_frame(ctx, out, out_size, fmt, 0, &fctl))
+        {
+            /* Successfully decoded a frame */
+        }
+    }
+
     spng_get_time(ctx, &time);
 
 err:

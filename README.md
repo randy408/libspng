@@ -32,7 +32,7 @@ it outperforms the reference implementation in common use cases.
 | Parses all standard chunks           | ✅      |  ✅               | ❌       | ❌      |
 | Doesn't require zlib<sup>[2]</sup>   | ✅      |  ❌               | ✅       | ✅      |
 | Encoding                             | ✅      |  ✅               | ✅       | ✅      |
-| Animated PNG                         | Planned  |  ✅<sup>[3]</sup> | ❌       | ❌      |
+| Animated PNG                         | ✅      |  ✅<sup>[3]</sup> | ❌       | ❌      |
 
 <sup>[1]</sup> The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
 

@@ -1,10 +1,15 @@
 [wrap-file]
-directory = libpng-1.6.37
+directory = libpng-1.6.55
 
-source_url = https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz
-source_filename = libpng-1.6.37.tar.gz
-source_hash = ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307
+source_url = https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.55.tar.gz
+source_filename = libpng-1.6.55.tar.gz
+source_hash = 71a2c5b1218f60c4c6d2f1954c7eb20132156cae90bdb90b566c24db002782a6
 
-patch_url = https://wrapdb.mesonbuild.com/v1/projects/libpng/1.6.37/1/get_zip
-patch_filename = libpng-1.6.37-1-wrap.zip
-patch_hash = 9a863ae8a5657315a484c94c51f9f636b1fb9f49a15196cc896b72e5f21d78f0
+patch_url = https://wrapdb.mesonbuild.com/v2/libpng_1.6.55-1/get_patch
+patch_filename = libpng_1.6.55-1_patch.zip
+patch_hash = d5754df441e93e2e2f1dc176cc86f45ec0ef2914e9c77c1e8013c68b106d0ff5
+
+diff_files = libpng-apng.patch, libpng-fix-hist-out-of-place.patch
+
+[provide]
+libpng = libpng_dep

@@ -7,6 +7,9 @@
 /check_build/
 /benchmark_images/
 /subprojects/*/
+!/subprojects/packagefiles
+/subprojects/.wraplock
+/.cache/
 /.vscode/
 /.frama-c/
 /trash/

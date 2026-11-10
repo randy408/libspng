@@ -52,6 +52,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     int progressive = params[3] & 2;
     //int file_stream = params[3] & 4;
     int get_buffer = params[3] & 8;
+    int apng_mode = params[0] & 1;
+    int num_extra_frames = (params[0] >> 1) & 3; /* 0-3 extra frames */
 
     int ret;
     size_t png_size = 0;
@@ -148,7 +150,33 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     img = (unsigned char*)data;
 
-    if(progressive)
+    if(apng_mode && num_extra_frames > 0)
+    {
+        /* APNG encode path: use spng_encode_frame() */
+        int total_frames = 1 + num_extra_frames;
+        struct spng_actl actl = {0};
+        actl.num_frames = total_frames;
+        if(spng_set_actl(ctx, &actl)) goto err;
+
+        struct spng_fctl fctl = {
+            .width = ihdr.width,
+            .height = ihdr.height,
+            .dispose_op = SPNG_DISPOSE_OP_NONE,
+            .blend_op = SPNG_BLEND_OP_SOURCE
+        };
+
+        /* Encode frame 0 */
+        if(spng_encode_frame(ctx, img, img_size, fmt, 0, &fctl)) goto err;
+
+        /* Encode extra frames (reuse same image data) */
+        int f;
+        for(f = 1; f < total_frames; f++)
+        {
+            int finalize = (f == total_frames - 1) ? SPNG_ENCODE_FINALIZE : 0;
+            if(spng_encode_frame(ctx, img, img_size, fmt, finalize, &fctl)) goto err;
+        }
+    }
+    else if(progressive)
     {
         if(spng_encode_image(ctx, NULL, 0, fmt, SPNG_ENCODE_PROGRESSIVE | SPNG_ENCODE_FINALIZE)) goto err;
 

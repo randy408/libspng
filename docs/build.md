@@ -30,6 +30,21 @@ ninja
 ninja install
 ```
 
+## Testing
+
+Tests require [libpng](http://libpng.org/pub/png/libpng.html) with Animated PNG (APNG) support
+and are enabled through the `dev_build` option:
+
+```bash
+meson setup build -Ddev_build=true
+cd build
+meson test
+```
+
+If the system libpng does not include APNG support, a fallback is provided
+that downloads libpng 1.6 and applies the APNG patch automatically.
+This requires Meson 0.63 or newer.
+
 ## Embedding the source code
 
 The source files `spng.c`/`spng.h` can be embedded in a project without
