@@ -3289,7 +3289,8 @@ static int update_row_info(spng_ctx *ctx)
 int spng_decode_scanline(spng_ctx *ctx, void *out, size_t len)
 {
     if(ctx == NULL || out == NULL) return 1;
-
+    if(!ctx->state) return SPNG_EBADSTATE;
+    if(ctx->state < SPNG_STATE_DECODE_INIT) return SPNG_EOPSTATE;
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
 
     struct decode_flags f = ctx->decode_flags;
