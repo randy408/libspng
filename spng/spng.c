@@ -4686,6 +4686,7 @@ int spng_encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
 {
     if(ctx == NULL || scanline == NULL) return SPNG_EINVAL;
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(ctx->state < SPNG_STATE_ENCODE_INIT) return SPNG_EOPSTATE;
     if(len < (ctx->subimage[ctx->row_info.pass].scanline_width -1) ) return SPNG_EBUFSIZ;
 
     return encode_scanline(ctx, scanline, len);
@@ -4695,6 +4696,7 @@ int spng_encode_row(spng_ctx *ctx, const void *row, size_t len)
 {
     if(ctx == NULL || row == NULL) return SPNG_EINVAL;
     if(ctx->state >= SPNG_STATE_EOI) return SPNG_EOI;
+    if(ctx->state < SPNG_STATE_ENCODE_INIT) return SPNG_EOPSTATE;
     if(len < ctx->image_width) return SPNG_EBUFSIZ;
 
     return encode_row(ctx, row, len);
