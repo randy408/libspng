@@ -3803,7 +3803,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
         unsigned i;
         for(i=0; i < lut_entries; i++)
         {
-            float c = pow((float)i / max, exponent) * max;
+            float c = powf((float)i / max, exponent) * max;
             if(c > max) c = max;
 
             gamma_lut[i] = (uint16_t)c;
