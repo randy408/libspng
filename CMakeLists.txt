@@ -12,6 +12,7 @@ set(SPNG_VERSION ${SPNG_MAJOR}.${SPNG_MINOR}.${SPNG_REVISION})
 option(ENABLE_OPT "Enable architecture-specific optimizations" ON)
 option(SPNG_SHARED "Build shared lib" ON)
 option(SPNG_STATIC "Build static lib" ON)
+option(SPNG_USE_MINIZ "Use Miniz instead of zlib" OFF)
 option(BUILD_EXAMPLES "Build examples" ON)
 
 include(GNUInstallDirs)
@@ -47,13 +48,22 @@ if(SPNG_STATIC)
     list(APPEND spng_TARGETS spng_static)
 endif()
 
-find_package(ZLIB REQUIRED)
+if(SPNG_USE_MINIZ)
+    find_package(miniz REQUIRED)
+    set(zlib_dep miniz::miniz)
+else()
+    find_package(ZLIB REQUIRED)
+    set(zlib_dep ZLIB::ZLIB)
+endif()
 foreach(spng_TARGET ${spng_TARGETS})
     target_include_directories(${spng_TARGET} PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/spng>
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )
-    target_link_libraries(${spng_TARGET} PRIVATE ZLIB::ZLIB)
+    target_link_libraries(${spng_TARGET} PRIVATE ${zlib_dep})
+    if (SPNG_USE_MINIZ)
+        target_compile_definitions(${spng_TARGET} PRIVATE SPNG_USE_MINIZ)
+    endif()
     target_link_libraries(${spng_TARGET} PRIVATE ${MATH_LIBRARY})
 endforeach()
 
