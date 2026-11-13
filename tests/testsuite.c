@@ -235,12 +235,10 @@ static int compare_images(const struct spng_ihdr *ihdr,
                     memcpy(&s_sample, img_spng + px_ofs, 1);
                     memcpy(&p_sample, img_png + px_ofs, 1);
 
-                    if(shift_amount > 7) shift_amount = initial_shift;
+                    shift_amount = 8 - ihdr->bit_depth - (x * ihdr->bit_depth) % 8;
 
                     s_sample = (s_sample >> shift_amount) & mask;
                     p_sample = (p_sample >> shift_amount) & mask;
-
-                    shift_amount -= ihdr->bit_depth;
 
                     spng_sample = s_sample;
                     png_sample = p_sample;
