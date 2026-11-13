@@ -3,7 +3,7 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@/
 
-Name: lib@libname@
+Name: @libname@
 Description: PNG decoding and encoding library
 Version: @SPNG_VERSION@
 Requires: zlib
