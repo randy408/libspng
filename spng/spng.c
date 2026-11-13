@@ -2420,6 +2420,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
             if(!memcmp(chunk.type, type_plte, 4))
             {
                 if(ctx->file.trns || ctx->file.hist || ctx->file.bkgd) return SPNG_ECHUNK_POS;
+                if(ctx->file.plte) return SPNG_EDUP_PLTE;
                 if(chunk.length % 3 != 0) return SPNG_ECHUNK_SIZE;
 
                 ctx->plte.n_entries = chunk.length / 3;
@@ -3145,7 +3146,6 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
             {
                 case SPNG_ECHUNK_POS:
                 case SPNG_ECHUNK_SIZE: /* size != expected size, SPNG_ECHUNK_STDLEN = invalid size */
-                case SPNG_EDUP_PLTE:
                 case SPNG_EDUP_CHRM:
                 case SPNG_EDUP_GAMA:
                 case SPNG_EDUP_ICCP:
