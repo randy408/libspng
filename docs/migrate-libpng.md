@@ -389,3 +389,4 @@ Filter choice flags for [`spng_set_option()`](context.md#spng_set_option) when u
 | `png_write_chunk_start()`           | N/A                                         | Not supported                                     |
 | `png_write_chunk_data()`            | N/A                                         | Not supported                                     |
 | `png_write_chunk_end()`             | N/A                                         | Not supported                                     |
+| `png_set_check_for_invalid_index()` | `spng_set_option()` | `SPNG_CHECK_PALETTE_INDEX` |
