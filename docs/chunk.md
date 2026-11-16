@@ -292,12 +292,29 @@ Set text data
 
 `text` should point to an `spng_text` array of `n_text` elements.
 
-`spng_text.text` must only contain Latin-1 characters.
-Newlines must be a single linefeed character (decimal 10).
+All strings must be null-terminated or set to `NULL` depending on `spng_text.type`.
+
+`spng_text.length` should be set to zero or match length of the `spng_text.text` string.
 
 `spng_text.translated_keyword` must not contain linebreaks.
 
 `spng_text.compression_method` must be zero.
+
+```c
+struct spng_text
+{
+    char keyword[80];
+    enum spng_text_type type;
+
+    size_t length;
+    char *text;
+
+    uint8_t compression_flag; /* iTXt only */
+    uint8_t compression_method; /* iTXt, ztXt only */
+    char *language_tag; /* iTXt only */
+    char *translated_keyword; /* iTXt only */
+};
+```
 
 
 # spng_set_bkgd()
