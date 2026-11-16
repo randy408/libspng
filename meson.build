@@ -1,7 +1,8 @@
 project('spng', 'c',
     version : '0.7.4',
     license : [ 'BSD-2-Clause', 'libpng-2.0' ],
-    default_options : 'c_std=c99'
+    default_options : 'c_std=c99',
+    meson_version : '>=0.55.0'
 )
 
 spng_args = []
@@ -62,9 +63,7 @@ spng_dep = declare_dependency(
     version : meson.project_version()
 )
 
-if meson.version().version_compare('>= 0.54.0')
-    meson.override_dependency('spng', spng_dep)
-endif
+meson.override_dependency('spng', spng_dep)
 
 subdir('examples')
 subdir('tests')
