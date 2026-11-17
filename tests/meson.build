@@ -33,6 +33,13 @@ test_exe = executable('testsuite', 'testsuite.c', dependencies : test_deps)
 
 test('info', test_exe, args : 'info')
 
+checked_arithmetic_exe = executable('test_checked_arithmetic',
+    'test_checked_arithmetic.c',
+    dependencies : spng_deps,
+    include_directories : spng_inc
+)
+test('checked_arithmetic', checked_arithmetic_exe)
+
 cpp_exe = executable('cpp_exe', 'test.cpp', dependencies : spng_dep)
 test('cpp_test', cpp_exe)
 

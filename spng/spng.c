@@ -395,6 +395,23 @@ static const uint8_t type_time[4] = { 116, 73, 77, 69 };
 static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
 static const uint8_t type_exif[4] = { 101, 88, 73, 102 };
 
+/* Return nonzero on overflow, leaving *result unchanged. */
+static inline int spng__ckd_add(size_t *result, size_t a, size_t b)
+{
+    if(a > SIZE_MAX - b) return 1;
+
+    *result = a + b;
+    return 0;
+}
+
+static inline int spng__ckd_mul(size_t *result, size_t a, size_t b)
+{
+    if(b && a > SIZE_MAX / b) return 1;
+
+    *result = a * b;
+    return 0;
+}
+
 static inline void *spng__malloc(spng_ctx *ctx,  size_t size)
 {
     return ctx->alloc.malloc_fn(size);
@@ -423,9 +440,8 @@ static void *spng__zalloc(void *opaque, uInt items, uInt size)
 {
     spng_ctx *ctx = opaque;
 
-    if(size > SIZE_MAX / items) return NULL;
-
-    size_t len = (size_t)items * size;
+    size_t len;
+    if(spng__ckd_mul(&len, items, size)) return NULL;
 
     return spng__malloc(ctx, len);
 }
@@ -566,12 +582,9 @@ static int calculate_scanline_width(const struct spng_ihdr *ihdr, uint32_t width
 
     size_t res = num_channels(ihdr) * ihdr->bit_depth;
 
-    if(res > SIZE_MAX / width) return SPNG_EOVERFLOW;
-    res = res * width;
-
-    res += 15; /* Filter byte + 7 for rounding */
-
-    if(res < 15) return SPNG_EOVERFLOW;
+    if(spng__ckd_mul(&res, res, width)) return SPNG_EOVERFLOW;
+    /* Filter byte + 7 for rounding */
+    if(spng__ckd_add(&res, res, 15)) return SPNG_EOVERFLOW;
 
     res /= 8;
 
@@ -687,8 +700,7 @@ static int calculate_image_width(const struct spng_ihdr *ihdr, int fmt, size_t *
         default: return SPNG_EINTERNAL;
     }
 
-    if(res > SIZE_MAX / bytes_per_pixel) return SPNG_EOVERFLOW;
-    res = res * bytes_per_pixel;
+    if(spng__ckd_mul(&res, res, bytes_per_pixel)) return SPNG_EOVERFLOW;
 
     *len = res;
 
@@ -704,8 +716,7 @@ static int calculate_image_size(const struct spng_ihdr *ihdr, int fmt, size_t *l
     int ret = calculate_image_width(ihdr, fmt, &res);
     if(ret) return ret;
 
-    if(res > SIZE_MAX / ihdr->height) return SPNG_EOVERFLOW;
-    res = res * ihdr->height;
+    if(spng__ckd_mul(&res, res, ihdr->height)) return SPNG_EOVERFLOW;
 
     *len = res;
 
@@ -819,8 +830,8 @@ static int require_bytes(spng_ctx *ctx, size_t bytes)
 
     if(!ctx->internal_buffer) return SPNG_ENODST;
 
-    size_t required = ctx->bytes_encoded + bytes;
-    if(required < bytes) return SPNG_EOVERFLOW;
+    size_t required;
+    if(spng__ckd_add(&required, ctx->bytes_encoded, bytes)) return SPNG_EOVERFLOW;
 
     if(required > ctx->out_png_size)
     {
@@ -832,9 +843,7 @@ static int require_bytes(spng_ctx *ctx, size_t bytes)
         /* Prefer the next power of two over the requested size */
         while(new_size < required)
         {
-            if(new_size / SIZE_MAX > 2) return encode_err(ctx, SPNG_EOVERFLOW);
-
-            new_size *= 2;
+            if(spng__ckd_mul(&new_size, new_size, 2)) return encode_err(ctx, SPNG_EOVERFLOW);
         }
 
         void *temp = spng__realloc(ctx, ctx->out_png, new_size);
@@ -1289,14 +1298,15 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
 
         if(!stream->avail_out) /* Resize buffer */
         {
+            size_t new_size;
             /* overflow or reached chunk/cache limit */
-            if( (2 > SIZE_MAX / size) || (size > max / 2) )
+            if(spng__ckd_mul(&new_size, size, 2) || new_size > max)
             {
                 ret = SPNG_ECHUNK_LIMITS;
                 goto err;
             }
 
-            size *= 2;
+            size = new_size;
 
             t = spng__realloc(ctx, buf, size);
             if(t == NULL) goto mem;
@@ -1333,8 +1343,7 @@ static int spng__inflate_stream(spng_ctx *ctx, char **out, size_t *len, size_t e
         goto err;
     }
 
-    size += extra;
-    if(size < extra) goto mem;
+    if(spng__ckd_add(&size, size, extra)) goto mem;
 
     t = spng__realloc(ctx, buf, size);
     if(t == NULL) goto mem;
@@ -2773,9 +2782,10 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ctx->n_text++;
                 if(ctx->n_text < 1) return SPNG_EOVERFLOW;
-                if(sizeof(struct spng_text2) > SIZE_MAX / ctx->n_text) return SPNG_EOVERFLOW;
+                size_t list_size;
+                if(spng__ckd_mul(&list_size, ctx->n_text, sizeof(struct spng_text2))) return SPNG_EOVERFLOW;
 
-                void *buf = spng__realloc(ctx, ctx->text_list, ctx->n_text * sizeof(struct spng_text2));
+                void *buf = spng__realloc(ctx, ctx->text_list, list_size);
                 if(buf == NULL) return SPNG_EMEM;
                 ctx->text_list = buf;
 
@@ -2935,9 +2945,10 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ctx->n_splt++;
                 if(ctx->n_splt < 1) return SPNG_EOVERFLOW;
-                if(sizeof(struct spng_splt) > SIZE_MAX / ctx->n_splt) return SPNG_EOVERFLOW;
+                size_t list_size;
+                if(spng__ckd_mul(&list_size, ctx->n_splt, sizeof(struct spng_splt))) return SPNG_EOVERFLOW;
 
-                void *buf = spng__realloc(ctx, ctx->splt_list, ctx->n_splt * sizeof(struct spng_splt));
+                void *buf = spng__realloc(ctx, ctx->splt_list, list_size);
                 if(buf == NULL) return SPNG_EMEM;
                 ctx->splt_list = buf;
 
@@ -2994,11 +3005,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 if(!splt->n_entries) return SPNG_ECHUNK_SIZE;
 
-                size_t list_size = splt->n_entries;
-
-                if(list_size > SIZE_MAX / sizeof(struct spng_splt_entry)) return SPNG_EOVERFLOW;
-
-                list_size *= sizeof(struct spng_splt_entry);
+                if(spng__ckd_mul(&list_size, splt->n_entries, sizeof(struct spng_splt_entry))) return SPNG_EOVERFLOW;
 
                 if(increase_cache_usage(ctx, list_size, 0)) return SPNG_ECHUNK_LIMITS;
 
@@ -3051,9 +3058,10 @@ static int read_non_idat_chunks(spng_ctx *ctx)
 
                 ctx->n_chunks++;
                 if(ctx->n_chunks < 1) return SPNG_EOVERFLOW;
-                if(sizeof(struct spng_unknown_chunk) > SIZE_MAX / ctx->n_chunks) return SPNG_EOVERFLOW;
+                size_t list_size;
+                if(spng__ckd_mul(&list_size, ctx->n_chunks, sizeof(struct spng_unknown_chunk))) return SPNG_EOVERFLOW;
 
-                void *buf = spng__realloc(ctx, ctx->chunk_list, ctx->n_chunks * sizeof(struct spng_unknown_chunk));
+                void *buf = spng__realloc(ctx, ctx->chunk_list, list_size);
                 if(buf == NULL) return SPNG_EMEM;
                 ctx->chunk_list = buf;
 
@@ -3634,8 +3642,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
     ret = calculate_image_width(ihdr, fmt, &ctx->image_width);
     if(ret) return decode_err(ctx, ret);
 
-    if(ctx->image_width > SIZE_MAX / ihdr->height) ctx->image_size = 0; /* overflow */
-    else ctx->image_size = ctx->image_width * ihdr->height;
+    if(spng__ckd_mul(&ctx->image_size, ctx->image_width, ihdr->height)) ctx->image_size = 0; /* overflow */
 
     if( !(flags & SPNG_DECODE_PROGRESSIVE) )
     {
@@ -3673,9 +3680,7 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
 
     size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width;
 
-    scanline_buf_size += 32;
-
-    if(scanline_buf_size < 32) return SPNG_EOVERFLOW;
+    if(spng__ckd_add(&scanline_buf_size, scanline_buf_size, 32)) return SPNG_EOVERFLOW;
 
     ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
     ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
@@ -4755,8 +4760,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
     ret = calculate_image_width(ihdr, fmt, &ctx->image_width);
     if(ret) return encode_err(ctx, ret);
 
-    if(ctx->image_width > SIZE_MAX / ihdr->height) ctx->image_size = 0; /* overflow */
-    else ctx->image_size = ctx->image_width * ihdr->height;
+    if(spng__ckd_mul(&ctx->image_size, ctx->image_width, ihdr->height)) ctx->image_size = 0; /* overflow */
 
     if( !(flags & SPNG_ENCODE_PROGRESSIVE) )
     {
@@ -4805,9 +4809,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
 
     size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width;
 
-    scanline_buf_size += 32;
-
-    if(scanline_buf_size < 32) return SPNG_EOVERFLOW;
+    if(spng__ckd_add(&scanline_buf_size, scanline_buf_size, 32)) return SPNG_EOVERFLOW;
 
     ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
     ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
