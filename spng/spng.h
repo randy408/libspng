@@ -409,6 +409,7 @@ enum spng_option
     SPNG_FILTER_CHOICE,
     SPNG_CHUNK_COUNT_LIMIT,
     SPNG_ENCODE_TO_BUFFER,
+    SPNG_CHECK_PALETTE_INDEX,
 };
 
 typedef void* SPNG_CDECL spng_malloc_fn(size_t size);
